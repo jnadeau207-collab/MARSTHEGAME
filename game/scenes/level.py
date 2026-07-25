@@ -73,7 +73,6 @@ class LevelScene(Scene):
         rng = random.Random(self.chapter_id * 7919 + 3)
         w, h = d["width"], d["height"]
 
-        # multi-layer starfield
         n_stars = 140 if self.chapter_id in (6, 7) else 70
         self._stars = []
         for _ in range(n_stars):
@@ -86,35 +85,34 @@ class LevelScene(Scene):
                 "tw": rng.uniform(0, 6.28),
             })
 
-        # far silhouette props
         self._far = []
         self._mid = []
-        if self.chapter_id == 1:  # Pretoria rooftops
+        if self.chapter_id == 1:
             for _ in range(16):
                 self._far.append(("bld", rng.randint(0, w), rng.randint(100, 260),
                                   rng.randint(50, 110), rng.randint(0, 3)))
             for _ in range(8):
                 self._mid.append(("bld", rng.randint(0, w), rng.randint(140, 320),
                                   rng.randint(60, 140), rng.randint(0, 3)))
-        elif self.chapter_id == 2:  # Canada trees / hills
+        elif self.chapter_id == 2:
             for _ in range(20):
                 self._far.append(("tree", rng.randint(0, w), rng.randint(40, 90),
                                   rng.randint(20, 40), 0))
             for _ in range(10):
                 self._mid.append(("hill", rng.randint(0, w), rng.randint(60, 120),
                                   rng.randint(80, 180), 0))
-        elif self.chapter_id in (4, 5):  # corporate / factory
+        elif self.chapter_id in (4, 5):
             for _ in range(14):
                 self._far.append(("tower", rng.randint(0, w), rng.randint(120, 300),
                                   rng.randint(40, 80), rng.randint(0, 2)))
             for _ in range(10):
                 self._mid.append(("pipe", rng.randint(0, w), rng.randint(30, 60),
                                   rng.randint(100, 200), 0))
-        elif self.chapter_id in (6, 7):  # space
+        elif self.chapter_id in (6, 7):
             for _ in range(6):
                 self._far.append(("planet", rng.randint(0, w), rng.randint(20, 50),
                                   rng.randint(40, 90), 0))
-        elif self.chapter_id == 8:  # Mars
+        elif self.chapter_id == 8:
             for _ in range(22):
                 self._far.append(("rock", rng.randint(0, w), rng.randint(40, 110),
                                   rng.randint(30, 80), 0))
@@ -122,7 +120,9 @@ class LevelScene(Scene):
                 self._mid.append(("dune", rng.randint(0, w), rng.randint(50, 100),
                                   rng.randint(100, 220), 0))
 
-        # ambient floating dust / embers
+        dust_cols = ([(180, 200, 255), (255, 200, 100), (200, 180, 255)]
+                     if self.chapter_id >= 6 else
+                     [(200, 180, 140), (180, 200, 220), (255, 160, 80)])
         self._dust = []
         for _ in range(50):
             self._dust.append({
@@ -131,12 +131,9 @@ class LevelScene(Scene):
                 "vx": rng.uniform(-0.15, 0.15),
                 "vy": rng.uniform(-0.25, -0.05),
                 "s": rng.choice([1, 1, 2]),
-                "c": rng.choice([(200, 180, 140), (180, 200, 220), (255, 160, 80),
-                                  (100, 200, 255)][0:2] if self.chapter_id < 6 else
-                                 [(180, 200, 255), (255, 200, 100), (200, 180, 255)]),
+                "c": rng.choice(dust_cols),
             })
 
-        # god rays for space / dramatic chapters
         self._rays = []
         if self.chapter_id in (6, 7, 3):
             for _ in range(5):
@@ -161,7 +158,6 @@ class LevelScene(Scene):
 
         self.tick += dt
 
-        # ambient dust drift
         d = self.data
         for p in self._dust:
             p["x"] += p["vx"] * dt
@@ -297,13 +293,11 @@ class LevelScene(Scene):
     def draw(self, surface):
         d = self.data
         sky = d.get("sky", Colors.DARK)
-        # deeper bottom for gradient
         bottom = tuple(max(0, c - 40) for c in sky)
         gfx.gradient_sky(surface, sky, bottom, bands=28)
 
         ox, oy = self.camera.offset
 
-        # god rays
         for ray in self._rays:
             a = ray["a"] + int(8 * math.sin(self.tick * 0.04 + ray["phase"]))
             rx = int(ray["x"] * SCREEN_WIDTH + math.sin(self.tick * ray["spd"] * 60 + ray["phase"]) * 40)
@@ -313,7 +307,6 @@ class LevelScene(Scene):
                 pygame.draw.rect(s, (255, 240, 200, alpha), (i * 2, 0, max(1, int(ray["w"]) - i * 4), SCREEN_HEIGHT))
             surface.blit(s, (rx - int(ray["w"]) // 2, 0), special_flags=pygame.BLEND_ALPHA_SDL2)
 
-        # stars with twinkle
         for st in self._stars:
             tw = 0.6 + 0.4 * math.sin(self.tick * 0.08 + st["tw"])
             bright = int(st["b"] * tw)
@@ -325,16 +318,12 @@ class LevelScene(Scene):
                     gfx.soft_circle(surface, col, (px, py), st["s"] + 2, layers=2)
                 pygame.draw.circle(surface, col, (px, py), st["s"])
 
-        # far layer
         base_y = SCREEN_HEIGHT - 70
         for prop in self._far:
             self._draw_prop(surface, prop, ox, 0.18, base_y, col_far=True)
-
-        # mid layer
         for prop in self._mid:
             self._draw_prop(surface, prop, ox, 0.35, base_y + 10, col_far=False)
 
-        # horizon haze
         if self.chapter_id != 7:
             haze = pygame.Surface((SCREEN_WIDTH, 60), pygame.SRCALPHA)
             for i in range(60):
@@ -342,24 +331,21 @@ class LevelScene(Scene):
                 pygame.draw.line(haze, (*sky, a), (0, i), (SCREEN_WIDTH, i))
             surface.blit(haze, (0, SCREEN_HEIGHT - 100))
 
-        # platforms with bevel
         ground_col = d.get("ground_col", Colors.GRAY)
         for s in self.solids:
             r = self.camera.apply(s)
             if r.bottom < -30 or r.top > SCREEN_HEIGHT + 30 or r.right < -30 or r.left > SCREEN_WIDTH + 30:
                 continue
             gfx.bevel_rect(surface, r, ground_col, top_h=6)
-            # material detail
             if r.w > 50 and r.h <= 28:
                 for dx in range(14, r.w - 10, 22):
                     pygame.draw.circle(surface, gfx.shade(ground_col, 30), (r.x + dx, r.y + 4), 2)
                     pygame.draw.circle(surface, gfx.shade(ground_col, -20), (r.x + dx, r.y + 5), 1)
-            if r.h > 40:  # wall texture
+            if r.h > 40:
                 for wy in range(8, r.h - 4, 12):
                     pygame.draw.line(surface, gfx.shade(ground_col, -15),
                                      (r.x + 2, r.y + wy), (r.right - 2, r.y + wy), 1)
 
-        # goal — glowing beacon
         gx, gy = self.camera.world_to_screen(self.goal_rect.x, self.goal_rect.y)
         wave = math.sin(self.tick * 0.14) * 5
         gfx.soft_circle_additive(surface, (80, 255, 120), (gx + 8, gy + 20), 28)
@@ -370,7 +356,6 @@ class LevelScene(Scene):
         pygame.draw.polygon(surface, Colors.SUCCESS,
                             [(gx + 6, gy + 6), (gx + 24 + wave * 0.7, gy + 14), (gx + 6, gy + 22)])
 
-        # terminals
         for i, (tx, ty) in enumerate(self.data.get("terminals", [])):
             sx, sy = self.camera.world_to_screen(tx, ty)
             active = i in self.terminals_activated
@@ -395,7 +380,6 @@ class LevelScene(Scene):
             e.draw(surface, self.camera)
         self.player.draw(surface, self.camera)
 
-        # ambient dust in front
         for p in self._dust:
             px = int(p["x"] - ox * 0.6)
             py = int(p["y"] - oy * 0.6)
@@ -403,10 +387,7 @@ class LevelScene(Scene):
                 pygame.draw.circle(surface, p["c"], (px % (SCREEN_WIDTH + 10) - 5, py), p["s"])
 
         self.engine.particles.draw(surface, *self.camera.offset)
-
-        # vignette
         gfx.draw_vignette(surface, strength=100)
-
         self._draw_hud(surface)
 
         if self.narration_timer > 0 and self.current_narration:
@@ -452,7 +433,6 @@ class LevelScene(Scene):
             surface.blit(s, (SCREEN_WIDTH // 2 - s.get_width() // 2, SCREEN_HEIGHT // 2 + 20))
 
     def _draw_hud(self, surface):
-        # HP bar panel
         panel = pygame.Surface((130, 54), pygame.SRCALPHA)
         panel.fill((0, 0, 0, 120))
         pygame.draw.rect(panel, (0, 200, 255, 60), (0, 0, 130, 54), 1, border_radius=4)
