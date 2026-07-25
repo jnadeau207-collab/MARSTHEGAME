@@ -3,7 +3,6 @@ Global settings, constants, and configuration.
 """
 
 import json
-import os
 from pathlib import Path
 
 # Paths
@@ -18,14 +17,14 @@ SCREEN_HEIGHT = 720
 FPS = 60
 TITLE = "STARMAN: An Elon Odyssey"
 
-# Physics / feel
-GRAVITY = 0.65
-PLAYER_SPEED = 4.2
-PLAYER_JUMP = -12.5
-PLAYER_DASH_SPEED = 11.0
+# Physics / feel — tuned for readable jumps + Starship climb
+GRAVITY = 0.58
+PLAYER_SPEED = 4.4
+PLAYER_JUMP = -14.8
+PLAYER_DASH_SPEED = 11.5
 PLAYER_DASH_DURATION = 12  # frames
-COYOTE_TIME = 8  # frames
-JUMP_BUFFER = 8  # frames
+COYOTE_TIME = 10  # frames
+JUMP_BUFFER = 10  # frames
 HIT_STOP_FRAMES = 4
 SHAKE_DECAY = 0.85
 
