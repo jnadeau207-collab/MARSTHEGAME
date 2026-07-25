@@ -1,5 +1,5 @@
 """
-Simple enemies: bullies, rivals, drones – silhouette readable.
+Simple enemies: bullies, rivals – improved silhouettes.
 """
 
 import random
@@ -12,8 +12,8 @@ class Enemy:
         self.x = float(x)
         self.y = float(y)
         self.kind = kind
-        self.w = 24
-        self.h = 32
+        self.w = 26
+        self.h = 34
         self.vx = 0.0
         self.vy = 0.0
         self.hp = 2 if kind == "bully" else 3
@@ -23,9 +23,10 @@ class Enemy:
         self.timer = random.randint(0, 60)
         self.state = "idle"
         self.hurt_timer = 0
-        self.speed = 1.6 if kind == "bully" else 2.2
+        self.speed = 1.7 if kind == "bully" else 2.3
         self.rect = pygame.Rect(int(x), int(y), self.w, self.h)
         self.score_value = 10
+        self.anim = random.random() * 10
 
     def get_rect(self):
         self.rect.x = int(self.x)
@@ -36,21 +37,22 @@ class Enemy:
         if not self.alive:
             return
         self.timer += 1
+        self.anim += dt * 0.12
         if self.hurt_timer > 0:
             self.hurt_timer -= 1
 
         dx = player.x - self.x
         dist = abs(dx)
-        if dist < 220 and player.alive:
+        if dist < 240 and player.alive:
             self.facing = 1 if dx > 0 else -1
             self.vx = self.facing * self.speed
             self.state = "chase"
         else:
-            if self.timer % 90 < 45:
-                self.vx = self.facing * self.speed * 0.6
+            if self.timer % 90 < 50:
+                self.vx = self.facing * self.speed * 0.55
             else:
                 self.vx = 0
-                if self.timer % 90 == 45:
+                if self.timer % 90 == 50:
                     self.facing *= -1
             self.state = "patrol"
 
@@ -94,7 +96,7 @@ class Enemy:
         if not self.alive:
             return
         self.hp -= amount
-        self.hurt_timer = 10
+        self.hurt_timer = 12
         self.vx = kx
         self.vy = ky
         if self.hp <= 0:
@@ -106,12 +108,40 @@ class Enemy:
         ox, oy = camera.offset
         sx = int(self.x - ox)
         sy = int(self.y - oy)
-        col = Colors.DANGER if self.hurt_timer > 0 else (90, 50, 40)
-        if self.kind == "rival":
-            col = (60, 70, 110) if self.hurt_timer == 0 else Colors.DANGER
-        pygame.draw.rect(surface, col, (sx + 3, sy + 6, 18, 20))
-        pygame.draw.rect(surface, (180, 150, 120), (sx + 5, sy, 14, 10))
-        pygame.draw.line(surface, (20, 10, 10), (sx + 7, sy + 4), (sx + 11, sy + 5), 2)
-        pygame.draw.line(surface, (20, 10, 10), (sx + 13, sy + 5), (sx + 17, sy + 4), 2)
-        pygame.draw.rect(surface, (50, 30, 25), (sx + 5, sy + 26, 6, 6))
-        pygame.draw.rect(surface, (50, 30, 25), (sx + 13, sy + 26, 6, 6))
+
+        hurt = self.hurt_timer > 0
+        if self.kind == "bully":
+            body = Colors.DANGER if hurt else (95, 48, 38)
+            head = (190, 155, 125) if not hurt else (220, 100, 90)
+            pants = (45, 28, 22)
+        else:  # rival
+            body = Colors.DANGER if hurt else (50, 58, 95)
+            head = (200, 170, 140) if not hurt else (220, 100, 90)
+            pants = (30, 35, 55)
+
+        # legs
+        pygame.draw.rect(surface, pants, (sx + 5, sy + 24, 7, 10))
+        pygame.draw.rect(surface, pants, (sx + 14, sy + 24, 7, 10))
+
+        # torso
+        pygame.draw.rect(surface, body, (sx + 4, sy + 10, 18, 16), border_radius=2)
+
+        # head
+        pygame.draw.ellipse(surface, head, (sx + 5, sy, 16, 13))
+
+        # angry brows / eyes
+        brow = (25, 15, 12)
+        if self.facing > 0:
+            pygame.draw.line(surface, brow, (sx + 10, sy + 4), (sx + 15, sy + 3), 2)
+            pygame.draw.line(surface, brow, (sx + 16, sy + 4), (sx + 20, sy + 5), 2)
+            pygame.draw.rect(surface, (20, 15, 10), (sx + 12, sy + 6, 3, 3))
+            pygame.draw.rect(surface, (20, 15, 10), (sx + 17, sy + 6, 3, 3))
+        else:
+            pygame.draw.line(surface, brow, (sx + 6, sy + 5), (sx + 10, sy + 3), 2)
+            pygame.draw.line(surface, brow, (sx + 11, sy + 3), (sx + 16, sy + 4), 2)
+            pygame.draw.rect(surface, (20, 15, 10), (sx + 7, sy + 6, 3, 3))
+            pygame.draw.rect(surface, (20, 15, 10), (sx + 12, sy + 6, 3, 3))
+
+        # rival suit accent
+        if self.kind == "rival" and not hurt:
+            pygame.draw.line(surface, (80, 100, 160), (sx + 6, sy + 14), (sx + 20, sy + 14), 1)
