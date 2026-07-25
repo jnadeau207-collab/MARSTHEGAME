@@ -1,10 +1,12 @@
 """
-Simple enemies: bullies, rivals – improved silhouettes.
+Enemies with shaded, detailed silhouettes.
 """
 
+import math
 import random
 import pygame
 from game.core.settings import Colors, GRAVITY
+from game.core import gfx
 
 
 class Enemy:
@@ -12,8 +14,8 @@ class Enemy:
         self.x = float(x)
         self.y = float(y)
         self.kind = kind
-        self.w = 26
-        self.h = 34
+        self.w = 28
+        self.h = 36
         self.vx = 0.0
         self.vy = 0.0
         self.hp = 2 if kind == "bully" else 3
@@ -37,7 +39,7 @@ class Enemy:
         if not self.alive:
             return
         self.timer += 1
-        self.anim += dt * 0.12
+        self.anim += dt * 0.14
         if self.hurt_timer > 0:
             self.hurt_timer -= 1
 
@@ -108,40 +110,67 @@ class Enemy:
         ox, oy = camera.offset
         sx = int(self.x - ox)
         sy = int(self.y - oy)
-
         hurt = self.hurt_timer > 0
+        f = self.facing
+
+        # shadow
+        sh = pygame.Surface((30, 8), pygame.SRCALPHA)
+        pygame.draw.ellipse(sh, (0, 0, 0, 80), (0, 0, 30, 8))
+        surface.blit(sh, (sx - 1, sy + self.h - 4))
+
         if self.kind == "bully":
-            body = Colors.DANGER if hurt else (95, 48, 38)
-            head = (190, 155, 125) if not hurt else (220, 100, 90)
-            pants = (45, 28, 22)
-        else:  # rival
-            body = Colors.DANGER if hurt else (50, 58, 95)
-            head = (200, 170, 140) if not hurt else (220, 100, 90)
-            pants = (30, 35, 55)
+            body = (160, 45, 35) if hurt else (88, 42, 32)
+            body_hi = (200, 70, 55) if hurt else (110, 55, 42)
+            body_lo = (60, 28, 22)
+            head = (210, 100, 90) if hurt else (195, 160, 130)
+            pants = (40, 25, 20)
+        else:
+            body = (180, 50, 50) if hurt else (45, 52, 88)
+            body_hi = (220, 80, 80) if hurt else (65, 75, 120)
+            body_lo = (30, 35, 55)
+            head = (210, 100, 90) if hurt else (205, 175, 145)
+            pants = (28, 30, 48)
 
-        # legs
-        pygame.draw.rect(surface, pants, (sx + 5, sy + 24, 7, 10))
-        pygame.draw.rect(surface, pants, (sx + 14, sy + 24, 7, 10))
+        # legs walk cycle
+        phase = int(self.anim * 8) % 4 if abs(self.vx) > 0.3 else 0
+        offs = [0, 2, 0, -2]
+        lo = offs[phase]
+        pygame.draw.rect(surface, pants, (sx + 6, sy + 26 + lo, 7, 10), border_radius=1)
+        pygame.draw.rect(surface, pants, (sx + 15, sy + 26 - lo, 7, 10), border_radius=1)
+        pygame.draw.rect(surface, (20, 15, 12), (sx + 5, sy + 34 + lo, 9, 3))
+        pygame.draw.rect(surface, (20, 15, 12), (sx + 14, sy + 34 - lo, 9, 3))
 
-        # torso
-        pygame.draw.rect(surface, body, (sx + 4, sy + 10, 18, 16), border_radius=2)
+        # torso shaded
+        pygame.draw.rect(surface, body_lo, (sx + 4, sy + 11, 20, 17), border_radius=3)
+        pygame.draw.rect(surface, body, (sx + 5, sy + 11, 18, 14), border_radius=2)
+        pygame.draw.rect(surface, body_hi, (sx + 6, sy + 11, 16, 5), border_radius=2)
+
+        if self.kind == "rival" and not hurt:
+            pygame.draw.line(surface, (90, 110, 170), (sx + 7, sy + 16), (sx + 21, sy + 16), 1)
+            pygame.draw.circle(surface, (120, 140, 200), (sx + 14, sy + 20), 2)
 
         # head
-        pygame.draw.ellipse(surface, head, (sx + 5, sy, 16, 13))
+        pygame.draw.ellipse(surface, gfx.shade(head, -25), (sx + 5, sy + 1, 18, 14))
+        pygame.draw.ellipse(surface, head, (sx + 6, sy, 16, 13))
 
-        # angry brows / eyes
-        brow = (25, 15, 12)
-        if self.facing > 0:
-            pygame.draw.line(surface, brow, (sx + 10, sy + 4), (sx + 15, sy + 3), 2)
-            pygame.draw.line(surface, brow, (sx + 16, sy + 4), (sx + 20, sy + 5), 2)
-            pygame.draw.rect(surface, (20, 15, 10), (sx + 12, sy + 6, 3, 3))
-            pygame.draw.rect(surface, (20, 15, 10), (sx + 17, sy + 6, 3, 3))
+        # angry brows + eyes
+        brow = (30, 18, 12)
+        if f > 0:
+            pygame.draw.line(surface, brow, (sx + 10, sy + 4), (sx + 15, sy + 2), 2)
+            pygame.draw.line(surface, brow, (sx + 16, sy + 2), (sx + 21, sy + 4), 2)
+            pygame.draw.rect(surface, (15, 10, 8), (sx + 12, sy + 5, 3, 3))
+            pygame.draw.rect(surface, (15, 10, 8), (sx + 18, sy + 5, 3, 3))
+            if self.state == "chase":
+                pygame.draw.rect(surface, (220, 40, 30), (sx + 13, sy + 6, 1, 1))
+                pygame.draw.rect(surface, (220, 40, 30), (sx + 19, sy + 6, 1, 1))
         else:
-            pygame.draw.line(surface, brow, (sx + 6, sy + 5), (sx + 10, sy + 3), 2)
-            pygame.draw.line(surface, brow, (sx + 11, sy + 3), (sx + 16, sy + 4), 2)
-            pygame.draw.rect(surface, (20, 15, 10), (sx + 7, sy + 6, 3, 3))
-            pygame.draw.rect(surface, (20, 15, 10), (sx + 12, sy + 6, 3, 3))
+            pygame.draw.line(surface, brow, (sx + 7, sy + 4), (sx + 12, sy + 2), 2)
+            pygame.draw.line(surface, brow, (sx + 13, sy + 2), (sx + 18, sy + 4), 2)
+            pygame.draw.rect(surface, (15, 10, 8), (sx + 8, sy + 5, 3, 3))
+            pygame.draw.rect(surface, (15, 10, 8), (sx + 14, sy + 5, 3, 3))
 
-        # rival suit accent
-        if self.kind == "rival" and not hurt:
-            pygame.draw.line(surface, (80, 100, 160), (sx + 6, sy + 14), (sx + 20, sy + 14), 1)
+        # fists when chasing
+        if self.state == "chase":
+            fx = sx + (24 if f > 0 else 0)
+            pygame.draw.circle(surface, head, (fx, sy + 18), 4)
+            pygame.draw.circle(surface, gfx.shade(head, -20), (fx, sy + 18), 4, 1)

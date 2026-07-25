@@ -1,6 +1,5 @@
 """
-Player: Elon. Responsive movement, coyote, buffer, dash, double-jump, light combat.
-Improved procedural silhouette graphics.
+Player: Elon — high-detail procedural sprite with shading, animation, glow.
 """
 
 import math
@@ -9,14 +8,15 @@ from game.core.settings import (
     GRAVITY, PLAYER_SPEED, PLAYER_JUMP, PLAYER_DASH_SPEED,
     PLAYER_DASH_DURATION, COYOTE_TIME, JUMP_BUFFER, Colors
 )
+from game.core import gfx
 
 
 class Player:
     def __init__(self, x, y):
         self.x = float(x)
         self.y = float(y)
-        self.w = 24
-        self.h = 38
+        self.w = 26
+        self.h = 40
         self.vx = 0.0
         self.vy = 0.0
         self.on_ground = False
@@ -49,7 +49,7 @@ class Player:
         if not self.alive:
             return
 
-        self.anim += dt * 0.15
+        self.anim += dt * 0.18
 
         if self.invuln > 0:
             self.invuln -= 1
@@ -74,6 +74,9 @@ class Player:
             self.vx = self.dash_dir * PLAYER_DASH_SPEED
             self.vy = 0
             self.state = "dash"
+            if self.dash_timer % 2 == 0:
+                particles.emit(self.x + self.w / 2, self.y + self.h / 2,
+                               count=2, speed=1.2, color=(0, 200, 255), life=12, size=2, gravity=0)
             if self.dash_timer == 0:
                 self.vx *= 0.4
         else:
@@ -89,7 +92,6 @@ class Player:
                     if self.on_ground:
                         self.state = "idle"
 
-            # Jump / double-jump
             if self.jump_buffer > 0:
                 if self.coyote > 0 or (self.jumps_left > 0 and not self.on_ground):
                     self.vy = PLAYER_JUMP
@@ -100,9 +102,8 @@ class Player:
                     inp.consume_buffer("jump")
                     particles.emit_dust(self.x + self.w / 2, self.y + self.h)
                     if self.jumps_left == 0 and self.can_double_jump:
-                        # small thruster burst for second jump
                         particles.emit(self.x + self.w / 2, self.y + self.h,
-                                       count=8, speed=2.5, color=Colors.ACCENT, life=18)
+                                       count=12, speed=3.2, color=Colors.ACCENT, life=22, size=3)
                     self.state = "jump"
 
             if not inp.is_held("jump") and self.vy < -4:
@@ -112,7 +113,7 @@ class Player:
                 self.dash_timer = PLAYER_DASH_DURATION
                 self.dash_dir = self.facing
                 self.invuln = max(self.invuln, 8)
-                particles.emit(self.x + self.w / 2, self.y + self.h / 2, count=8, speed=2.5, color=Colors.ACCENT)
+                particles.emit(self.x + self.w / 2, self.y + self.h / 2, count=10, speed=3, color=Colors.ACCENT)
 
             if (inp.just_pressed("attack") or inp.consume_buffer("attack")) and self.attack_cooldown == 0:
                 self.attack_timer = 12
@@ -195,74 +196,113 @@ class Player:
         if self.invuln > 0 and (self.invuln // 3) % 2 == 0:
             return
 
-        # Shadow
-        pygame.draw.ellipse(surface, (0, 0, 0, 60), (sx + 2, sy + self.h - 4, 20, 6))
+        # ground contact shadow
+        sh = pygame.Surface((28, 10), pygame.SRCALPHA)
+        pygame.draw.ellipse(sh, (0, 0, 0, 90), (0, 0, 28, 10))
+        surface.blit(sh, (sx - 1, sy + self.h - 5))
 
-        # Body palette
-        jacket = (35, 45, 70)
+        # dash / thruster aura
         if self.state == "dash":
-            jacket = Colors.ACCENT
-        elif self.state == "hurt":
-            jacket = Colors.DANGER
-
-        # Legs (animated)
-        leg_y = sy + 26
-        run_frame = int(self.anim * 8) % 4 if self.state == "run" else 0
-        if self.state == "run":
-            offsets = [(0, 2), (1, 0), (0, 2), (-1, 0)]
-            lo, ro = offsets[run_frame]
-            pygame.draw.rect(surface, (28, 32, 42), (sx + 5, leg_y + lo, 6, 12))
-            pygame.draw.rect(surface, (28, 32, 42), (sx + 13, leg_y + ro, 6, 12))
-            # boots
-            pygame.draw.rect(surface, (20, 22, 30), (sx + 4, leg_y + lo + 10, 8, 4))
-            pygame.draw.rect(surface, (20, 22, 30), (sx + 12, leg_y + ro + 10, 8, 4))
-        elif self.state == "jump" or self.state == "fall":
-            pygame.draw.rect(surface, (28, 32, 42), (sx + 6, leg_y - 2, 5, 12))
-            pygame.draw.rect(surface, (28, 32, 42), (sx + 13, leg_y + 2, 5, 10))
-        else:
-            pygame.draw.rect(surface, (28, 32, 42), (sx + 5, leg_y, 6, 12))
-            pygame.draw.rect(surface, (28, 32, 42), (sx + 13, leg_y, 6, 12))
-            pygame.draw.rect(surface, (20, 22, 30), (sx + 4, leg_y + 10, 8, 4))
-            pygame.draw.rect(surface, (20, 22, 30), (sx + 12, leg_y + 10, 8, 4))
-
-        # Torso / jacket
-        pygame.draw.rect(surface, jacket, (sx + 4, sy + 10, 16, 18), border_radius=2)
-        # collar
-        pygame.draw.rect(surface, (50, 60, 90), (sx + 5, sy + 10, 14, 4))
-        # accent stripe
-        pygame.draw.line(surface, Colors.ACCENT if self.state != "hurt" else Colors.DANGER,
-                         (sx + 6, sy + 16), (sx + 18, sy + 16), 1)
-
-        # Head
-        skin = (220, 185, 155)
-        pygame.draw.ellipse(surface, skin, (sx + 5, sy - 1, 14, 14))
-        # hair (dark, slightly messy)
-        hair = (35, 28, 22)
-        pygame.draw.ellipse(surface, hair, (sx + 4, sy - 3, 16, 10))
-        pygame.draw.rect(surface, hair, (sx + 4, sy + 2, 3, 6))  # side
-        # eyes
-        eye_x = sx + (11 if self.facing > 0 else 7)
-        pygame.draw.rect(surface, (25, 30, 40), (eye_x, sy + 4, 3, 3))
-        pygame.draw.rect(surface, (0, 210, 255), (eye_x + 1, sy + 5, 1, 1))  # glint
-
-        # Arm (simple)
-        arm_col = jacket
-        if self.state == "attack":
-            ax = sx + (self.w - 2 if self.facing > 0 else -6)
-            pygame.draw.line(surface, arm_col, (sx + 12, sy + 14), (ax + 10, sy + 10), 3)
-        else:
-            pygame.draw.line(surface, arm_col, (sx + 6, sy + 14), (sx + 2, sy + 22), 3)
-            pygame.draw.line(surface, arm_col, (sx + 18, sy + 14), (sx + 22, sy + 22), 3)
-
-        # Attack arc
-        if self.attack_timer > 0:
-            ax = sx + (self.w if self.facing > 0 else -20)
-            pygame.draw.arc(surface, Colors.GOLD,
-                            (ax, sy, 34, 34),
-                            0.4 if self.facing > 0 else 2.4,
-                            2.6 if self.facing > 0 else 5.6, 3)
-
-        # Double-jump thruster glow
+            gfx.soft_circle_additive(surface, (0, 220, 255), (sx + 13, sy + 20), 22)
         if not self.on_ground and self.can_double_jump and self.jumps_left == 0 and self.vy < 0:
-            glow = int(80 + 40 * math.sin(self.anim * 10))
-            pygame.draw.circle(surface, (0, glow, 255), (sx + 12, sy + self.h + 2), 5)
+            pulse = 10 + int(6 * math.sin(self.anim * 12))
+            gfx.soft_circle_additive(surface, (40, 160, 255), (sx + 13, sy + self.h + 4), pulse)
+
+        f = self.facing
+        jacket = (32, 42, 68)
+        jacket_hi = (48, 62, 95)
+        jacket_lo = (22, 28, 48)
+        if self.state == "dash":
+            jacket, jacket_hi, jacket_lo = (0, 160, 210), (40, 200, 255), (0, 100, 150)
+        elif self.state == "hurt":
+            jacket, jacket_hi, jacket_lo = (180, 40, 40), (220, 70, 70), (120, 20, 20)
+
+        leg_y = sy + 27
+        pant = (24, 28, 38)
+        boot = (18, 18, 24)
+
+        # legs
+        if self.state == "run":
+            phase = int(self.anim * 10) % 6
+            cycle = [(-2, 3), (-1, 1), (0, 0), (1, -1), (2, -2), (1, 0)]
+            lo, ro = cycle[phase]
+            # left leg
+            pygame.draw.rect(surface, pant, (sx + 5, leg_y + lo, 7, 11), border_radius=1)
+            pygame.draw.rect(surface, boot, (sx + 4, leg_y + lo + 9, 9, 5), border_radius=1)
+            # right leg
+            pygame.draw.rect(surface, pant, (sx + 14, leg_y + ro, 7, 11), border_radius=1)
+            pygame.draw.rect(surface, boot, (sx + 13, leg_y + ro + 9, 9, 5), border_radius=1)
+        elif self.state in ("jump", "fall"):
+            pygame.draw.rect(surface, pant, (sx + 6, leg_y - 3, 6, 12), border_radius=1)
+            pygame.draw.rect(surface, pant, (sx + 14, leg_y + 1, 6, 10), border_radius=1)
+            pygame.draw.rect(surface, boot, (sx + 5, leg_y + 7, 8, 4))
+            pygame.draw.rect(surface, boot, (sx + 13, leg_y + 9, 8, 4))
+        else:
+            # idle slight breathe
+            b = int(math.sin(self.anim * 2) * 1)
+            pygame.draw.rect(surface, pant, (sx + 5, leg_y + b, 7, 11), border_radius=1)
+            pygame.draw.rect(surface, pant, (sx + 14, leg_y + b, 7, 11), border_radius=1)
+            pygame.draw.rect(surface, boot, (sx + 4, leg_y + 9 + b, 9, 5), border_radius=1)
+            pygame.draw.rect(surface, boot, (sx + 13, leg_y + 9 + b, 9, 5), border_radius=1)
+
+        # torso with shading
+        pygame.draw.rect(surface, jacket_lo, (sx + 4, sy + 11, 18, 18), border_radius=3)
+        pygame.draw.rect(surface, jacket, (sx + 5, sy + 11, 16, 15), border_radius=2)
+        pygame.draw.rect(surface, jacket_hi, (sx + 6, sy + 11, 14, 5), border_radius=2)
+        # collar / zipper
+        pygame.draw.line(surface, (70, 90, 130) if self.state != "hurt" else (200, 80, 80),
+                         (sx + 13, sy + 12), (sx + 13, sy + 24), 1)
+        # shoulder pads
+        pygame.draw.rect(surface, jacket_hi, (sx + 3, sy + 12, 5, 5), border_radius=1)
+        pygame.draw.rect(surface, jacket_hi, (sx + 18, sy + 12, 5, 5), border_radius=1)
+
+        # arms
+        arm = jacket
+        if self.state == "attack":
+            ax = sx + (22 if f > 0 else -8)
+            ay = sy + 8
+            pygame.draw.line(surface, arm, (sx + 13, sy + 15), (ax, ay), 4)
+            pygame.draw.circle(surface, (200, 170, 140), (ax, ay), 3)
+            # energy slash
+            gfx.soft_circle(surface, Colors.GOLD, (ax + (8 if f > 0 else -8), ay), 14, layers=3)
+            pygame.draw.arc(surface, Colors.GOLD,
+                            (ax - 10, ay - 12, 36, 36),
+                            0.3 if f > 0 else 2.5, 2.5 if f > 0 else 5.5, 2)
+        else:
+            swing = int(math.sin(self.anim * 8) * 3) if self.state == "run" else 0
+            pygame.draw.line(surface, arm, (sx + 6, sy + 15), (sx + 2, sy + 24 + swing), 3)
+            pygame.draw.line(surface, arm, (sx + 20, sy + 15), (sx + 24, sy + 24 - swing), 3)
+            pygame.draw.circle(surface, (200, 170, 140), (sx + 2, sy + 24 + swing), 2)
+            pygame.draw.circle(surface, (200, 170, 140), (sx + 24, sy + 24 - swing), 2)
+
+        # head
+        skin = (225, 190, 160)
+        skin_sh = (200, 160, 130)
+        pygame.draw.ellipse(surface, skin_sh, (sx + 5, sy + 1, 16, 14))
+        pygame.draw.ellipse(surface, skin, (sx + 6, sy, 14, 13))
+
+        # hair — layered
+        hair = (28, 22, 18)
+        hair_hi = (50, 40, 32)
+        pygame.draw.ellipse(surface, hair, (sx + 4, sy - 4, 18, 11))
+        pygame.draw.ellipse(surface, hair_hi, (sx + 7, sy - 3, 10, 6))
+        # sideburn / temple
+        pygame.draw.rect(surface, hair, (sx + 4, sy + 2, 3, 7))
+        pygame.draw.rect(surface, hair, (sx + 19, sy + 2, 3, 7))
+        # fringe
+        for i, dx in enumerate((-3, 0, 3, 6)):
+            pygame.draw.line(surface, hair, (sx + 9 + dx, sy - 1), (sx + 8 + dx, sy + 3), 2)
+
+        # eyes
+        if f > 0:
+            pygame.draw.rect(surface, (20, 24, 32), (sx + 13, sy + 4, 4, 3))
+            pygame.draw.rect(surface, (0, 220, 255), (sx + 14, sy + 5, 2, 1))
+            # brow
+            pygame.draw.line(surface, hair, (sx + 12, sy + 3), (sx + 17, sy + 2), 1)
+        else:
+            pygame.draw.rect(surface, (20, 24, 32), (sx + 9, sy + 4, 4, 3))
+            pygame.draw.rect(surface, (0, 220, 255), (sx + 10, sy + 5, 2, 1))
+            pygame.draw.line(surface, hair, (sx + 9, sy + 2), (sx + 14, sy + 3), 1)
+
+        # subtle cheek
+        pygame.draw.circle(surface, (230, 170, 150), (sx + (16 if f > 0 else 10), sy + 8), 2)

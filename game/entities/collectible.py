@@ -1,10 +1,12 @@
 """
-Books, parts, code fragments – scavenging. Improved icons.
+Collectibles with glow, spin, and sparkle.
 """
 
 import math
+import random
 import pygame
 from game.core.settings import Colors
+from game.core import gfx
 
 
 class Collectible:
@@ -12,21 +14,23 @@ class Collectible:
         self.x = x
         self.y = y
         self.kind = kind
-        self.w = 16
-        self.h = 16
+        self.w = 18
+        self.h = 18
         self.alive = True
-        self.bob = random_bob()
+        self.bob = random.uniform(0, 6.28)
+        self.spin = random.uniform(0, 6.28)
         self.rect = pygame.Rect(x, y, self.w, self.h)
 
     def get_rect(self):
         self.rect.x = int(self.x)
-        self.rect.y = int(self.y + math.sin(self.bob) * 3.5)
+        self.rect.y = int(self.y + math.sin(self.bob) * 4)
         return self.rect
 
     def update(self, dt, player):
         if not self.alive:
             return
-        self.bob += 0.09 * dt
+        self.bob += 0.1 * dt
+        self.spin += 0.08 * dt
         if self.get_rect().colliderect(player.get_rect()):
             self.alive = False
             if self.kind == "book":
@@ -43,37 +47,49 @@ class Collectible:
             return
         ox, oy = camera.offset
         sx = int(self.x - ox)
-        sy = int(self.y + math.sin(self.bob) * 3.5 - oy)
+        sy = int(self.y + math.sin(self.bob) * 4 - oy)
+        cx, cy = sx + 9, sy + 9
 
-        # soft glow
-        glow_col = {
-            "book": (60, 100, 180),
-            "part": (200, 160, 40),
-            "code": (0, 180, 230),
-            "health": (60, 200, 100),
-        }.get(self.kind, (150, 150, 150))
-        pygame.draw.circle(surface, (*glow_col, 40) if False else glow_col, (sx + 8, sy + 8), 10)
-        pygame.draw.circle(surface, (20, 20, 30), (sx + 8, sy + 8), 9)
+        glow = {
+            "book": (50, 100, 200),
+            "part": (255, 190, 40),
+            "code": (0, 210, 255),
+            "health": (50, 230, 100),
+        }.get(self.kind, (180, 180, 180))
+
+        pulse = 11 + int(3 * math.sin(self.bob * 2))
+        gfx.soft_circle(surface, glow, (cx, cy), pulse, layers=4)
 
         if self.kind == "book":
-            pygame.draw.rect(surface, (55, 95, 155), (sx + 2, sy + 1, 12, 14), border_radius=1)
-            pygame.draw.rect(surface, (200, 205, 220), (sx + 4, sy + 3, 8, 2))
-            pygame.draw.rect(surface, (180, 185, 200), (sx + 4, sy + 7, 8, 1))
-            pygame.draw.rect(surface, (180, 185, 200), (sx + 4, sy + 10, 6, 1))
+            pygame.draw.rect(surface, (40, 70, 130), (sx + 2, sy + 1, 14, 16), border_radius=2)
+            pygame.draw.rect(surface, (70, 110, 180), (sx + 3, sy + 2, 12, 14), border_radius=1)
+            pygame.draw.rect(surface, (220, 225, 240), (sx + 5, sy + 4, 8, 2))
+            pygame.draw.rect(surface, (200, 205, 220), (sx + 5, sy + 8, 8, 1))
+            pygame.draw.rect(surface, (200, 205, 220), (sx + 5, sy + 11, 6, 1))
+            pygame.draw.line(surface, (30, 50, 90), (sx + 9, sy + 2), (sx + 9, sy + 15), 1)
         elif self.kind == "part":
-            pygame.draw.rect(surface, Colors.GOLD, (sx + 2, sy + 3, 12, 10), border_radius=2)
-            pygame.draw.rect(surface, (40, 40, 50), (sx + 5, sy + 5, 6, 6))
-            pygame.draw.circle(surface, (80, 80, 90), (sx + 8, sy + 8), 2)
+            # gear-like
+            pygame.draw.circle(surface, Colors.GOLD, (cx, cy), 8)
+            pygame.draw.circle(surface, (40, 35, 20), (cx, cy), 4)
+            pygame.draw.circle(surface, (255, 220, 100), (cx, cy), 8, 1)
+            for a in range(0, 360, 45):
+                rad = math.radians(a + self.spin * 40)
+                px = cx + int(math.cos(rad) * 9)
+                py = cy + int(math.sin(rad) * 9)
+                pygame.draw.rect(surface, Colors.GOLD, (px - 2, py - 2, 4, 4))
         elif self.kind == "code":
-            pygame.draw.rect(surface, Colors.ACCENT, (sx + 1, sy + 2, 14, 12), border_radius=2)
-            pygame.draw.line(surface, (10, 20, 30), (sx + 3, sy + 5), (sx + 12, sy + 5), 1)
-            pygame.draw.line(surface, (10, 20, 30), (sx + 3, sy + 8), (sx + 9, sy + 8), 1)
-            pygame.draw.line(surface, (10, 20, 30), (sx + 3, sy + 11), (sx + 11, sy + 11), 1)
+            pygame.draw.rect(surface, (0, 40, 60), (sx + 1, sy + 2, 16, 14), border_radius=3)
+            pygame.draw.rect(surface, Colors.ACCENT, (sx + 2, sy + 3, 14, 12), border_radius=2)
+            for i, w in enumerate((10, 7, 11)):
+                pygame.draw.line(surface, (0, 30, 40),
+                                 (sx + 4, sy + 6 + i * 3), (sx + 4 + w, sy + 6 + i * 3), 1)
+            # blink cursor
+            if int(self.bob * 3) % 2:
+                pygame.draw.rect(surface, (255, 255, 255), (sx + 5, sy + 13, 5, 1))
         elif self.kind == "health":
-            pygame.draw.rect(surface, Colors.SUCCESS, (sx + 6, sy + 1, 4, 14))
-            pygame.draw.rect(surface, Colors.SUCCESS, (sx + 1, sy + 6, 14, 4))
-
-
-def random_bob():
-    import random
-    return random.uniform(0, 6.28)
+            # cross with depth
+            pygame.draw.rect(surface, (20, 80, 40), (sx + 7, sy + 1, 5, 16), border_radius=1)
+            pygame.draw.rect(surface, (20, 80, 40), (sx + 1, sy + 7, 16, 5), border_radius=1)
+            pygame.draw.rect(surface, Colors.SUCCESS, (sx + 8, sy + 2, 3, 14))
+            pygame.draw.rect(surface, Colors.SUCCESS, (sx + 2, sy + 8, 14, 3))
+            gfx.soft_circle(surface, (100, 255, 140), (cx, cy), 6, layers=2)
