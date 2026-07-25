@@ -1,8 +1,10 @@
 """
 Core level / chapter runner – data-driven.
-Chapters 1–3 polished; 4–8 scaffolded with solid encounters.
+Improved procedural backgrounds, platforms, and atmosphere.
 """
 
+import math
+import random
 import pygame
 from game.scenes.base import Scene
 from game.core.settings import SCREEN_WIDTH, SCREEN_HEIGHT, Colors, CHAPTERS
@@ -35,11 +37,16 @@ class LevelScene(Scene):
         self.objective = self.data.get("objective", "")
         self.msg = ""
         self.msg_timer = 0
+        self.tick = 0
+        # precompute decorative elements
+        self._stars = []
+        self._bg_props = []
 
     def on_enter(self):
         d = self.data
         self.player = Player(*d["player_start"])
         self.player.can_dash = self.chapter_id >= 2 or self.engine.save.unlocks.get("dash", False)
+        self.player.can_double_jump = self.chapter_id >= 6
 
         self.solids = [pygame.Rect(*s) for s in d["solids"]]
         self.enemies = [Enemy(x, y, kind) for kind, x, y in d.get("enemies", [])]
@@ -58,6 +65,22 @@ class LevelScene(Scene):
         self.msg = ""
         self.msg_timer = 0
         self.terminals_activated = set()
+        self.tick = 0
+
+        # build parallax / star field
+        rng = random.Random(self.chapter_id * 7919)
+        self._stars = [(rng.randint(0, d["width"]), rng.randint(0, max(100, d["height"] // 2)),
+                        rng.choice([1, 1, 1, 2]), rng.randint(140, 230))
+                       for _ in range(90 if self.chapter_id in (6, 7) else 45)]
+        self._bg_props = []
+        if self.chapter_id == 1:
+            for _ in range(12):
+                self._bg_props.append(("building", rng.randint(0, d["width"]), rng.randint(80, 200),
+                                       rng.randint(40, 90), rng.randint(120, 280)))
+        elif self.chapter_id == 8:
+            for _ in range(18):
+                self._bg_props.append(("rock", rng.randint(0, d["width"]), rng.randint(30, 80),
+                                       rng.randint(20, 60), rng.randint(40, 100)))
 
     def handle_event(self, event):
         if event.type == pygame.KEYDOWN:
@@ -69,6 +92,8 @@ class LevelScene(Scene):
     def update(self, dt):
         if self.paused:
             return
+
+        self.tick += dt
 
         if self.fade > 0:
             self.fade = max(0, self.fade - 8)
@@ -114,13 +139,19 @@ class LevelScene(Scene):
 
         for c in self.collectibles:
             if c.update(dt, self.player):
-                particles.emit(c.x, c.y, count=6, color=Colors.GOLD, speed=2)
+                particles.emit(c.x, c.y, count=8, color=Colors.GOLD, speed=2.5)
                 if c.kind == "book":
                     self.engine.save.stats["books_collected"] = self.engine.save.stats.get("books_collected", 0) + 1
 
         if self.narration_queue:
             trigger_x, text = self.narration_queue[0]
-            if self.player.x >= trigger_x:
+            # for vertical levels use player y progress inverted
+            if self.chapter_id == 7:
+                if self.player.y <= self.data["height"] - trigger_x * 2:
+                    self.current_narration = text
+                    self.narration_timer = 200
+                    self.narration_queue.pop(0)
+            elif self.player.x >= trigger_x:
                 self.current_narration = text
                 self.narration_timer = 180
                 self.narration_queue.pop(0)
@@ -142,31 +173,91 @@ class LevelScene(Scene):
 
     def draw(self, surface):
         d = self.data
-        surface.fill(d.get("sky", Colors.DARK))
+        sky = d.get("sky", Colors.DARK)
+        surface.fill(sky)
+
+        # gradient sky wash
+        for i in range(6):
+            t = i / 6
+            c = tuple(max(0, int(sky[j] * (1 - t * 0.35))) for j in range(3))
+            y0 = int(SCREEN_HEIGHT * t * 0.55)
+            y1 = int(SCREEN_HEIGHT * (t + 0.18) * 0.55)
+            pygame.draw.rect(surface, c, (0, y0, SCREEN_WIDTH, max(1, y1 - y0)))
 
         ox, oy = self.camera.offset
-        import random
-        rng = random.Random(self.chapter_id * 99)
-        for _ in range(40):
-            sx = (rng.randint(0, d["width"]) - ox * 0.3) % SCREEN_WIDTH
-            sy = rng.randint(0, SCREEN_HEIGHT // 2)
-            pygame.draw.circle(surface, (200, 200, 210), (int(sx), int(sy)), 1)
+
+        # stars / distant lights
+        for sx, sy, sz, bright in self._stars:
+            px = int((sx - ox * (0.15 + sz * 0.08)) % (SCREEN_WIDTH + 20) - 10)
+            py = int(sy - oy * 0.12)
+            if 0 <= py < SCREEN_HEIGHT:
+                col = (bright, bright, min(255, bright + 20))
+                pygame.draw.circle(surface, col, (px, py), sz)
+
+        # chapter-specific distant props
+        for prop in self._bg_props:
+            kind, bx, bh, bw, by = prop
+            px = int(bx - ox * 0.25)
+            if kind == "building":
+                base_y = SCREEN_HEIGHT - 80
+                pygame.draw.rect(surface, (35, 28, 22), (px, base_y - bh, bw, bh))
+                for wy in range(8, bh - 10, 18):
+                    for wx in range(6, bw - 8, 14):
+                        if (wx + wy) % 3 != 0:
+                            pygame.draw.rect(surface, (60, 50, 35), (px + wx, base_y - bh + wy, 6, 8))
+            elif kind == "rock":
+                base_y = SCREEN_HEIGHT - 100
+                pts = [(px, base_y), (px + bw // 3, base_y - bh), (px + bw, base_y)]
+                pygame.draw.polygon(surface, (90, 40, 25), pts)
+
+        # subtle horizon line for horizontal levels
+        if self.chapter_id != 7:
+            pygame.draw.line(surface, tuple(min(255, c + 15) for c in sky),
+                             (0, SCREEN_HEIGHT - 90), (SCREEN_WIDTH, SCREEN_HEIGHT - 90), 1)
 
         ground_col = d.get("ground_col", Colors.GRAY)
+        top_col = tuple(min(255, c + 45) for c in ground_col[:3])
+        edge_col = tuple(min(255, c + 25) for c in ground_col[:3])
+
         for s in self.solids:
             r = self.camera.apply(s)
+            if r.bottom < -20 or r.top > SCREEN_HEIGHT + 20 or r.right < -20 or r.left > SCREEN_WIDTH + 20:
+                continue
+            # main body
             pygame.draw.rect(surface, ground_col, r)
-            pygame.draw.rect(surface, tuple(min(255, c + 30) for c in ground_col[:3]), r, 1)
+            # top highlight strip
+            if r.height > 12:
+                pygame.draw.rect(surface, top_col, (r.x, r.y, r.w, min(6, r.h // 3)))
+            # edge outline
+            pygame.draw.rect(surface, edge_col, r, 1)
+            # small rivets / detail on larger platforms
+            if r.w > 60 and r.h <= 24:
+                for dx in range(12, r.w - 8, 28):
+                    pygame.draw.circle(surface, edge_col, (r.x + dx, r.y + 4), 2)
 
+        # goal flag (animated)
         gx, gy = self.camera.world_to_screen(self.goal_rect.x, self.goal_rect.y)
-        pygame.draw.rect(surface, Colors.SUCCESS, (gx, gy, 8, 50))
-        pygame.draw.polygon(surface, Colors.GOLD, [(gx + 8, gy), (gx + 28, gy + 10), (gx + 8, gy + 20)])
+        wave = math.sin(self.tick * 0.12) * 4
+        pygame.draw.rect(surface, (40, 50, 40), (gx, gy, 5, 55))
+        flag_pts = [
+            (gx + 5, gy + 2),
+            (gx + 28 + wave, gy + 12),
+            (gx + 5, gy + 22),
+        ]
+        pygame.draw.polygon(surface, Colors.GOLD, flag_pts)
+        pygame.draw.polygon(surface, Colors.SUCCESS, [(gx + 5, gy + 6), (gx + 20 + wave * 0.6, gy + 12), (gx + 5, gy + 18)])
 
+        # terminals
         for i, (tx, ty) in enumerate(self.data.get("terminals", [])):
             sx, sy = self.camera.world_to_screen(tx, ty)
-            col = Colors.ACCENT if i in self.terminals_activated else (80, 80, 100)
-            pygame.draw.rect(surface, col, (sx - 10, sy - 20, 24, 28))
-            pygame.draw.rect(surface, Colors.BLACK, (sx - 6, sy - 14, 16, 12))
+            active = i in self.terminals_activated
+            col = Colors.ACCENT if active else (70, 75, 95)
+            pygame.draw.rect(surface, col, (sx - 12, sy - 22, 28, 32), border_radius=3)
+            pygame.draw.rect(surface, Colors.BLACK, (sx - 8, sy - 16, 20, 14))
+            if active:
+                pygame.draw.rect(surface, Colors.SUCCESS, (sx - 6, sy - 14, 16, 10))
+            else:
+                pygame.draw.line(surface, (40, 45, 55), (sx - 5, sy - 10), (sx + 5, sy - 10), 1)
 
         for c in self.collectibles:
             c.draw(surface, self.camera)
@@ -179,14 +270,14 @@ class LevelScene(Scene):
 
         if self.narration_timer > 0 and self.current_narration:
             n = self.engine.font_md.render(self.current_narration, True, Colors.WHITE)
-            bg = pygame.Surface((n.get_width() + 24, n.get_height() + 12), pygame.SRCALPHA)
-            bg.fill((0, 0, 0, 160))
-            surface.blit(bg, (SCREEN_WIDTH // 2 - bg.get_width() // 2, 80))
-            surface.blit(n, (SCREEN_WIDTH // 2 - n.get_width() // 2, 86))
+            bg = pygame.Surface((n.get_width() + 28, n.get_height() + 16), pygame.SRCALPHA)
+            bg.fill((0, 0, 0, 170))
+            surface.blit(bg, (SCREEN_WIDTH // 2 - bg.get_width() // 2, 72))
+            surface.blit(n, (SCREEN_WIDTH // 2 - n.get_width() // 2, 80))
 
         if self.msg_timer > 0:
             m = self.engine.font_sm.render(self.msg, True, Colors.ACCENT)
-            surface.blit(m, (SCREEN_WIDTH // 2 - m.get_width() // 2, 130))
+            surface.blit(m, (SCREEN_WIDTH // 2 - m.get_width() // 2, 125))
 
         if self.fade > 0:
             overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
@@ -217,12 +308,17 @@ class LevelScene(Scene):
     def _draw_hud(self, surface):
         for i in range(self.player.max_hp):
             col = Colors.SUCCESS if i < self.player.hp else (40, 40, 50)
-            pygame.draw.rect(surface, col, (16 + i * 22, 14, 18, 14), border_radius=2)
+            pygame.draw.rect(surface, col, (16 + i * 22, 14, 18, 14), border_radius=3)
+            pygame.draw.rect(surface, tuple(min(255, c + 40) for c in col), (16 + i * 22, 14, 18, 14), 1, border_radius=3)
 
         books = self.engine.font_sm.render(f"Books {self.player.books}", True, (150, 180, 220))
         parts = self.engine.font_sm.render(f"Parts {self.player.parts}", True, Colors.GOLD)
         surface.blit(books, (16, 36))
         surface.blit(parts, (110, 36))
+
+        if self.player.can_double_jump:
+            dj = self.engine.font_sm.render("2x Jump", True, Colors.ACCENT)
+            surface.blit(dj, (200, 36))
 
         ch = next((c for c in CHAPTERS if c["id"] == self.chapter_id), None)
         if ch:
