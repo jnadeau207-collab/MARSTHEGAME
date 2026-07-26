@@ -9,6 +9,7 @@ import os
 import platform
 import statistics
 import time
+import traceback
 from pathlib import Path
 from typing import Any
 
@@ -87,6 +88,7 @@ def capture_baseline(
 
     return {
         "schema_version": 1,
+        "status": "pass",
         "git_sha": os.getenv("GITHUB_SHA", "local"),
         "python": platform.python_version(),
         "platform": platform.platform(),
@@ -99,6 +101,15 @@ def capture_baseline(
     }
 
 
+def _write_report(report: dict[str, Any], path: Path | None) -> str:
+    rendered = json.dumps(report, indent=2, sort_keys=True)
+    print(rendered)
+    if path:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(rendered + "\n", encoding="utf-8")
+    return rendered
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--update-frames", type=int, default=120)
@@ -107,13 +118,23 @@ def main() -> int:
     parser.add_argument("--json-out", type=Path)
     args = parser.parse_args()
 
-    report = capture_baseline(args.update_frames, args.draw_frames, args.rounds)
-    rendered = json.dumps(report, indent=2, sort_keys=True)
-    print(rendered)
+    try:
+        report = capture_baseline(args.update_frames, args.draw_frames, args.rounds)
+    except Exception as exc:
+        report = {
+            "schema_version": 1,
+            "status": "error",
+            "git_sha": os.getenv("GITHUB_SHA", "local"),
+            "python": platform.python_version(),
+            "platform": platform.platform(),
+            "error_type": type(exc).__name__,
+            "error": str(exc),
+            "traceback": traceback.format_exc(),
+        }
+        _write_report(report, args.json_out)
+        return 1
 
-    if args.json_out:
-        args.json_out.parent.mkdir(parents=True, exist_ok=True)
-        args.json_out.write_text(rendered + "\n", encoding="utf-8")
+    _write_report(report, args.json_out)
     return 0
 
 
