@@ -18,8 +18,10 @@ class Phase1QualityTests(unittest.TestCase):
         report = audit_quality(self.manifest)
         self.assertEqual(report["status"], "pass")
         self.assertEqual(report["aaa_claim"], "target_not_achieved")
-        self.assertFalse(report["playable_start_to_finish"])
+        self.assertTrue(report["playable_start_to_finish"])
+        self.assertTrue(report["automated_reference_replay"])
         self.assertFalse(report["pending_foundations"])
+        self.assertTrue(report["remaining_aaa_blockers"])
         self.assertEqual(
             set(report["implemented_foundations"]),
             set(self.manifest["runtime_foundation"]),
@@ -45,6 +47,20 @@ class Phase1QualityTests(unittest.TestCase):
         report = audit_quality(manifest)
         self.assertEqual(report["status"], "fail")
         self.assertTrue(any("journey" in error for error in report["errors"]))
+
+    def test_playable_claim_requires_reference_replay(self) -> None:
+        manifest = copy.deepcopy(self.manifest)
+        manifest["slice"]["automated_reference_replay"] = False
+        report = audit_quality(manifest)
+        self.assertEqual(report["status"], "fail")
+        self.assertTrue(any("reference replay" in error for error in report["errors"]))
+
+    def test_unachieved_target_must_keep_blockers_visible(self) -> None:
+        manifest = copy.deepcopy(self.manifest)
+        manifest["remaining_aaa_blockers"] = []
+        report = audit_quality(manifest)
+        self.assertEqual(report["status"], "fail")
+        self.assertTrue(any("blockers" in error for error in report["errors"]))
 
 
 if __name__ == "__main__":
