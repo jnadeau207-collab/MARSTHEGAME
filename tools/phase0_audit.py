@@ -23,7 +23,7 @@ _REQUIRED_DOCUMENTS = (
     "docs/PHASE0_LEADERSHIP_AND_OWNERSHIP.md",
     "docs/VERTICAL_SLICE_TEAM_CHARTER.md",
     "docs/decisions/0001-phase0-foundation.md",
-    "docs/decisions/0002-content-keys-and-deterministic-replay.md",
+    "docs/decisions/0002-content-keys-and-input-replay.md",
     "docs/decisions/0003-same-runner-performance-guard.md",
     "docs/decisions/0004-phase0-operating-cell.md",
 )
