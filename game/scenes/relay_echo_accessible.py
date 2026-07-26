@@ -49,8 +49,7 @@ class AccessibleRelayEchoScene(RelayEchoScene):
             tuple(self.data["interactions"]["interaction_radius"])
         )
         return (
-            abs(self.player.x - point[0]) <= radius_x
-            and abs(self.player.y - point[1]) <= radius_y
+            abs(self.player.x - point[0]) <= radius_x and abs(self.player.y - point[1]) <= radius_y
         )
 
     def _persist_objective(

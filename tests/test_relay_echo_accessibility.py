@@ -11,12 +11,12 @@ import pygame
 
 from game.core.accessibility import normalize_accessibility, normalize_runtime_settings
 from game.core.input import InputManager
+from game.core.presentation import PresentationDirector
 from game.core.relay_echo_accessibility import (
     RELAY_ECHO_ACCESSIBILITY_REQUIREMENTS,
     relay_echo_accessibility_profile,
     validate_relay_echo_accessibility_profile,
 )
-from game.core.presentation import PresentationDirector
 from game.scenes.settings import SettingsScene
 from tools.relay_echo_accessibility_replay import run_replay
 
@@ -58,9 +58,7 @@ class RelayEchoAccessibilityTests(unittest.TestCase):
         normalized = normalize_accessibility({})
         profile = relay_echo_accessibility_profile({"accessibility": normalized})
         self.assertEqual(validate_relay_echo_accessibility_profile(profile), [])
-        self.assertTrue(
-            set(RELAY_ECHO_ACCESSIBILITY_REQUIREMENTS).issubset(profile.evidence())
-        )
+        self.assertTrue(set(RELAY_ECHO_ACCESSIBILITY_REQUIREMENTS).issubset(profile.evidence()))
 
     def test_reduced_motion_assist_and_contrast_are_derived(self) -> None:
         profile = relay_echo_accessibility_profile(
@@ -89,9 +87,7 @@ class RelayEchoAccessibilityTests(unittest.TestCase):
         manager = InputManager(initialize_joystick=False)
         manager.update_from_actions({"interact"})
         manager.update_from_actions({"interact"})
-        assisted = relay_echo_accessibility_profile(
-            {"accessibility": {"hold_assist": True}}
-        )
+        assisted = relay_echo_accessibility_profile({"accessibility": {"hold_assist": True}})
         standard = relay_echo_accessibility_profile({})
         self.assertFalse(manager.just_pressed("interact"))
         self.assertTrue(manager.is_held("interact"))

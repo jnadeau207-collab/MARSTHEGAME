@@ -212,9 +212,7 @@ def run_replay() -> dict[str, Any]:
 
     pygame.init()
     try:
-        standard = {
-            profile: _run_twice(profile, _STANDARD_SETTINGS) for profile in INPUT_PROFILES
-        }
+        standard = {profile: _run_twice(profile, _STANDARD_SETTINGS) for profile in INPUT_PROFILES}
         accessible = _run_twice(
             INPUT_PROFILE_GAMEPAD,
             _ACCESSIBLE_SETTINGS,
