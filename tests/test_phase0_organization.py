@@ -17,30 +17,41 @@ class Phase0OrganizationTests(unittest.TestCase):
     def test_committed_manifest_is_valid(self) -> None:
         report = validate_manifest(self.manifest)
         self.assertEqual(report["status"], "pass")
-        self.assertEqual(report["vertical_slice_seats"], 14)
-        self.assertEqual(report["human_headcount_claim"], 1)
+        self.assertEqual(report["human_count"], 1)
+        self.assertEqual(report["employee_count"], 0)
+        self.assertEqual(report["ai_collaborator_count"], 1)
 
-    def test_too_few_operating_seats_fails(self) -> None:
+    def test_fake_operating_seats_are_rejected(self) -> None:
         manifest = copy.deepcopy(self.manifest)
-        manifest["vertical_slice_seats"] = manifest["vertical_slice_seats"][:11]
-        manifest["truthfulness"]["functional_seat_count"] = 11
+        manifest["vertical_slice_seats"] = [{"seat_id": "fake-person"}]
         report = validate_manifest(manifest)
         self.assertEqual(report["status"], "fail")
-        self.assertTrue(any("12 to 20" in error for error in report["errors"]))
+        self.assertTrue(any("forbidden staffing" in error for error in report["errors"]))
 
-    def test_agent_lane_without_human_accountability_fails(self) -> None:
+    def test_extra_human_contributor_is_rejected(self) -> None:
         manifest = copy.deepcopy(self.manifest)
-        manifest["vertical_slice_seats"][2].pop("accountable_to")
+        manifest["truthfulness"]["other_human_contributor_count"] = 1
         report = validate_manifest(manifest)
         self.assertEqual(report["status"], "fail")
-        self.assertTrue(any("accountable" in error for error in report["errors"]))
+        self.assertTrue(
+            any("other_human_contributor_count" in error for error in report["errors"])
+        )
 
-    def test_human_headcount_cannot_be_inflated(self) -> None:
+    def test_ai_cannot_be_presented_as_employee(self) -> None:
         manifest = copy.deepcopy(self.manifest)
-        manifest["truthfulness"]["claimed_human_headcount"] = 14
+        manifest["ai_collaborator"]["employee"] = True
         report = validate_manifest(manifest)
         self.assertEqual(report["status"], "fail")
-        self.assertTrue(any("human headcount" in error for error in report["errors"]))
+        self.assertTrue(any("human or employee" in error for error in report["errors"]))
+
+    def test_ai_cannot_approve_merges(self) -> None:
+        manifest = copy.deepcopy(self.manifest)
+        manifest["ai_collaborator"]["prohibited_authority"].remove(
+            "merging without founder instruction"
+        )
+        report = validate_manifest(manifest)
+        self.assertEqual(report["status"], "fail")
+        self.assertTrue(any("authority" in error for error in report["errors"]))
 
 
 if __name__ == "__main__":
