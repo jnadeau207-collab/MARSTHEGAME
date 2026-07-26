@@ -63,10 +63,11 @@ jobs:
           --rounds 1
           --json-out build/performance-baseline.json
       - name: Upload Phase 0 evidence
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: phase0-evidence-${{ github.sha }}
           path: |
             build/classic-mode-replay.json
             build/performance-baseline.json
-          if-no-files-found: error
+          if-no-files-found: warn
