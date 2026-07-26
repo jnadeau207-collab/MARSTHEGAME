@@ -231,3 +231,26 @@ jobs:
           name: performance-guard-${{ github.sha }}
           path: evidence/*.json
           if-no-files-found: warn
+
+  phase2-audit-format-evidence:
+    name: Exact Phase 2 audit formatter evidence
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install pinned Ruff
+        run: python -m pip install -r requirements-dev.txt
+      - name: Format audit in evidence workspace
+        run: |
+          mkdir -p build/phase2-audit-format
+          cp tools/phase2_campaign_audit.py build/phase2-audit-format/before.py
+          ruff format tools/phase2_campaign_audit.py
+          cp tools/phase2_campaign_audit.py build/phase2-audit-format/phase2_campaign_audit.py
+          git diff -- tools/phase2_campaign_audit.py > build/phase2-audit-format/format.patch
+      - uses: actions/upload-artifact@v4
+        with:
+          name: phase2-audit-format-${{ github.sha }}
+          path: build/phase2-audit-format/
+          if-no-files-found: error
