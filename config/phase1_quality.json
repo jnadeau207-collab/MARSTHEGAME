@@ -21,7 +21,8 @@
     "deterministic_camera": "implemented",
     "presentation_director": "implemented",
     "procedural_audio_director": "implemented",
-    "fixed_step_simulation": "not_implemented",
+    "fixed_step_simulation": "implemented",
+    "frame_pacing_diagnostics": "implemented",
     "checkpoint_transactions": "not_implemented",
     "crash_diagnostics": "not_implemented"
   },
