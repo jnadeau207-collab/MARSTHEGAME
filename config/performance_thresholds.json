@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "policy_name": "github-hosted-same-runner-v1",
+  "minimum_rounds": 7,
+  "metrics": {
+    "setup_ms": {
+      "relative_floor": 0.35,
+      "absolute_floor_ms": 0.15,
+      "mad_multiplier": 8.0,
+      "aggregate_relative_limit": 0.18
+    },
+    "update_ms_per_frame": {
+      "relative_floor": 0.25,
+      "absolute_floor_ms": 0.02,
+      "mad_multiplier": 8.0,
+      "aggregate_relative_limit": 0.12
+    },
+    "draw_ms_per_frame": {
+      "relative_floor": 0.20,
+      "absolute_floor_ms": 0.50,
+      "mad_multiplier": 8.0,
+      "aggregate_relative_limit": 0.10
+    }
+  }
+}
