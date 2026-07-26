@@ -221,15 +221,16 @@ def audit_campaign(manifest: dict[str, Any]) -> dict[str, Any]:
     )
 
     carried = manifest.get("carried_release_gates", {})
+    parity_verified = manifest.get("relay_echo_accessibility_parity_verification") == "passed"
     record(
         "unresolved_release_gates_not_fabricated",
         carried.get("founder_direct_play_approval") is False
         and carried.get("external_playtests_run") == 0
         and carried.get("authored_final_assets_complete") is False
         and carried.get("packaged_build_soak_complete") is False
-        and carried.get("keyboard_gamepad_completion_parity") is False
-        and carried.get("accessibility_path_verified") is False,
-        carried,
+        and carried.get("keyboard_gamepad_completion_parity") is parity_verified
+        and carried.get("accessibility_path_verified") is parity_verified,
+        {"carried": carried, "parity_verified": parity_verified},
     )
 
     engine_source = (ROOT / "game/core/engine.py").read_text(encoding="utf-8")

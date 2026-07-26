@@ -77,15 +77,25 @@ def audit_relay_accessibility(
             "contracted_missions": manifest.get("contracted_missions"),
         },
     )
+    parity_verified = parity_verification == "passed"
+    verification_run = manifest.get("verification_run")
     record(
         "pending_release_gates_truthful",
-        carried.get("keyboard_gamepad_completion_parity") is False
-        and carried.get("accessibility_path_verified") is False
+        carried.get("keyboard_gamepad_completion_parity") is parity_verified
+        and carried.get("accessibility_path_verified") is parity_verified
         and carried.get("founder_direct_play_approval") is False
         and carried.get("external_playtests_run") == 0
         and carried.get("authored_final_assets_complete") is False
-        and carried.get("packaged_build_soak_complete") is False,
-        carried,
+        and carried.get("packaged_build_soak_complete") is False
+        and (
+            not parity_verified
+            or (isinstance(verification_run, str) and verification_run.isdigit())
+        ),
+        {
+            "carried": carried,
+            "parity_verified": parity_verified,
+            "verification_run": verification_run,
+        },
     )
 
     profile = relay_echo_accessibility_profile(
