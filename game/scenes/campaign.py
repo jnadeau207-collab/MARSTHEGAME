@@ -79,7 +79,9 @@ class CampaignScene(Scene):
             return
         self.engine.start_campaign_mission(mission_id)
 
-    def _mission_state(self, mission_id: str) -> tuple[str, tuple[int, int, int]]:
+    def _mission_state(
+        self, mission_id: str
+    ) -> tuple[str, tuple[int, int, int]]:
         campaign = CAMPAIGN_GRAPH.normalize_state(self.engine.save.campaign)
         completed = set(campaign["completed_missions"])
         unlocked = set(campaign["unlocked_missions"])
@@ -104,10 +106,13 @@ class CampaignScene(Scene):
             24,
         )
 
-        title = self.engine.font_xl.render("FRONTIER CAMPAIGN", True, Colors.WHITE)
+        title = self.engine.font_xl.render(
+            "FRONTIER CAMPAIGN", True, Colors.WHITE
+        )
         surface.blit(title, (70, 54))
         subtitle = self.engine.font_sm.render(
-            "Implemented missions are playable. Planned missions are never presented as finished.",
+            "Implemented missions are playable. Planned missions are never "
+            "presented as finished.",
             True,
             (145, 155, 175),
         )
@@ -121,14 +126,24 @@ class CampaignScene(Scene):
             panel = pygame.Surface((720, 72), pygame.SRCALPHA)
             panel.fill((8, 10, 18, 205 if selected else 150))
             border = Colors.ACCENT if selected else (55, 62, 80)
-            pygame.draw.rect(panel, border, panel.get_rect(), 2 if selected else 1, 6)
+            pygame.draw.rect(
+                panel,
+                border,
+                panel.get_rect(),
+                2 if selected else 1,
+                6,
+            )
             surface.blit(panel, (70, y))
 
             state, state_color = self._mission_state(mission_id)
             sequence = self.engine.font_sm.render(
-                f"MISSION {mission['sequence']:02d}", True, (115, 130, 155)
+                f"MISSION {mission['sequence']:02d}",
+                True,
+                (115, 130, 155),
             )
-            name = self.engine.font_md.render(mission["title"], True, Colors.WHITE)
+            name = self.engine.font_md.render(
+                mission["title"], True, Colors.WHITE
+            )
             location = self.engine.font_sm.render(
                 mission["location"], True, (155, 160, 175)
             )
@@ -141,7 +156,8 @@ class CampaignScene(Scene):
         campaign = CAMPAIGN_GRAPH.normalize_state(self.engine.save.campaign)
         progress = self.engine.font_sm.render(
             f"Campaign revision {campaign['revision']}  ·  "
-            f"Completed {len(campaign['completed_missions'])}/{len(self.mission_ids)}",
+            f"Completed {len(campaign['completed_missions'])}/"
+            f"{len(self.mission_ids)}",
             True,
             (130, 145, 165),
         )
@@ -154,12 +170,21 @@ class CampaignScene(Scene):
         surface.blit(footer, (74, SCREEN_HEIGHT - 46))
 
         if self.message_timer > 0 and self.message:
-            text = self.engine.font_md.render(self.message, True, Colors.GOLD)
+            text = self.engine.font_md.render(
+                self.message, True, Colors.GOLD
+            )
             background = pygame.Surface(
-                (text.get_width() + 32, text.get_height() + 18), pygame.SRCALPHA
+                (text.get_width() + 32, text.get_height() + 18),
+                pygame.SRCALPHA,
             )
             background.fill((0, 0, 0, 210))
-            pygame.draw.rect(background, Colors.GOLD, background.get_rect(), 1, 5)
+            pygame.draw.rect(
+                background,
+                Colors.GOLD,
+                background.get_rect(),
+                1,
+                5,
+            )
             x = SCREEN_WIDTH // 2 - background.get_width() // 2
             surface.blit(background, (x, SCREEN_HEIGHT - 135))
             surface.blit(text, (x + 16, SCREEN_HEIGHT - 126))
