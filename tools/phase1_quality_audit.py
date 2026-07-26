@@ -23,6 +23,7 @@ _REQUIRED_RUNTIME_FILES = {
     "game/core/audio.py",
     "game/core/camera.py",
     "game/core/presentation.py",
+    "game/core/timing.py",
 }
 _REQUIRED_GATES = {
     "classic_mode_compatibility",
