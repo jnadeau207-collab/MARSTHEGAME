@@ -166,10 +166,13 @@ class SaveData:
 
     def _load_result(self, result: CheckpointLoadResult) -> bool:
         state = self._validated_state(result.payload)
+        repaired_primary = result.repaired_primary
+        if result.source in {"backup", "backup_legacy"} and not repaired_primary:
+            repaired_primary = self.store.repair_primary_from_backup()
         self._apply_state(state)
         self.generation = result.generation
         self.last_load_source = result.source
-        self.repaired_primary = result.repaired_primary
+        self.repaired_primary = repaired_primary
         self.last_error = None
         return True
 
@@ -183,7 +186,7 @@ class SaveData:
                 if result.source not in {"primary", "legacy"}:
                     raise
                 try:
-                    backup = self.store.load_backup()
+                    backup = self.store.load_backup(repair_primary=False)
                     return self._load_result(backup)
                 except (CheckpointError, FileNotFoundError, OSError, ValueError) as backup_error:
                     raise ValueError(
