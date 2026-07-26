@@ -148,7 +148,14 @@ class TransactionalJsonStore:
             self.temp_path.unlink(missing_ok=True)
             return False
 
-    def load_backup(self, *, repair_primary: bool = True) -> CheckpointLoadResult:
+    def repair_primary_from_backup(self) -> bool:
+        """Promote the backup only after the caller validates its payload."""
+
+        if not self.backup_path.exists():
+            return False
+        return self._repair_from_backup()
+
+    def load_backup(self, *, repair_primary: bool = False) -> CheckpointLoadResult:
         if not self.backup_path.exists():
             raise FileNotFoundError(self.backup_path)
         backup = self._read(self.backup_path, "backup")
@@ -171,7 +178,7 @@ class TransactionalJsonStore:
 
         if self.backup_path.exists():
             try:
-                return self.load_backup()
+                return self.load_backup(repair_primary=False)
             except CheckpointError as backup_error:
                 if primary_error is not None:
                     raise CheckpointError(
