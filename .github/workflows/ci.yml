@@ -53,16 +53,20 @@ jobs:
           game/data/classic_replays.py
           game/data/content.py
           game/data/ip_tracks.py
+          game/data/phase1_slice.py
+          game/entities/mars_sentinel.py
           game/scenes/credits.py
           game/scenes/title.py
+          game/scenes/vertical_slice.py
           tools
           tests
-      - name: Formatting data catalog and replay tracks
+      - name: Formatting data and replay contracts
         run: >-
           ruff format --check
           game/data/classic_replays.py
           game/data/content.py
           game/data/ip_tracks.py
+          game/data/phase1_slice.py
       - name: Formatting core runtime
         run: >-
           ruff format --check
@@ -78,16 +82,18 @@ jobs:
           game/core/save.py
           game/core/settings.py
           game/core/timing.py
-      - name: Formatting identity-aware scenes
+      - name: Formatting Phase 1 gameplay and scenes
         run: >-
           ruff format --check
+          game/entities/mars_sentinel.py
           game/scenes/credits.py
           game/scenes/title.py
+          game/scenes/vertical_slice.py
       - name: Formatting replay and benchmark tools
         run: ruff format --check tools
       - name: Formatting regression tests
         run: ruff format --check tests
-      - name: Unit and Classic Mode regression tests
+      - name: Unit and regression tests
         run: python -m unittest discover -s tests -v
       - name: Validate founder + AI operating model
         run: >-
@@ -98,8 +104,8 @@ jobs:
       - name: Audit Phase 1 quality truth
         run: python -m tools.phase1_quality_audit --json-out build/phase1-quality.json
 
-  classic-mode-artifacts:
-    name: Classic Mode replay and Phase 1 evidence
+  phase-artifacts:
+    name: Classic Mode and Phase 1 replay evidence
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -109,8 +115,10 @@ jobs:
           cache: pip
       - name: Install dependencies
         run: python -m pip install --upgrade pip -r requirements.txt
-      - name: Replay all eight chapters
+      - name: Replay all eight Classic Mode chapters
         run: python -m tools.classic_mode_replay --json-out build/classic-mode-replay.json
+      - name: Replay the complete Phase 1 slice
+        run: python -m tools.phase1_slice_replay --json-out build/phase1-slice-replay.json
       - name: Capture performance evidence
         run: >-
           python -m tools.performance_baseline
@@ -134,6 +142,7 @@ jobs:
           name: phase-evidence-${{ github.sha }}
           path: |
             build/classic-mode-replay.json
+            build/phase1-slice-replay.json
             build/performance-baseline.json
             build/phase0-organization.json
             build/phase0-audit.json
