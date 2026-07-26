@@ -65,8 +65,10 @@ jobs:
           ruff format --check
           game/scenes/credits.py
           game/scenes/title.py
-      - name: Formatting replay and benchmark tools
-        run: ruff format --check tools
+      - name: Formatting Classic Mode replay tool
+        run: ruff format --check tools/classic_mode_replay.py
+      - name: Formatting performance baseline tool
+        run: ruff format --check tools/performance_baseline.py
       - name: Formatting regression tests
         run: ruff format --check tests
       - name: Unit and Classic Mode regression tests
