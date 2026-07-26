@@ -5,6 +5,8 @@ Global settings, constants, and configuration.
 import json
 from pathlib import Path
 
+from game.data.ip_tracks import get_identity
+
 # Paths
 ROOT = Path(__file__).resolve().parents[2]
 ASSETS = ROOT / "assets"
@@ -15,7 +17,8 @@ SETTINGS_PATH = ROOT / "settings.json"
 SCREEN_WIDTH = 1280
 SCREEN_HEIGHT = 720
 FPS = 60
-TITLE = "STARMAN: An Elon Odyssey"
+IDENTITY = get_identity()
+TITLE = IDENTITY["game_title"]
 
 # Physics / feel — tuned for readable jumps + Starship climb
 GRAVITY = 0.58
