@@ -33,13 +33,19 @@ _REQUIRED_FILES = {
     "game/core/save.py",
     "game/data/campaign.py",
     "game/data/relay_echo.py",
+    "game/data/relay_echo_candidate.py",
     "game/scenes/campaign.py",
+    "game/scenes/relay_echo.py",
     "game/scenes/vertical_slice.py",
     "tools/phase2_campaign_audit.py",
+    "tools/relay_echo_candidate_audit.py",
+    "tools/relay_echo_replay.py",
     "tools/relay_echo_runtime_audit.py",
     "tests/test_campaign.py",
     "tests/test_campaign_save.py",
     "tests/test_phase2_campaign_audit.py",
+    "tests/test_relay_echo_candidate.py",
+    "tests/test_relay_echo_candidate_audit.py",
     "tests/test_relay_echo_contract.py",
     "tests/test_relay_echo_runtime_audit.py",
     "tests/test_relay_echo_save.py",
@@ -112,6 +118,11 @@ def audit_campaign(manifest: dict[str, Any]) -> dict[str, Any]:
     relay_mission = CAMPAIGN_GRAPH.mission(RELAY_ECHO_MISSION_ID)
     relay_contract_errors = validate_relay_echo_contract()
     tranche = manifest.get("current_tranche")
+    allowed_tranches = {
+        "relay_echo_contract",
+        "relay_echo_runtime_state",
+        "relay_echo_playable_candidate",
+    }
     contract_verification = manifest.get("relay_echo_contract_verification")
     contract_verification_valid = (
         contract_verification in {"pending", "passed"}
@@ -130,7 +141,7 @@ def audit_campaign(manifest: dict[str, Any]) -> dict[str, Any]:
     }
     record(
         "relay_echo_contract_truth",
-        tranche in {"relay_echo_contract", "relay_echo_runtime_state"}
+        tranche in allowed_tranches
         and manifest.get("contracted_missions") == [RELAY_ECHO_MISSION_ID]
         and contract_verification_valid
         and relay_mission.get("contract") == RELAY_ECHO_MISSION_ID
@@ -150,7 +161,9 @@ def audit_campaign(manifest: dict[str, Any]) -> dict[str, Any]:
                     f"implemented mission {mission['id']} has unsupported entrypoint {entrypoint!r}"
                 )
         elif entrypoint is not None:
-            route_errors.append(f"planned mission {mission['id']} claims entrypoint {entrypoint!r}")
+            route_errors.append(
+                f"planned mission {mission['id']} claims entrypoint {entrypoint!r}"
+            )
     record("runtime_routes_truthful", not route_errors, route_errors)
 
     record(
@@ -241,9 +254,10 @@ def audit_campaign(manifest: dict[str, Any]) -> dict[str, Any]:
         "failures": failures,
         "truthfulness_note": (
             "Phase 2 has one implemented campaign mission, one verified non-playable "
-            "mission contract, and an in-progress transactional mission-state tranche. "
-            "Planned missions remain non-playable, and full-campaign and AAA-quality "
-            "claims remain unachieved."
+            "mission contract, a verified transactional mission-state model, and an "
+            "in-progress playable candidate. Relay Echo remains planned and unavailable "
+            "through campaign routing; full-campaign and AAA-quality claims remain "
+            "unachieved."
         ),
     }
 
