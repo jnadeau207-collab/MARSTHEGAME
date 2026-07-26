@@ -66,9 +66,7 @@ class AudioDirector:
             return math.sin(phase) * (1.0 if int(progress * 12) % 2 == 0 else 0.35)
         if waveform == "chord":
             return (
-                math.sin(phase)
-                + 0.65 * math.sin(phase * 1.25)
-                + 0.45 * math.sin(phase * 1.5)
+                math.sin(phase) + 0.65 * math.sin(phase * 1.25) + 0.45 * math.sin(phase * 1.5)
             ) / 2.1
         return math.sin(phase)
 
