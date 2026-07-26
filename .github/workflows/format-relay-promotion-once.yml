@@ -1,0 +1,59 @@
+name: Format Relay Echo promotion once
+
+on:
+  push:
+    branches: [agent/phase2-relay-echo-promotion]
+    paths: [.github/workflows/format-relay-promotion-once.yml]
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/phase2-relay-echo-promotion
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Apply pinned Ruff
+        run: |
+          python -m pip install ruff==0.16.0
+          files=(
+            game/core/engine.py
+            game/core/relay_echo_promotion.py
+            game/data/campaign.py
+            game/data/relay_echo.py
+            game/scenes/campaign.py
+            game/scenes/relay_echo_promoted.py
+            tests/test_campaign.py
+            tests/test_phase2_campaign_audit.py
+            tests/test_relay_echo_accessibility_audit.py
+            tests/test_relay_echo_candidate.py
+            tests/test_relay_echo_candidate_audit.py
+            tests/test_relay_echo_contract.py
+            tests/test_relay_echo_promotion.py
+            tests/test_relay_echo_promotion_audit.py
+            tests/test_relay_echo_promotion_replay.py
+            tests/test_relay_echo_runtime_audit.py
+            tools/phase2_campaign_audit.py
+            tools/relay_echo_accessibility_audit.py
+            tools/relay_echo_candidate_audit.py
+            tools/relay_echo_promotion_audit.py
+            tools/relay_echo_promotion_replay.py
+            tools/relay_echo_runtime_audit.py
+          )
+          ruff check --fix "${files[@]}"
+          ruff format "${files[@]}"
+      - name: Commit production tree and remove helper
+        env:
+          BRANCH: agent/phase2-relay-echo-promotion
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git rm .github/workflows/format-relay-promotion-once.yml
+          git add game tools tests
+          git commit -m "Format Relay Echo campaign promotion" || exit 0
+          git push origin "HEAD:${BRANCH}"
