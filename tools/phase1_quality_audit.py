@@ -86,9 +86,7 @@ def audit_quality(manifest: dict[str, Any]) -> dict[str, Any]:
     )
     if missing_runtime:
         errors.append(f"runtime foundation files are missing: {missing_runtime}")
-    missing_slice = sorted(
-        path for path in _REQUIRED_SLICE_FILES if not (ROOT / path).is_file()
-    )
+    missing_slice = sorted(path for path in _REQUIRED_SLICE_FILES if not (ROOT / path).is_file())
     if missing_slice:
         errors.append(f"playable slice files are missing: {missing_slice}")
 
