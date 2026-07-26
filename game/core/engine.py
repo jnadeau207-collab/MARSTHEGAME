@@ -1,4 +1,4 @@
-"""Main engine: scene stack, game loop, global systems."""
+"""Main engine: scene stack, fixed-step loop, and global systems."""
 
 import sys
 
@@ -11,6 +11,7 @@ from game.core.particles import ParticleSystem
 from game.core.presentation import PresentationDirector
 from game.core.save import SaveData
 from game.core.settings import FPS, SCREEN_HEIGHT, SCREEN_WIDTH, TITLE, load_settings, save_settings
+from game.core.timing import FixedStepScheduler
 from game.scenes.chapter_select import ChapterSelectScene
 from game.scenes.credits import CreditsScene
 from game.scenes.level import LevelScene
@@ -33,6 +34,9 @@ class Engine:
         self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), flags)
         pygame.display.set_caption(TITLE)
         self.clock = pygame.time.Clock()
+        self.timing = FixedStepScheduler(simulation_hz=FPS)
+        self.frame_plan = self.timing.plan(0.0)
+        self.render_alpha = 0.0
         self.running = True
         self.input = InputManager(self.settings.get("keys"))
         self.save = SaveData()
@@ -75,10 +79,24 @@ class Engine:
         scaled = self.presentation.hit_stop_frames(frames)
         self.hit_stop = max(self.hit_stop, scaled)
 
+    def _simulate_step(self) -> None:
+        self.input.begin_simulation_step()
+        try:
+            if self.hit_stop > 0:
+                self.hit_stop -= 1
+                return
+            scene = self.current()
+            if scene:
+                scene.update(1.0)
+            self.particles.update()
+        finally:
+            self.input.end_simulation_step()
+
     def run(self):
         while self.running:
-            raw_dt = self.clock.tick(FPS) / 1000.0
-            self.dt = min(raw_dt * 60.0, 2.0)
+            elapsed_seconds = self.clock.tick(FPS) / 1000.0
+            self.frame_plan = self.timing.plan(elapsed_seconds)
+            self.render_alpha = self.frame_plan.interpolation_alpha
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -89,23 +107,18 @@ class Engine:
                 if scene:
                     scene.handle_event(event)
 
-            self.input.update()
-
-            if self.hit_stop > 0:
-                self.hit_stop -= 1
-            else:
-                scene = self.current()
-                if scene:
-                    scene.update(self.dt)
-                self.particles.update()
+            self.input.poll_hardware_frame()
+            for _ in range(self.frame_plan.simulation_steps):
+                self._simulate_step()
 
             scene = self.current()
+            render_dt = min(self.frame_plan.accepted_seconds * FPS, 4.0)
             self.audio.refresh_settings(self.settings)
             self.presentation.refresh_settings(self.settings)
             self.audio.observe(scene)
             self.presentation.observe(scene)
-            self.audio.update(self.dt)
-            self.presentation.update(self.dt)
+            self.audio.update(render_dt)
+            self.presentation.update(render_dt)
 
             self.screen.fill((8, 8, 12))
             if scene:
@@ -113,8 +126,14 @@ class Engine:
             self.presentation.draw(self.screen)
 
             if self.settings.get("show_fps"):
-                fps_txt = self.font_sm.render(f"{int(self.clock.get_fps())}", True, (180, 180, 180))
-                self.screen.blit(fps_txt, (SCREEN_WIDTH - 40, 8))
+                pacing = self.timing.monitor.snapshot()
+                text = (
+                    f"{int(self.clock.get_fps())} FPS  "
+                    f"p95 {pacing['p95_ms']:.1f} ms  "
+                    f"hitches {pacing['hitch_count']}"
+                )
+                fps_txt = self.font_sm.render(text, True, (180, 180, 180))
+                self.screen.blit(fps_txt, (SCREEN_WIDTH - fps_txt.get_width() - 8, 8))
 
             pygame.display.flip()
 
