@@ -23,8 +23,8 @@
     "procedural_audio_director": "implemented",
     "fixed_step_simulation": "implemented",
     "frame_pacing_diagnostics": "implemented",
-    "checkpoint_transactions": "not_implemented",
-    "crash_diagnostics": "not_implemented"
+    "checkpoint_transactions": "implemented",
+    "crash_diagnostics": "implemented"
   },
   "quality_gates": {
     "classic_mode_compatibility": "required",
