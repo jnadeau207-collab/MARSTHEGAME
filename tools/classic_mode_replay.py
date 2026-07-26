@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import random
 from pathlib import Path
 from typing import Any
 
@@ -124,11 +125,14 @@ def _player_signature(scene: LevelScene) -> dict[str, Any]:
         "parts": player.parts,
         "terminals_activated": sorted(scene.terminals_activated),
         "living_enemies": sum(enemy.alive for enemy in scene.enemies),
-        "remaining_collectibles": sum(not collectible.collected for collectible in scene.collectibles),
+        "remaining_collectibles": sum(
+            collectible.alive for collectible in scene.collectibles
+        ),
     }
 
 
 def _run_recorded_input_track(chapter_id: int) -> dict[str, Any]:
+    random.seed(chapter_id * 104_729)
     engine = ReplayEngine()
     scene = LevelScene(engine, chapter_id)
     scene.on_enter()
