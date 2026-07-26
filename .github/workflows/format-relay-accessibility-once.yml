@@ -1,0 +1,53 @@
+name: Format Relay Echo accessibility once
+
+on:
+  push:
+    branches: [agent/phase2-relay-echo-accessibility-parity]
+    paths: [.github/workflows/format-relay-accessibility-once.yml]
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/phase2-relay-echo-accessibility-parity
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Apply pinned Ruff
+        run: |
+          python -m pip install ruff==0.16.0
+          files=(
+            game/core/accessibility.py
+            game/core/engine.py
+            game/core/input.py
+            game/core/input_profiles.py
+            game/core/relay_echo_accessibility.py
+            game/scenes/relay_echo_accessible.py
+            game/scenes/settings.py
+            game/scenes/title.py
+            tools/phase2_campaign_audit.py
+            tools/relay_echo_accessibility_audit.py
+            tools/relay_echo_accessibility_replay.py
+            tools/relay_echo_candidate_audit.py
+            tools/relay_echo_runtime_audit.py
+            tests/test_input_profiles.py
+            tests/test_relay_echo_accessibility.py
+            tests/test_relay_echo_accessibility_audit.py
+          )
+          ruff check --fix "${files[@]}"
+          ruff format "${files[@]}"
+      - name: Commit production tree and remove helper
+        env:
+          BRANCH: agent/phase2-relay-echo-accessibility-parity
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git rm .github/workflows/format-relay-accessibility-once.yml
+          git add game tools tests
+          git commit -m "Format Relay Echo accessibility parity" || exit 0
+          git push origin "HEAD:${BRANCH}"
