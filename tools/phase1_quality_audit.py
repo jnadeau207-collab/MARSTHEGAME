@@ -29,6 +29,13 @@ _REQUIRED_RUNTIME_FILES = {
     "game/core/save.py",
     "game/core/timing.py",
 }
+_REQUIRED_SLICE_FILES = {
+    "game/data/phase1_slice.py",
+    "game/entities/mars_sentinel.py",
+    "game/scenes/vertical_slice.py",
+    "tools/phase1_slice_replay.py",
+    "tests/test_phase1_slice.py",
+}
 _REQUIRED_GATES = {
     "classic_mode_compatibility",
     "deterministic_slice_replay",
@@ -62,14 +69,28 @@ def audit_quality(manifest: dict[str, Any]) -> dict[str, Any]:
     if missing_journey:
         errors.append(f"slice journey is incomplete: {missing_journey}")
 
+    playable = slice_data.get("playable_start_to_finish")
+    replayed = slice_data.get("automated_reference_replay")
+    if playable is not True:
+        errors.append("Phase 1 slice must be recorded as playable start to finish")
+    if replayed is not True:
+        errors.append("Phase 1 slice must have an automated reference replay")
+
     gates = set(manifest.get("quality_gates", {}))
     missing_gates = sorted(_REQUIRED_GATES.difference(gates))
     if missing_gates:
         errors.append(f"quality gates are incomplete: {missing_gates}")
 
-    missing_files = sorted(path for path in _REQUIRED_RUNTIME_FILES if not (ROOT / path).is_file())
-    if missing_files:
-        errors.append(f"runtime foundation files are missing: {missing_files}")
+    missing_runtime = sorted(
+        path for path in _REQUIRED_RUNTIME_FILES if not (ROOT / path).is_file()
+    )
+    if missing_runtime:
+        errors.append(f"runtime foundation files are missing: {missing_runtime}")
+    missing_slice = sorted(
+        path for path in _REQUIRED_SLICE_FILES if not (ROOT / path).is_file()
+    )
+    if missing_slice:
+        errors.append(f"playable slice files are missing: {missing_slice}")
 
     evidence = manifest.get("external_evidence", {})
     playtests_run = evidence.get("playtests_run")
@@ -86,6 +107,10 @@ def audit_quality(manifest: dict[str, Any]) -> dict[str, Any]:
     elif manifest.get("aaa_claim") == "target_not_achieved":
         errors.append("existing playtest evidence must move the claim to candidate review")
 
+    blockers = manifest.get("remaining_aaa_blockers", [])
+    if manifest.get("aaa_claim") == "target_not_achieved" and not blockers:
+        errors.append("an unachieved AAA target must enumerate its remaining blockers")
+
     runtime = manifest.get("runtime_foundation", {})
     implemented = sorted(key for key, value in runtime.items() if value == "implemented")
     pending = sorted(key for key, value in runtime.items() if value != "implemented")
@@ -95,9 +120,11 @@ def audit_quality(manifest: dict[str, Any]) -> dict[str, Any]:
         "phase": "Phase 1",
         "status": "pass" if not errors else "fail",
         "aaa_claim": manifest.get("aaa_claim"),
-        "playable_start_to_finish": bool(slice_data.get("playable_start_to_finish")),
+        "playable_start_to_finish": playable is True,
+        "automated_reference_replay": replayed is True,
         "implemented_foundations": implemented,
         "pending_foundations": pending,
+        "remaining_aaa_blockers": list(blockers),
         "errors": errors,
     }
 
