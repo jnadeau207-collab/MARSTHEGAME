@@ -4,7 +4,7 @@ import copy
 import unittest
 
 from game.core.campaign import CAMPAIGN_GRAPH
-from game.data.campaign import MISSION_STATUS_PLANNED
+from game.data.campaign import MISSION_STATUS_IMPLEMENTED
 from game.data.relay_echo import (
     RELAY_ECHO_CONTRACT,
     RELAY_ECHO_LIFECYCLE,
@@ -21,22 +21,22 @@ class RelayEchoContractTests(unittest.TestCase):
         copied["objectives"][0]["state"] = "corrupt"
         self.assertEqual(RELAY_ECHO_CONTRACT["objectives"][0]["state"], "insertion")
 
-    def test_campaign_catalog_references_contract_without_claiming_runtime(self) -> None:
+    def test_campaign_catalog_references_implemented_contract(self) -> None:
         mission = CAMPAIGN_GRAPH.mission(RELAY_ECHO_MISSION_ID)
-        self.assertEqual(mission["status"], MISSION_STATUS_PLANNED)
-        self.assertIsNone(mission["entrypoint"])
+        self.assertEqual(mission["status"], MISSION_STATUS_IMPLEMENTED)
+        self.assertEqual(mission["entrypoint"], "relay_echo")
         self.assertEqual(mission["contract"], RELAY_ECHO_MISSION_ID)
-        self.assertNotIn(
+        self.assertIn(
             RELAY_ECHO_MISSION_ID,
             CAMPAIGN_GRAPH.playable_mission_ids(("ares_reach",)),
         )
 
-    def test_lifecycle_cannot_claim_playable_content(self) -> None:
+    def test_lifecycle_must_match_promoted_content(self) -> None:
         data = relay_echo_contract()
-        data["lifecycle"] = "implemented"
+        data["lifecycle"] = "contracted_not_playable"
         errors = validate_relay_echo_contract(data)
-        self.assertTrue(any("non-playable" in error for error in errors))
-        self.assertEqual(RELAY_ECHO_LIFECYCLE, "contracted_not_playable")
+        self.assertTrue(any("lifecycle" in error for error in errors))
+        self.assertEqual(RELAY_ECHO_LIFECYCLE, "implemented_playable")
 
     def test_duplicate_objective_ids_fail_closed(self) -> None:
         data = relay_echo_contract()

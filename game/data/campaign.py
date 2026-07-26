@@ -38,13 +38,14 @@ CAMPAIGN_MISSIONS: Final = (
         "sequence": 2,
         "title": "Relay Echo",
         "location": "Mars — Noctis Relay",
-        "status": MISSION_STATUS_PLANNED,
-        "entrypoint": None,
+        "status": MISSION_STATUS_IMPLEMENTED,
+        "entrypoint": "relay_echo",
         "contract": "relay_echo",
         "prerequisites": ("ares_reach",),
         "design_pillars": (
             "player_agency_through_mastery",
             "procedural_authored_hybrid",
+            "accessibility_first_feel",
         ),
     },
     {

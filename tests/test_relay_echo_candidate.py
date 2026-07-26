@@ -33,7 +33,7 @@ class RelayEchoCandidateDataTests(unittest.TestCase):
         ]
         self.assertEqual(candidate_objectives, contract_objectives)
 
-    def test_candidate_cannot_claim_campaign_promotion(self) -> None:
+    def test_candidate_data_cannot_claim_campaign_promotion(self) -> None:
         data = relay_echo_candidate()
         data["candidate_status"] = "implemented"
         errors = validate_relay_echo_candidate(data)
@@ -51,14 +51,15 @@ class RelayEchoCandidateDataTests(unittest.TestCase):
         errors = validate_relay_echo_candidate(data)
         self.assertTrue(any("exactly three" in error for error in errors))
 
-    def test_campaign_catalog_still_hides_candidate(self) -> None:
+    def test_campaign_catalog_promotes_wrapper_not_candidate_data(self) -> None:
         mission = CAMPAIGN_GRAPH.mission("relay_echo")
-        self.assertEqual(mission["status"], "planned")
-        self.assertIsNone(mission["entrypoint"])
-        self.assertNotIn(
+        self.assertEqual(mission["status"], "implemented")
+        self.assertEqual(mission["entrypoint"], "relay_echo")
+        self.assertIn(
             "relay_echo",
             CAMPAIGN_GRAPH.playable_mission_ids(("ares_reach",)),
         )
+        self.assertEqual(RELAY_ECHO_CANDIDATE["candidate_status"], "playable_not_promoted")
 
 
 class RelayEchoCandidateReplayTests(unittest.TestCase):

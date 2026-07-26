@@ -19,16 +19,16 @@ class RelayEchoRuntimeAuditTests(unittest.TestCase):
         self.assertEqual(report["status"], "pass")
         self.assertEqual(report["tranche"], "relay_echo_runtime_state")
 
-    def test_runtime_tranche_must_remain_in_progress(self) -> None:
+    def test_phase_must_remain_in_progress(self) -> None:
         manifest = copy.deepcopy(self.manifest)
         manifest["status"] = "complete"
         report = audit_relay_runtime(manifest)
         self.assertEqual(report["status"], "fail")
         self.assertIn("manifest_truth", report["failures"])
 
-    def test_relay_echo_cannot_be_fabricated_as_implemented(self) -> None:
+    def test_relay_echo_implementation_cannot_be_removed(self) -> None:
         manifest = copy.deepcopy(self.manifest)
-        manifest["implemented_missions"].append("relay_echo")
+        manifest["implemented_missions"] = ["ares_reach"]
         report = audit_relay_runtime(manifest)
         self.assertEqual(report["status"], "fail")
         self.assertIn("manifest_truth", report["failures"])
@@ -36,6 +36,13 @@ class RelayEchoRuntimeAuditTests(unittest.TestCase):
     def test_runtime_verification_state_is_bounded(self) -> None:
         manifest = copy.deepcopy(self.manifest)
         manifest["relay_echo_runtime_state_verification"] = "claimed_complete"
+        report = audit_relay_runtime(manifest)
+        self.assertEqual(report["status"], "fail")
+        self.assertIn("manifest_truth", report["failures"])
+
+    def test_unknown_current_tranche_fails(self) -> None:
+        manifest = copy.deepcopy(self.manifest)
+        manifest["current_tranche"] = "relay_echo_replay_reset"
         report = audit_relay_runtime(manifest)
         self.assertEqual(report["status"], "fail")
         self.assertIn("manifest_truth", report["failures"])

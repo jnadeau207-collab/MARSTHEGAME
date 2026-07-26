@@ -104,7 +104,7 @@ class RelayEchoSaveTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "requires completed Ares Reach"):
             save.from_dict(corrupt)
 
-    def test_completion_eligibility_does_not_complete_planned_campaign_node(self) -> None:
+    def test_runtime_completion_does_not_mutate_campaign_automatically(self) -> None:
         save = self.make_save()
         self.unlock_relay(save)
         save.prepare_relay_echo_attempt()
@@ -112,8 +112,11 @@ class RelayEchoSaveTests(unittest.TestCase):
         self.assertTrue(save.relay_echo["completion_eligible"])
         self.assertNotIn("relay_echo", save.campaign["completed_missions"])
         self.assertNotIn("phobos_vector", save.campaign["unlocked_missions"])
-        with self.assertRaisesRegex(ValueError, "not currently playable"):
-            save.complete_campaign_mission("relay_echo")
+
+        transition = save.complete_campaign_mission("relay_echo")
+        self.assertEqual(transition["event"], "mission_completed")
+        self.assertIn("relay_echo", save.campaign["completed_missions"])
+        self.assertIn("phobos_vector", save.campaign["unlocked_missions"])
 
     def test_reset_restores_relay_runtime_default(self) -> None:
         save = self.make_save()

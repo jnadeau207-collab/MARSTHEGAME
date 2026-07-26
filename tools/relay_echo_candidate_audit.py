@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Audit the Relay Echo playable candidate without promoting campaign truth."""
+"""Audit the verified Relay Echo playable-candidate layer after promotion."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from game.core.campaign import CAMPAIGN_GRAPH
-from game.data.campaign import MISSION_STATUS_PLANNED
+from game.data.campaign import MISSION_STATUS_IMPLEMENTED
 from game.data.levels import LEVELS
 from game.data.relay_echo import RELAY_ECHO_MISSION_ID
 from game.data.relay_echo_candidate import (
@@ -22,6 +22,7 @@ _REQUIRED_FILES = {
     "game/data/relay_echo_candidate.py",
     "game/scenes/relay_echo.py",
     "game/scenes/relay_echo_accessible.py",
+    "game/scenes/relay_echo_promoted.py",
     "tools/relay_echo_candidate_audit.py",
     "tools/relay_echo_replay.py",
     "tests/test_relay_echo_candidate.py",
@@ -45,34 +46,20 @@ def audit_relay_candidate(manifest: dict[str, Any]) -> dict[str, Any]:
             }
         )
 
-    tranche = manifest.get("current_tranche")
-    candidate_verification = manifest.get("relay_echo_playable_candidate_verification")
-    candidate_verification_valid = (
-        candidate_verification in {"pending", "passed"}
-        if tranche == "relay_echo_playable_candidate"
-        else candidate_verification == "passed"
-    )
     record(
         "manifest_truth",
         manifest.get("phase") == "Phase 2"
         and manifest.get("status") == "in_progress"
-        and tranche
-        in {
-            "relay_echo_playable_candidate",
-            "relay_echo_accessibility_parity",
-        }
+        and manifest.get("current_tranche") == "relay_echo_campaign_promotion"
         and manifest.get("relay_echo_contract_verification") == "passed"
         and manifest.get("relay_echo_runtime_state_verification") == "passed"
-        and candidate_verification_valid
-        and manifest.get("implemented_missions") == ["ares_reach"]
-        and manifest.get("contracted_missions") == [RELAY_ECHO_MISSION_ID]
-        and manifest.get("full_campaign_claim") == "not_achieved"
-        and manifest.get("aaa_claim") == "target_not_achieved",
+        and manifest.get("relay_echo_playable_candidate_verification") == "passed"
+        and manifest.get("relay_echo_accessibility_parity_verification") == "passed"
+        and manifest.get("relay_echo_campaign_promotion_verification") in {"pending", "passed"}
+        and manifest.get("implemented_missions") == ["ares_reach", "relay_echo"]
+        and manifest.get("contracted_missions") == [RELAY_ECHO_MISSION_ID],
         {
-            "current_tranche": tranche,
-            "contract_verification": manifest.get("relay_echo_contract_verification"),
-            "runtime_verification": manifest.get("relay_echo_runtime_state_verification"),
-            "candidate_verification": candidate_verification,
+            "current_tranche": manifest.get("current_tranche"),
             "implemented_missions": manifest.get("implemented_missions"),
         },
     )
@@ -90,44 +77,37 @@ def audit_relay_candidate(manifest: dict[str, Any]) -> dict[str, Any]:
 
     mission = CAMPAIGN_GRAPH.mission(RELAY_ECHO_MISSION_ID)
     engine_source = (ROOT / "game/core/engine.py").read_text(encoding="utf-8")
-    campaign_scene_source = (ROOT / "game/scenes/campaign.py").read_text(encoding="utf-8")
+    promoted_source = (ROOT / "game/scenes/relay_echo_promoted.py").read_text(encoding="utf-8")
     record(
-        "candidate_not_promoted",
-        mission["status"] == MISSION_STATUS_PLANNED
-        and mission["entrypoint"] is None
-        and RELAY_ECHO_MISSION_ID not in CAMPAIGN_GRAPH.playable_mission_ids(("ares_reach",))
-        and "RelayEchoScene" not in engine_source
-        and "AccessibleRelayEchoScene" not in engine_source
-        and "relay_echo_playable_candidate" not in engine_source
-        and "PLAYABLE_CANDIDATE" not in campaign_scene_source,
+        "candidate_promoted_through_wrapper",
+        mission["status"] == MISSION_STATUS_IMPLEMENTED
+        and mission["entrypoint"] == "relay_echo"
+        and RELAY_ECHO_MISSION_ID in CAMPAIGN_GRAPH.playable_mission_ids(("ares_reach",))
+        and "from game.scenes.relay_echo_promoted import PromotedRelayEchoScene" in engine_source
+        and "AccessibleRelayEchoScene" in promoted_source
+        and "complete_relay_echo_campaign" in promoted_source,
         {
             "catalog_status": mission["status"],
             "entrypoint": mission["entrypoint"],
             "playable_after_ares": CAMPAIGN_GRAPH.playable_mission_ids(("ares_reach",)),
-            "engine_imports_candidate": "RelayEchoScene" in engine_source,
-            "engine_imports_accessible_candidate": "AccessibleRelayEchoScene" in engine_source,
+            "promoted_wrapper_routed": "PromotedRelayEchoScene" in engine_source,
         },
     )
 
     missing_files = sorted(path for path in _REQUIRED_FILES if not (ROOT / path).is_file())
     record("required_files_present", not missing_files, missing_files)
-    record(
-        "classic_mode_preserved",
-        sorted(LEVELS) == list(range(1, 9)),
-        sorted(LEVELS),
-    )
+    record("classic_mode_preserved", sorted(LEVELS) == list(range(1, 9)), sorted(LEVELS))
 
     carried = manifest.get("carried_release_gates", {})
-    parity_verified = manifest.get("relay_echo_accessibility_parity_verification") == "passed"
     record(
-        "unresolved_evidence_not_fabricated",
-        carried.get("founder_direct_play_approval") is False
+        "release_evidence_truthful",
+        carried.get("keyboard_gamepad_completion_parity") is True
+        and carried.get("accessibility_path_verified") is True
+        and carried.get("founder_direct_play_approval") is False
         and carried.get("external_playtests_run") == 0
         and carried.get("authored_final_assets_complete") is False
-        and carried.get("packaged_build_soak_complete") is False
-        and carried.get("keyboard_gamepad_completion_parity") is parity_verified
-        and carried.get("accessibility_path_verified") is parity_verified,
-        {"carried": carried, "parity_verified": parity_verified},
+        and carried.get("packaged_build_soak_complete") is False,
+        carried,
     )
 
     failures = [check["check_id"] for check in checks if check["status"] != "pass"]
@@ -139,9 +119,8 @@ def audit_relay_candidate(manifest: dict[str, Any]) -> dict[str, Any]:
         "checks": checks,
         "failures": failures,
         "truthfulness_note": (
-            "Relay Echo has a verified complete playable candidate and deterministic replay, "
-            "but remains planned and unavailable through campaign routing. Accessibility and "
-            "input parity evidence do not promote the campaign node."
+            "The verified Relay Echo candidate remains the gameplay base of the promoted "
+            "mission. Campaign mutation is confined to the promoted wrapper and transaction layer."
         ),
     }
 

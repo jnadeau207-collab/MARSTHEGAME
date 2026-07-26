@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Audit the truthful Phase 2 campaign foundation against executable evidence."""
+"""Audit truthful Phase 2 campaign architecture and current promotion state."""
 
 from __future__ import annotations
 
@@ -26,12 +26,13 @@ from game.data.relay_echo import (
 )
 
 ROOT = Path(__file__).resolve().parents[1]
-_SUPPORTED_ENTRYPOINTS = {"vertical_slice"}
+_SUPPORTED_ENTRYPOINTS = {"vertical_slice", "relay_echo"}
 _REQUIRED_FILES = {
     "game/core/accessibility.py",
     "game/core/campaign.py",
     "game/core/input_profiles.py",
     "game/core/relay_echo_accessibility.py",
+    "game/core/relay_echo_promotion.py",
     "game/core/relay_echo_state.py",
     "game/core/save.py",
     "game/data/campaign.py",
@@ -40,25 +41,19 @@ _REQUIRED_FILES = {
     "game/scenes/campaign.py",
     "game/scenes/relay_echo.py",
     "game/scenes/relay_echo_accessible.py",
+    "game/scenes/relay_echo_promoted.py",
     "game/scenes/settings.py",
     "game/scenes/vertical_slice.py",
     "tools/phase2_campaign_audit.py",
     "tools/relay_echo_accessibility_audit.py",
-    "tools/relay_echo_accessibility_replay.py",
     "tools/relay_echo_candidate_audit.py",
-    "tools/relay_echo_replay.py",
+    "tools/relay_echo_promotion_audit.py",
+    "tools/relay_echo_promotion_replay.py",
     "tools/relay_echo_runtime_audit.py",
-    "tests/test_campaign.py",
-    "tests/test_campaign_save.py",
-    "tests/test_input_profiles.py",
     "tests/test_phase2_campaign_audit.py",
-    "tests/test_relay_echo_accessibility.py",
-    "tests/test_relay_echo_candidate.py",
-    "tests/test_relay_echo_candidate_audit.py",
-    "tests/test_relay_echo_contract.py",
-    "tests/test_relay_echo_runtime_audit.py",
-    "tests/test_relay_echo_save.py",
-    "tests/test_relay_echo_state.py",
+    "tests/test_relay_echo_promotion.py",
+    "tests/test_relay_echo_promotion_audit.py",
+    "tests/test_relay_echo_promotion_replay.py",
 }
 
 
@@ -124,45 +119,36 @@ def audit_campaign(manifest: dict[str, Any]) -> dict[str, Any]:
         },
     )
 
-    relay_mission = CAMPAIGN_GRAPH.mission(RELAY_ECHO_MISSION_ID)
-    relay_contract_errors = validate_relay_echo_contract()
-    tranche = manifest.get("current_tranche")
-    allowed_tranches = {
-        "relay_echo_contract",
-        "relay_echo_runtime_state",
-        "relay_echo_playable_candidate",
-        "relay_echo_accessibility_parity",
-    }
-    contract_verification = manifest.get("relay_echo_contract_verification")
-    contract_verification_valid = (
-        contract_verification in {"pending", "passed"}
-        if tranche == "relay_echo_contract"
-        else contract_verification == "passed"
-    )
-    relay_contract_evidence = {
-        "catalog_contract": relay_mission.get("contract"),
-        "catalog_status": relay_mission.get("status"),
-        "contract_errors": relay_contract_errors,
-        "contract_lifecycle": RELAY_ECHO_LIFECYCLE,
-        "entrypoint": relay_mission.get("entrypoint"),
-        "manifest_contracts": manifest.get("contracted_missions"),
-        "tranche": tranche,
-        "verification": contract_verification,
-    }
+    relay = CAMPAIGN_GRAPH.mission(RELAY_ECHO_MISSION_ID)
+    phobos = CAMPAIGN_GRAPH.mission("phobos_vector")
+    contract_errors = validate_relay_echo_contract()
+    promotion_verification = manifest.get("relay_echo_campaign_promotion_verification")
     record(
-        "relay_echo_contract_truth",
-        tranche in allowed_tranches
+        "relay_echo_contract_and_promotion_truth",
+        manifest.get("current_tranche") == "relay_echo_campaign_promotion"
         and manifest.get("contracted_missions") == [RELAY_ECHO_MISSION_ID]
-        and contract_verification_valid
-        and relay_mission.get("contract") == RELAY_ECHO_MISSION_ID
-        and relay_mission.get("status") == MISSION_STATUS_PLANNED
-        and relay_mission.get("entrypoint") is None
-        and RELAY_ECHO_LIFECYCLE == "contracted_not_playable"
-        and not relay_contract_errors,
-        relay_contract_evidence,
+        and manifest.get("relay_echo_contract_verification") == "passed"
+        and manifest.get("relay_echo_runtime_state_verification") == "passed"
+        and manifest.get("relay_echo_playable_candidate_verification") == "passed"
+        and manifest.get("relay_echo_accessibility_parity_verification") == "passed"
+        and promotion_verification in {"pending", "passed"}
+        and relay["contract"] == RELAY_ECHO_MISSION_ID
+        and relay["status"] == MISSION_STATUS_IMPLEMENTED
+        and relay["entrypoint"] == "relay_echo"
+        and RELAY_ECHO_LIFECYCLE == "implemented_playable"
+        and phobos["status"] == MISSION_STATUS_PLANNED
+        and phobos["entrypoint"] is None
+        and not contract_errors,
+        {
+            "relay": relay,
+            "phobos": phobos,
+            "lifecycle": RELAY_ECHO_LIFECYCLE,
+            "contract_errors": contract_errors,
+            "promotion_verification": promotion_verification,
+        },
     )
 
-    route_errors = []
+    route_errors: list[str] = []
     for mission in CAMPAIGN_MISSIONS:
         entrypoint = mission["entrypoint"]
         if mission["status"] == MISSION_STATUS_IMPLEMENTED:
@@ -181,17 +167,15 @@ def audit_campaign(manifest: dict[str, Any]) -> dict[str, Any]:
         and SLICE_ID == "fictionalized_mars_landing",
         {
             "start_mission": START_MISSION_ID,
-            "entrypoint": CAMPAIGN_GRAPH.mission(START_MISSION_ID)["entrypoint"],
             "slice_id": SLICE_ID,
         },
     )
 
     default_state = SaveData().campaign
-    normalized_default = CAMPAIGN_GRAPH.normalize_state(default_state)
     record(
         "transactional_save_default",
-        normalized_default == CAMPAIGN_GRAPH.default_state(),
-        normalized_default,
+        CAMPAIGN_GRAPH.normalize_state(default_state) == CAMPAIGN_GRAPH.default_state(),
+        default_state,
     )
 
     completed_save = SaveData()
@@ -204,6 +188,8 @@ def audit_campaign(manifest: dict[str, Any]) -> dict[str, Any]:
     phase1_transaction_ok = (
         completed_save.campaign["completed_missions"] == ["ares_reach"]
         and "relay_echo" in completed_save.campaign["unlocked_missions"]
+        and "relay_echo"
+        in CAMPAIGN_GRAPH.playable_mission_ids(completed_save.campaign["completed_missions"])
     )
     record(
         "phase1_completion_transaction",
@@ -213,41 +199,35 @@ def audit_campaign(manifest: dict[str, Any]) -> dict[str, Any]:
 
     missing_files = sorted(path for path in _REQUIRED_FILES if not (ROOT / path).is_file())
     record("required_evidence_files", not missing_files, missing_files)
-
-    record(
-        "classic_mode_preserved",
-        sorted(LEVELS) == list(range(1, 9)),
-        sorted(LEVELS),
-    )
+    record("classic_mode_preserved", sorted(LEVELS) == list(range(1, 9)), sorted(LEVELS))
 
     carried = manifest.get("carried_release_gates", {})
-    parity_verified = manifest.get("relay_echo_accessibility_parity_verification") == "passed"
     record(
-        "unresolved_release_gates_not_fabricated",
-        carried.get("founder_direct_play_approval") is False
+        "release_gates_truthful",
+        carried.get("keyboard_gamepad_completion_parity") is True
+        and carried.get("accessibility_path_verified") is True
+        and carried.get("founder_direct_play_approval") is False
         and carried.get("external_playtests_run") == 0
         and carried.get("authored_final_assets_complete") is False
-        and carried.get("packaged_build_soak_complete") is False
-        and carried.get("keyboard_gamepad_completion_parity") is parity_verified
-        and carried.get("accessibility_path_verified") is parity_verified,
-        {"carried": carried, "parity_verified": parity_verified},
+        and carried.get("packaged_build_soak_complete") is False,
+        carried,
     )
 
     engine_source = (ROOT / "game/core/engine.py").read_text(encoding="utf-8")
-    save_source = (ROOT / "game/core/save.py").read_text(encoding="utf-8")
+    promotion_source = (ROOT / "game/core/relay_echo_promotion.py").read_text(encoding="utf-8")
     title_source = (ROOT / "game/scenes/title.py").read_text(encoding="utf-8")
     record(
         "runtime_campaign_integration",
-        "def start_campaign_mission" in engine_source
-        and "CampaignScene" in engine_source
-        and "_synchronize_phase1_campaign" in save_source
+        "PromotedRelayEchoScene" in engine_source
+        and "prepare_relay_echo_launch" in engine_source
+        and "complete_relay_echo_campaign" in promotion_source
         and phase1_transaction_ok
         and '("campaign", "Frontier Campaign")' in title_source,
         {
-            "engine_route": "def start_campaign_mission" in engine_source,
-            "campaign_scene": "CampaignScene" in engine_source,
-            "completion_transaction": phase1_transaction_ok,
-            "title_route": '("campaign", "Frontier Campaign")' in title_source,
+            "promoted_scene_route": "PromotedRelayEchoScene" in engine_source,
+            "combined_launch": "prepare_relay_echo_launch" in engine_source,
+            "combined_completion": "complete_relay_echo_campaign" in promotion_source,
+            "phase1_unlock": phase1_transaction_ok,
         },
     )
 
@@ -263,10 +243,9 @@ def audit_campaign(manifest: dict[str, Any]) -> dict[str, Any]:
         "checks": checks,
         "failures": failures,
         "truthfulness_note": (
-            "Phase 2 has one implemented campaign mission and a verified hidden Relay Echo "
-            "playable candidate. Accessibility and keyboard/gamepad parity are under "
-            "verification. Relay Echo remains planned and unavailable through campaign "
-            "routing; full-campaign and AAA-quality claims remain unachieved."
+            "Phase 2 has two implemented campaign missions: Ares Reach and Relay Echo. "
+            "Phobos Vector and Frontier Burn remain planned. Full-campaign and AAA-quality "
+            "claims remain unachieved."
         ),
     }
 
@@ -281,7 +260,6 @@ def main() -> int:
     )
     parser.add_argument("--json-out", type=Path)
     args = parser.parse_args()
-
     try:
         report = audit_campaign(_load_manifest(args.manifest))
     except Exception as exc:
@@ -292,7 +270,6 @@ def main() -> int:
             "error_type": type(exc).__name__,
             "error": str(exc),
         }
-
     rendered = json.dumps(report, indent=2, sort_keys=True)
     print(rendered)
     if args.json_out:

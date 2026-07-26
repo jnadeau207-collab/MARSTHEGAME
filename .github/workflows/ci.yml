@@ -50,6 +50,7 @@ jobs:
           game/core/input_profiles.py
           game/core/presentation.py
           game/core/relay_echo_accessibility.py
+          game/core/relay_echo_promotion.py
           game/core/relay_echo_state.py
           game/core/save.py
           game/core/settings.py
@@ -66,6 +67,7 @@ jobs:
           game/scenes/credits.py
           game/scenes/relay_echo.py
           game/scenes/relay_echo_accessible.py
+          game/scenes/relay_echo_promoted.py
           game/scenes/settings.py
           game/scenes/title.py
           game/scenes/vertical_slice.py
@@ -96,6 +98,7 @@ jobs:
           game/core/input_profiles.py
           game/core/presentation.py
           game/core/relay_echo_accessibility.py
+          game/core/relay_echo_promotion.py
           game/core/relay_echo_state.py
           game/core/save.py
           game/core/settings.py
@@ -108,6 +111,7 @@ jobs:
           game/scenes/credits.py
           game/scenes/relay_echo.py
           game/scenes/relay_echo_accessible.py
+          game/scenes/relay_echo_promoted.py
           game/scenes/settings.py
           game/scenes/title.py
           game/scenes/vertical_slice.py
@@ -139,6 +143,10 @@ jobs:
         run: >-
           python -m tools.relay_echo_accessibility_audit
           --json-out build/relay-echo-accessibility-audit.json
+      - name: Audit Relay Echo campaign promotion
+        run: >-
+          python -m tools.relay_echo_promotion_audit
+          --json-out build/relay-echo-promotion-audit.json
 
   phase-artifacts:
     name: Classic Mode, Phase 1, and Phase 2 evidence
@@ -161,6 +169,10 @@ jobs:
         run: >-
           python -m tools.relay_echo_accessibility_replay
           --json-out build/relay-echo-accessibility-replay.json
+      - name: Replay Relay Echo campaign promotion
+        run: >-
+          python -m tools.relay_echo_promotion_replay
+          --json-out build/relay-echo-promotion-replay.json
       - name: Capture performance evidence
         run: >-
           python -m tools.performance_baseline
@@ -191,6 +203,10 @@ jobs:
         run: >-
           python -m tools.relay_echo_accessibility_audit
           --json-out build/relay-echo-accessibility-audit.json
+      - name: Audit Relay Echo campaign promotion
+        run: >-
+          python -m tools.relay_echo_promotion_audit
+          --json-out build/relay-echo-promotion-audit.json
       - name: Upload Phase evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -201,6 +217,7 @@ jobs:
             build/phase1-slice-replay.json
             build/relay-echo-replay.json
             build/relay-echo-accessibility-replay.json
+            build/relay-echo-promotion-replay.json
             build/performance-baseline.json
             build/phase0-organization.json
             build/phase0-audit.json
@@ -209,6 +226,7 @@ jobs:
             build/relay-echo-runtime.json
             build/relay-echo-candidate.json
             build/relay-echo-accessibility-audit.json
+            build/relay-echo-promotion-audit.json
           if-no-files-found: warn
 
   performance-regression:
