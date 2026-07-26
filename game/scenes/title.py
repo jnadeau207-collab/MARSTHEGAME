@@ -97,9 +97,7 @@ class TitleScene(Scene):
         elif option_id == "chapters":
             self.engine.go_chapter_select()
         elif option_id == "settings":
-            self.engine.settings["show_fps"] = not self.engine.settings.get(
-                "show_fps", False
-            )
+            self.engine.settings["show_fps"] = not self.engine.settings.get("show_fps", False)
         elif option_id == "credits":
             self.engine.go_credits()
         elif option_id == "quit":
@@ -125,13 +123,9 @@ class TitleScene(Scene):
             )
 
         for star in self.stars:
-            twinkle = 0.5 + 0.5 * math.sin(
-                self.timer * 0.07 + star["tw"]
-            )
+            twinkle = 0.5 + 0.5 * math.sin(self.timer * 0.07 + star["tw"])
             brightness = int(180 * twinkle * star["z"])
-            px = int(
-                (star["x"] + self.timer * star["z"] * 0.3) % SCREEN_WIDTH
-            )
+            px = int((star["x"] + self.timer * star["z"] * 0.3) % SCREEN_WIDTH)
             py = int(star["y"])
             color = (brightness, brightness, min(255, brightness + 40))
             if star["s"] >= 2:
@@ -199,12 +193,8 @@ class TitleScene(Scene):
             120,
         )
 
-        title = self.engine.font_xl.render(
-            self.short_title, True, Colors.WHITE
-        )
-        shadow = self.engine.font_xl.render(
-            self.short_title, True, (0, 40, 80)
-        )
+        title = self.engine.font_xl.render(self.short_title, True, Colors.WHITE)
+        shadow = self.engine.font_xl.render(self.short_title, True, (0, 40, 80))
         surface.blit(
             shadow,
             (
@@ -217,9 +207,7 @@ class TitleScene(Scene):
             (SCREEN_WIDTH // 2 - title.get_width() // 2, title_y),
         )
 
-        subtitle = self.engine.font_md.render(
-            self.subtitle, True, Colors.ACCENT
-        )
+        subtitle = self.engine.font_md.render(self.subtitle, True, Colors.ACCENT)
         surface.blit(
             subtitle,
             (
@@ -228,9 +216,7 @@ class TitleScene(Scene):
             ),
         )
 
-        tagline = self.engine.font_sm.render(
-            self.tagline, True, (140, 150, 170)
-        )
+        tagline = self.engine.font_sm.render(self.tagline, True, (140, 150, 170))
         surface.blit(
             tagline,
             (
@@ -268,9 +254,7 @@ class TitleScene(Scene):
             else:
                 color = (200, 205, 215)
                 prefix = "  "
-            text = self.engine.font_md.render(
-                f"{prefix}{label}", True, color
-            )
+            text = self.engine.font_md.render(f"{prefix}{label}", True, color)
             surface.blit(text, (SCREEN_WIDTH // 2 - 145, y))
 
         footer = self.engine.font_sm.render(

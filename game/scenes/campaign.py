@@ -79,9 +79,7 @@ class CampaignScene(Scene):
             return
         self.engine.start_campaign_mission(mission_id)
 
-    def _mission_state(
-        self, mission_id: str
-    ) -> tuple[str, tuple[int, int, int]]:
+    def _mission_state(self, mission_id: str) -> tuple[str, tuple[int, int, int]]:
         campaign = CAMPAIGN_GRAPH.normalize_state(self.engine.save.campaign)
         completed = set(campaign["completed_missions"])
         unlocked = set(campaign["unlocked_missions"])
@@ -106,13 +104,10 @@ class CampaignScene(Scene):
             24,
         )
 
-        title = self.engine.font_xl.render(
-            "FRONTIER CAMPAIGN", True, Colors.WHITE
-        )
+        title = self.engine.font_xl.render("FRONTIER CAMPAIGN", True, Colors.WHITE)
         surface.blit(title, (70, 54))
         subtitle = self.engine.font_sm.render(
-            "Implemented missions are playable. Planned missions are never "
-            "presented as finished.",
+            "Implemented missions are playable. Planned missions are never presented as finished.",
             True,
             (145, 155, 175),
         )
@@ -141,12 +136,8 @@ class CampaignScene(Scene):
                 True,
                 (115, 130, 155),
             )
-            name = self.engine.font_md.render(
-                mission["title"], True, Colors.WHITE
-            )
-            location = self.engine.font_sm.render(
-                mission["location"], True, (155, 160, 175)
-            )
+            name = self.engine.font_md.render(mission["title"], True, Colors.WHITE)
+            location = self.engine.font_sm.render(mission["location"], True, (155, 160, 175))
             badge = self.engine.font_sm.render(state, True, state_color)
             surface.blit(sequence, (90, y + 10))
             surface.blit(name, (90, y + 28))
@@ -170,9 +161,7 @@ class CampaignScene(Scene):
         surface.blit(footer, (74, SCREEN_HEIGHT - 46))
 
         if self.message_timer > 0 and self.message:
-            text = self.engine.font_md.render(
-                self.message, True, Colors.GOLD
-            )
+            text = self.engine.font_md.render(self.message, True, Colors.GOLD)
             background = pygame.Surface(
                 (text.get_width() + 32, text.get_height() + 18),
                 pygame.SRCALPHA,
