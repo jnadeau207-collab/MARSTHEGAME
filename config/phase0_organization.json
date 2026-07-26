@@ -1,0 +1,177 @@
+{
+  "schema_version": 1,
+  "phase": "Phase 0",
+  "operating_model": "founder-accountable agent-assisted vertical-slice cell",
+  "accountable_human": {
+    "id": "jnadeau207-collab",
+    "role": "Founder / Product and Creative Director",
+    "authority": "final product, scope, release, budget, legal-retention, and merge decisions"
+  },
+  "truthfulness": {
+    "claimed_human_headcount": 1,
+    "functional_seat_count": 14,
+    "statement": "Functional seats are active operating lanes, not a representation of payroll or fourteen human employees. Agent-owned lanes remain accountable to the named human authority."
+  },
+  "leadership": [
+    {
+      "role_id": "product_creative",
+      "title": "Founder / Product and Creative Director",
+      "owner": "jnadeau207-collab",
+      "owner_type": "human",
+      "status": "filled",
+      "decision_rights": ["product vision", "design pillars", "scope", "release approval"]
+    },
+    {
+      "role_id": "executive_production",
+      "title": "Executive Producer / Program Lead",
+      "owner": "jnadeau207-collab",
+      "owner_type": "human",
+      "status": "interim",
+      "decision_rights": ["priority", "milestones", "budget envelope", "staffing approvals"]
+    },
+    {
+      "role_id": "technical_direction",
+      "title": "Technical Director",
+      "owner": "agent:technical-direction",
+      "owner_type": "agent",
+      "status": "active",
+      "accountable_to": "jnadeau207-collab",
+      "decision_rights": ["architecture proposals", "technical sequencing", "verification design"]
+    },
+    {
+      "role_id": "quality_release",
+      "title": "Quality and Release Lead",
+      "owner": "agent:quality-release",
+      "owner_type": "agent",
+      "status": "active",
+      "accountable_to": "jnadeau207-collab",
+      "decision_rights": ["test gates", "regression evidence", "release recommendation"]
+    }
+  ],
+  "vertical_slice_seats": [
+    {
+      "seat_id": "product-creative",
+      "discipline": "product_creative",
+      "owner": "jnadeau207-collab",
+      "owner_type": "human",
+      "status": "active"
+    },
+    {
+      "seat_id": "executive-production",
+      "discipline": "production",
+      "owner": "jnadeau207-collab",
+      "owner_type": "human",
+      "status": "active"
+    },
+    {
+      "seat_id": "technical-direction",
+      "discipline": "technical_direction",
+      "owner": "agent:technical-direction",
+      "owner_type": "agent",
+      "accountable_to": "jnadeau207-collab",
+      "status": "active"
+    },
+    {
+      "seat_id": "gameplay-engineering",
+      "discipline": "gameplay_engineering",
+      "owner": "agent:gameplay-engineering",
+      "owner_type": "agent",
+      "accountable_to": "jnadeau207-collab",
+      "status": "active"
+    },
+    {
+      "seat_id": "rendering-performance",
+      "discipline": "rendering_performance",
+      "owner": "agent:rendering-performance",
+      "owner_type": "agent",
+      "accountable_to": "jnadeau207-collab",
+      "status": "active"
+    },
+    {
+      "seat_id": "tools-build",
+      "discipline": "tools_build",
+      "owner": "agent:tools-build",
+      "owner_type": "agent",
+      "accountable_to": "jnadeau207-collab",
+      "status": "active"
+    },
+    {
+      "seat_id": "platform-runtime",
+      "discipline": "platform_runtime",
+      "owner": "agent:platform-runtime",
+      "owner_type": "agent",
+      "accountable_to": "jnadeau207-collab",
+      "status": "active"
+    },
+    {
+      "seat_id": "quality-automation",
+      "discipline": "quality_automation",
+      "owner": "agent:quality-automation",
+      "owner_type": "agent",
+      "accountable_to": "jnadeau207-collab",
+      "status": "active"
+    },
+    {
+      "seat_id": "level-design",
+      "discipline": "level_design",
+      "owner": "agent:level-design",
+      "owner_type": "agent",
+      "accountable_to": "jnadeau207-collab",
+      "status": "active"
+    },
+    {
+      "seat_id": "narrative-design",
+      "discipline": "narrative_design",
+      "owner": "agent:narrative-design",
+      "owner_type": "agent",
+      "accountable_to": "jnadeau207-collab",
+      "status": "active"
+    },
+    {
+      "seat_id": "ui-ux-accessibility",
+      "discipline": "ui_ux_accessibility",
+      "owner": "agent:ui-ux-accessibility",
+      "owner_type": "agent",
+      "accountable_to": "jnadeau207-collab",
+      "status": "active"
+    },
+    {
+      "seat_id": "technical-art-vfx",
+      "discipline": "technical_art_vfx",
+      "owner": "agent:technical-art-vfx",
+      "owner_type": "agent",
+      "accountable_to": "jnadeau207-collab",
+      "status": "active"
+    },
+    {
+      "seat_id": "audio-systems",
+      "discipline": "audio_systems",
+      "owner": "agent:audio-systems",
+      "owner_type": "agent",
+      "accountable_to": "jnadeau207-collab",
+      "status": "active"
+    },
+    {
+      "seat_id": "production-operations",
+      "discipline": "production_operations",
+      "owner": "agent:production-operations",
+      "owner_type": "agent",
+      "accountable_to": "jnadeau207-collab",
+      "status": "active"
+    }
+  ],
+  "external_gates": [
+    {
+      "gate": "legal_ip_clearance",
+      "owner": "jnadeau207-collab",
+      "required_before": "public marketing, monetization, platform submission, or external real-world-track playtesting",
+      "status": "not_required_for_private_phase0_repository_work"
+    },
+    {
+      "gate": "human_team_expansion",
+      "owner": "jnadeau207-collab",
+      "required_before": "funded Phase 1 production scale",
+      "status": "recruitment_ready_not_falsely_claimed"
+    }
+  ]
+}
