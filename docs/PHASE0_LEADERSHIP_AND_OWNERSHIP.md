@@ -2,32 +2,32 @@
 
 ## Operating truth
 
-Phase 0 is operated by one named human authority, `jnadeau207-collab`, with bounded autonomous-agent execution. The repository does **not** claim fourteen employees, contractors, or paid full-time equivalents. It establishes fourteen active functional seats so work has explicit ownership, review paths, and decision boundaries before funded human expansion.
+This project has exactly one human contributor: `jnadeau207-collab`, the founder. There are no employees, contractors, departments, leadership team, or other human contributors. ChatGPT is the project’s AI collaborator and is software, not a human, employee, contractor, executive, department, or full-time equivalent.
 
 The machine-readable authority is `config/phase0_organization.json`; CI validates it with `tools.validate_phase0_organization`.
 
-## Core leadership
+## The actual team
 
-| Role | Assignment | Authority |
-|---|---|---|
-| Founder / Product and Creative Director | `jnadeau207-collab` | Final vision, pillars, scope, release, legal-retention, and merge decisions |
-| Executive Producer / Program Lead | `jnadeau207-collab` (interim) | Priorities, milestones, budget envelope, and staffing approval |
-| Technical Director | `agent:technical-direction` | Architecture proposals, technical sequencing, and verification design; accountable to founder |
-| Quality and Release Lead | `agent:quality-release` | Test gates, regression evidence, and release recommendation; accountable to founder |
+| Participant | Nature | Responsibility | Final authority |
+|---|---|---|---|
+| `jnadeau207-collab` | Sole human founder | Product direction, creative direction, priorities, legal and financial decisions, release and merge decisions | Yes |
+| ChatGPT | AI software collaborator | Research, architecture proposals, implementation, testing, documentation, and quality recommendations | No |
 
-Agents may propose and execute reversible repository work. They may not independently approve public release, spending, legal positions, licensing, hiring, destructive scope changes, or merges that alter the product authority.
+ChatGPT may propose and execute reversible repository work. It may not independently approve spending, legal positions, hiring, public release, final scope, or merges without the founder’s instruction.
+
+## Workstreams are not people
+
+The project tracks work across gameplay, rendering, audio, tools, quality, level and narrative design, UI/UX, accessibility, and production planning. These are categories of work shared by the founder and AI collaborator. They must never be described as seats, staffed roles, departments, employees, contractors, or implied headcount.
 
 ## Decision protocol
 
-1. `AUTHORITATIVE_PRODUCTION_PLAN.md` and the five design pillars control product intent.
+1. The founder controls product intent and may amend or reject any plan assumption.
 2. Architecture changes require a decision record under `docs/decisions/`.
 3. Gameplay and runtime changes require Classic Mode regression evidence.
 4. Performance claims require same-runner before/after evidence.
-5. Conflicts involving scope, identity, release, budget, or irreversible decisions escalate to the founder.
+5. The AI collaborator must state uncertainty and may not certify its own work as AAA-quality without executable and playtest evidence.
 6. Real-world-track public use remains blocked until qualified counsel provides written clearance.
 
-## Ownership continuity
+## Phase 1 operating rule
 
-Every active leadership or vertical-slice lane has one owner. Every agent lane names the accountable human. The organization validator rejects missing disciplines, duplicate seats, inactive ownership, unbounded agent authority, or inflated human-headcount claims.
-
-This structure completes the repository-operating requirement for Phase 0 while preserving an honest distinction between an active agent-assisted production cell and later funded human staffing.
+Phase 1 is executed by the founder and ChatGPT. Scope must be designed for that actual collaboration model. Quality standards may be AAA-level; staffing assumptions are not allowed to stand in for engineering, art direction, player experience, or evidence.
