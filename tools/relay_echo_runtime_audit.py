@@ -62,7 +62,12 @@ def audit_relay_runtime(manifest: dict[str, Any]) -> dict[str, Any]:
         "manifest_truth",
         manifest.get("phase") == "Phase 2"
         and manifest.get("status") == "in_progress"
-        and tranche in {"relay_echo_runtime_state", "relay_echo_playable_candidate"}
+        and tranche
+        in {
+            "relay_echo_runtime_state",
+            "relay_echo_playable_candidate",
+            "relay_echo_accessibility_parity",
+        }
         and manifest.get("relay_echo_contract_verification") == "passed"
         and runtime_verification_valid
         and manifest.get("implemented_missions") == ["ares_reach"]
@@ -174,9 +179,9 @@ def audit_relay_runtime(manifest: dict[str, Any]) -> dict[str, Any]:
         "checks": checks,
         "failures": failures,
         "truthfulness_note": (
-            "Relay Echo has a verified transactional runtime-state model and may have a "
-            "playable candidate, but remains planned and unavailable through campaign "
-            "routing. Completion eligibility is not campaign completion."
+            "Relay Echo has a verified transactional runtime-state model and hidden playable "
+            "candidate, but remains planned and unavailable through campaign routing. "
+            "Accessibility and input parity verification do not constitute campaign promotion."
         ),
     }
 
