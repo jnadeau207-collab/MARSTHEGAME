@@ -1,0 +1,44 @@
+name: Advance Relay Echo contract lifecycle once
+
+on:
+  push:
+    branches: [agent/phase2-relay-echo-promotion]
+    paths: [.github/workflows/advance-relay-contract-lifecycle-once.yml]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/phase2-relay-echo-promotion
+      - name: Advance lifecycle truth
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path("game/data/relay_echo.py")
+          text = path.read_text(encoding="utf-8")
+          replacements = (
+              ('"""Authoritative non-playable mission contract for Relay Echo."""', '"""Authoritative implemented mission contract for Relay Echo."""'),
+              ('RELAY_ECHO_LIFECYCLE: Final = "contracted_not_playable"', 'RELAY_ECHO_LIFECYCLE: Final = "implemented_playable"'),
+              ('errors.append("Relay Echo must remain contracted and non-playable")', 'errors.append("Relay Echo contract lifecycle must match implemented campaign truth")'),
+          )
+          for old, new in replacements:
+              if old not in text:
+                  raise SystemExit(f"missing lifecycle text: {old}")
+              text = text.replace(old, new, 1)
+          path.write_text(text, encoding="utf-8")
+          PY
+      - name: Commit lifecycle and remove helper
+        env:
+          BRANCH: agent/phase2-relay-echo-promotion
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git rm .github/workflows/advance-relay-contract-lifecycle-once.yml
+          git add game/data/relay_echo.py
+          git commit -m "Advance Relay Echo contract lifecycle" || exit 0
+          git push origin "HEAD:${BRANCH}"
