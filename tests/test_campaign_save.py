@@ -31,7 +31,46 @@ class CampaignSaveTests(unittest.TestCase):
         self.assertEqual(loaded.campaign, CAMPAIGN_GRAPH.default_state())
         self.assertTrue(loaded.save())
         envelope = json.loads(self.path.read_text(encoding="utf-8"))
-        self.assertEqual(envelope["payload"]["campaign"], CAMPAIGN_GRAPH.default_state())
+        self.assertEqual(
+            envelope["payload"]["campaign"],
+            CAMPAIGN_GRAPH.default_state(),
+        )
+
+    def test_completed_phase1_legacy_save_unlocks_campaign_successor(self) -> None:
+        save = self.make_save()
+        legacy = save.to_dict()
+        legacy.pop("campaign")
+        legacy["phase1_slice"].update(
+            {
+                "checkpoint_id": 4,
+                "best_phase": "complete",
+                "completed": True,
+                "resource_gate_open": True,
+            }
+        )
+        self.path.write_text(json.dumps(legacy), encoding="utf-8")
+
+        loaded = self.make_save()
+        self.assertTrue(loaded.load())
+        self.assertEqual(loaded.campaign["completed_missions"], ["ares_reach"])
+        self.assertIn("relay_echo", loaded.campaign["unlocked_missions"])
+        self.assertEqual(loaded.campaign["current_mission"], "relay_echo")
+
+    def test_phase1_completion_synchronizes_campaign_transaction(self) -> None:
+        save = self.make_save()
+        save.update_phase1_slice(
+            checkpoint_id=4,
+            best_phase="complete",
+            completed=True,
+            resource_gate_open=True,
+        )
+        self.assertEqual(save.campaign["completed_missions"], ["ares_reach"])
+        self.assertIn("relay_echo", save.campaign["unlocked_missions"])
+        self.assertTrue(save.save())
+
+        loaded = self.make_save()
+        self.assertTrue(loaded.load())
+        self.assertEqual(loaded.campaign, save.campaign)
 
     def test_attempt_and_completion_round_trip_transactionally(self) -> None:
         save = self.make_save()
