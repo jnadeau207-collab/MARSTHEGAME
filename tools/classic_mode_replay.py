@@ -125,9 +125,7 @@ def _player_signature(scene: LevelScene) -> dict[str, Any]:
         "parts": player.parts,
         "terminals_activated": sorted(scene.terminals_activated),
         "living_enemies": sum(enemy.alive for enemy in scene.enemies),
-        "remaining_collectibles": sum(
-            collectible.alive for collectible in scene.collectibles
-        ),
+        "remaining_collectibles": sum(collectible.alive for collectible in scene.collectibles),
     }
 
 
@@ -167,9 +165,7 @@ def _run_recorded_input_track(chapter_id: int) -> dict[str, Any]:
 
 def _verify_recorded_input_tracks(expected_ids: list[int]) -> list[dict[str, Any]]:
     if sorted(CLASSIC_INPUT_TRACKS) != expected_ids:
-        raise AssertionError(
-            f"Classic input track ids changed: {sorted(CLASSIC_INPUT_TRACKS)}"
-        )
+        raise AssertionError(f"Classic input track ids changed: {sorted(CLASSIC_INPUT_TRACKS)}")
 
     results = []
     for chapter_id in expected_ids:
