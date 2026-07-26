@@ -1,4 +1,4 @@
-"""Authoritative non-playable mission contract for Relay Echo."""
+"""Authoritative implemented mission contract for Relay Echo."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from game.data.campaign import CAMPAIGN_ID
 
 RELAY_ECHO_CONTRACT_SCHEMA_VERSION: Final = 1
 RELAY_ECHO_MISSION_ID: Final = "relay_echo"
-RELAY_ECHO_LIFECYCLE: Final = "contracted_not_playable"
+RELAY_ECHO_LIFECYCLE: Final = "implemented_playable"
 
 _OBJECTIVE_ID_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
 _CONTENT_KEY_PATTERN = re.compile(r"^mission\.relay_echo\.[a-z0-9_.]+$")
@@ -418,7 +418,7 @@ def validate_relay_echo_contract(data: dict[str, Any] = RELAY_ECHO_CONTRACT) -> 
     if data.get("mission_id") != RELAY_ECHO_MISSION_ID:
         errors.append("Relay Echo contract has the wrong mission id")
     if data.get("lifecycle") != RELAY_ECHO_LIFECYCLE:
-        errors.append("Relay Echo must remain contracted and non-playable")
+        errors.append("Relay Echo contract lifecycle must match implemented campaign truth")
     if tuple(data.get("prerequisites", ())) != ("ares_reach",):
         errors.append("Relay Echo must require completed Ares Reach")
 
