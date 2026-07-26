@@ -30,6 +30,7 @@ _REQUIRED_FILES = {
     "tools/phase2_campaign_audit.py",
     "tests/test_campaign.py",
     "tests/test_campaign_save.py",
+    "tests/test_phase2_campaign_audit.py",
 }
 
 
@@ -101,20 +102,27 @@ def audit_campaign(manifest: dict[str, Any]) -> dict[str, Any]:
         if mission["status"] == MISSION_STATUS_IMPLEMENTED:
             if entrypoint not in _SUPPORTED_ENTRYPOINTS:
                 route_errors.append(
-                    f"implemented mission {mission['id']} has unsupported entrypoint {entrypoint!r}"
+                    f"implemented mission {mission['id']} has unsupported "
+                    f"entrypoint {entrypoint!r}"
                 )
         elif entrypoint is not None:
-            route_errors.append(f"planned mission {mission['id']} claims entrypoint {entrypoint!r}")
+            route_errors.append(
+                f"planned mission {mission['id']} claims entrypoint "
+                f"{entrypoint!r}"
+            )
     record("runtime_routes_truthful", not route_errors, route_errors)
 
     record(
         "phase1_is_campaign_start",
         START_MISSION_ID == "ares_reach"
-        and CAMPAIGN_GRAPH.mission(START_MISSION_ID)["entrypoint"] == "vertical_slice"
+        and CAMPAIGN_GRAPH.mission(START_MISSION_ID)["entrypoint"]
+        == "vertical_slice"
         and SLICE_ID == "fictionalized_mars_landing",
         {
             "start_mission": START_MISSION_ID,
-            "entrypoint": CAMPAIGN_GRAPH.mission(START_MISSION_ID)["entrypoint"],
+            "entrypoint": CAMPAIGN_GRAPH.mission(START_MISSION_ID)[
+                "entrypoint"
+            ],
             "slice_id": SLICE_ID,
         },
     )
@@ -127,7 +135,23 @@ def audit_campaign(manifest: dict[str, Any]) -> dict[str, Any]:
         normalized_default,
     )
 
-    missing_files = sorted(path for path in _REQUIRED_FILES if not (ROOT / path).is_file())
+    completed_save = SaveData()
+    completed_save.update_phase1_slice(
+        checkpoint_id=4,
+        best_phase="complete",
+        completed=True,
+        resource_gate_open=True,
+    )
+    record(
+        "phase1_completion_transaction",
+        completed_save.campaign["completed_missions"] == ["ares_reach"]
+        and "relay_echo" in completed_save.campaign["unlocked_missions"],
+        completed_save.campaign,
+    )
+
+    missing_files = sorted(
+        path for path in _REQUIRED_FILES if not (ROOT / path).is_file()
+    )
     record("required_evidence_files", not missing_files, missing_files)
 
     record(
@@ -148,23 +172,29 @@ def audit_campaign(manifest: dict[str, Any]) -> dict[str, Any]:
     )
 
     engine_source = (ROOT / "game/core/engine.py").read_text(encoding="utf-8")
-    scene_source = (ROOT / "game/scenes/vertical_slice.py").read_text(encoding="utf-8")
+    save_source = (ROOT / "game/core/save.py").read_text(encoding="utf-8")
     title_source = (ROOT / "game/scenes/title.py").read_text(encoding="utf-8")
     record(
         "runtime_campaign_integration",
         "def start_campaign_mission" in engine_source
         and "CampaignScene" in engine_source
-        and 'complete_campaign_mission("ares_reach")' in scene_source
+        and "_synchronize_phase1_campaign" in save_source
+        and 'CAMPAIGN_GRAPH.complete_mission(\n                campaign, "ares_reach"'
+        in save_source
         and '("campaign", "Frontier Campaign")' in title_source,
         {
             "engine_route": "def start_campaign_mission" in engine_source,
             "campaign_scene": "CampaignScene" in engine_source,
-            "completion_transaction": 'complete_campaign_mission("ares_reach")' in scene_source,
-            "title_route": '("campaign", "Frontier Campaign")' in title_source,
+            "completion_transaction": "_synchronize_phase1_campaign"
+            in save_source,
+            "title_route": '("campaign", "Frontier Campaign")'
+            in title_source,
         },
     )
 
-    failures = [check["check_id"] for check in checks if check["status"] != "pass"]
+    failures = [
+        check["check_id"] for check in checks if check["status"] != "pass"
+    ]
     return {
         "schema_version": 1,
         "phase": "Phase 2",
@@ -175,8 +205,9 @@ def audit_campaign(manifest: dict[str, Any]) -> dict[str, Any]:
         "checks": checks,
         "failures": failures,
         "truthfulness_note": (
-            "Phase 2 has one implemented campaign mission. Planned missions are graph nodes, not "
-            "playable content. Full-campaign and AAA-quality claims remain unachieved."
+            "Phase 2 has one implemented campaign mission. Planned missions are "
+            "graph nodes, not playable content. Full-campaign and AAA-quality "
+            "claims remain unachieved."
         ),
     }
 
