@@ -1,0 +1,255 @@
+name: Integrate Relay Echo runtime state once
+
+on:
+  push:
+    branches: [agent/phase2-relay-echo-runtime-state]
+    paths:
+      - .github/workflows/integrate-relay-runtime-state-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  integrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/phase2-relay-echo-runtime-state
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Patch runtime and save integration
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace(path: str, old: str, new: str) -> None:
+              target = Path(path)
+              text = target.read_text(encoding="utf-8")
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"expected one match in {path}, found {count}: {old[:80]!r}")
+              target.write_text(text.replace(old, new), encoding="utf-8")
+
+          state_path = "game/core/relay_echo_state.py"
+          replace(
+              state_path,
+              '''        normalized_failures: list[dict[str, Any]] = []
+                  expected_insight = 0
+                  for index, item in enumerate(failure_history, start=1):
+                      failure_id = item.get("failure_id")
+          ''',
+              '''        normalized_failures: list[dict[str, Any]] = []
+                  expected_insight = 0
+                  last_failure_revision = 0
+                  for index, item in enumerate(failure_history, start=1):
+                      if item.get("sequence") != index:
+                          raise RelayEchoStateError("failure_history sequence must be contiguous")
+                      failure_id = item.get("failure_id")
+          ''',
+          )
+          replace(
+              state_path,
+              '''            objective_index = self.objectives.index(objective_id)
+                  if objective_index < len(completed):
+                      raise RelayEchoStateError("failure_history cannot target a completed objective")
+                  objective = self.objective_by_id[objective_id]
+          ''',
+              '''            objective_index = self.objectives.index(objective_id)
+                  objective = self.objective_by_id[objective_id]
+          ''',
+          )
+          replace(
+              state_path,
+              '''            if history_checkpoint > checkpoint_id:
+                      raise RelayEchoStateError("failure_history checkpoint exceeds committed progress")
+                  history_revision = self._non_negative_int(
+          ''',
+              '''            if history_checkpoint != objective_index:
+                      raise RelayEchoStateError(
+                          "failure_history checkpoint must identify the objective start"
+                      )
+                  if history_checkpoint > checkpoint_id:
+                      raise RelayEchoStateError("failure_history checkpoint exceeds committed progress")
+                  history_revision = self._non_negative_int(
+          ''',
+          )
+          replace(
+              state_path,
+              '''            if history_revision > revision:
+                      raise RelayEchoStateError("failure_history revision exceeds current revision")
+                  recovery = item.get("recovery")
+          ''',
+              '''            if history_revision > revision:
+                      raise RelayEchoStateError("failure_history revision exceeds current revision")
+                  if history_revision <= last_failure_revision:
+                      raise RelayEchoStateError("failure_history revisions must increase")
+                  last_failure_revision = history_revision
+                  recovery = item.get("recovery")
+          ''',
+          )
+          replace(
+              state_path,
+              '''        normalized = self.normalize_state(state)
+                  if normalized["completion_eligible"]:
+                      raise RelayEchoStateError("completed Relay Echo state cannot begin another attempt")
+          ''',
+              '''        normalized = self.normalize_state(state)
+                  if normalized["active"]:
+                      raise RelayEchoStateError("an active Relay Echo attempt cannot begin again")
+                  if normalized["completion_eligible"]:
+                      raise RelayEchoStateError("completed Relay Echo state cannot begin another attempt")
+          ''',
+          )
+
+          save_path = "game/core/save.py"
+          replace(
+              save_path,
+              '''from game.core.campaign import CAMPAIGN_GRAPH, CampaignStateError
+          ''',
+              '''from game.core.campaign import CAMPAIGN_GRAPH, CampaignStateError
+                  from game.core.relay_echo_state import RELAY_ECHO_RUNTIME, RelayEchoStateError
+          ''',
+          )
+          replace(
+              save_path,
+              '''        self.phase1_slice = dict(_DEFAULT_PHASE1_SLICE)
+                  self.campaign = CAMPAIGN_GRAPH.default_state()
+                  self.settings_volume = 0.7
+          ''',
+              '''        self.phase1_slice = dict(_DEFAULT_PHASE1_SLICE)
+                  self.campaign = CAMPAIGN_GRAPH.default_state()
+                  self.relay_echo = RELAY_ECHO_RUNTIME.default_state()
+                  self.settings_volume = 0.7
+          ''',
+          )
+          replace(
+              save_path,
+              '''        except CampaignStateError as exc:
+                      raise ValueError(f"campaign state is invalid: {exc}") from exc
+                  return {
+          ''',
+              '''        except CampaignStateError as exc:
+                      raise ValueError(f"campaign state is invalid: {exc}") from exc
+                  try:
+                      relay_echo = RELAY_ECHO_RUNTIME.normalize_state(data.get("relay_echo"))
+                  except RelayEchoStateError as exc:
+                      raise ValueError(f"Relay Echo state is invalid: {exc}") from exc
+                  if relay_echo["attempts"] and (
+                      "ares_reach" not in campaign["completed_missions"]
+                      or "relay_echo" not in campaign["unlocked_missions"]
+                  ):
+                      raise ValueError(
+                          "Relay Echo runtime progress requires completed Ares Reach and an unlocked Relay Echo node"
+                      )
+                  return {
+          ''',
+          )
+          replace(
+              save_path,
+              '''            "phase1_slice": phase1_slice,
+                      "campaign": campaign,
+                      "settings_volume": self._bounded_float(
+          ''',
+              '''            "phase1_slice": phase1_slice,
+                      "campaign": campaign,
+                      "relay_echo": relay_echo,
+                      "settings_volume": self._bounded_float(
+          ''',
+          )
+          replace(
+              save_path,
+              '''        self.phase1_slice = dict(state["phase1_slice"])
+                  self.campaign = CAMPAIGN_GRAPH.normalize_state(state["campaign"])
+                  self.settings_volume = state["settings_volume"]
+          ''',
+              '''        self.phase1_slice = dict(state["phase1_slice"])
+                  self.campaign = CAMPAIGN_GRAPH.normalize_state(state["campaign"])
+                  self.relay_echo = RELAY_ECHO_RUNTIME.normalize_state(state["relay_echo"])
+                  self.settings_volume = state["settings_volume"]
+          ''',
+          )
+          replace(
+              save_path,
+              '''            "phase1_slice": dict(self.phase1_slice),
+                      "campaign": CAMPAIGN_GRAPH.normalize_state(self.campaign),
+                      "settings_volume": self.settings_volume,
+          ''',
+              '''            "phase1_slice": dict(self.phase1_slice),
+                      "campaign": CAMPAIGN_GRAPH.normalize_state(self.campaign),
+                      "relay_echo": RELAY_ECHO_RUNTIME.normalize_state(self.relay_echo),
+                      "settings_volume": self.settings_volume,
+          ''',
+          )
+          replace(
+              save_path,
+              '''    def complete_campaign_mission(self, mission_id: str) -> dict[str, Any]:
+                      self.campaign, transition = CAMPAIGN_GRAPH.complete_mission(self.campaign, mission_id)
+                      return transition.to_dict()
+
+                  def save(self) -> bool:
+          ''',
+              '''    def complete_campaign_mission(self, mission_id: str) -> dict[str, Any]:
+                      self.campaign, transition = CAMPAIGN_GRAPH.complete_mission(self.campaign, mission_id)
+                      return transition.to_dict()
+
+                  def prepare_relay_echo_attempt(self) -> dict[str, Any]:
+                      if (
+                          "ares_reach" not in self.campaign["completed_missions"]
+                          or "relay_echo" not in self.campaign["unlocked_missions"]
+                      ):
+                          raise ValueError(
+                              "Relay Echo preparation requires completed Ares Reach and an unlocked mission node"
+                          )
+                      self.relay_echo, transition = RELAY_ECHO_RUNTIME.begin_attempt(
+                          self.relay_echo
+                      )
+                      return transition.to_dict()
+
+                  def complete_relay_echo_objective(
+                      self,
+                      objective_id: str,
+                      evidence: dict[str, Any] | None = None,
+                  ) -> dict[str, Any]:
+                      self.relay_echo, transition = RELAY_ECHO_RUNTIME.complete_objective(
+                          self.relay_echo,
+                          objective_id,
+                          evidence,
+                      )
+                      return transition.to_dict()
+
+                  def record_relay_echo_failure(self, failure_id: str) -> dict[str, Any]:
+                      self.relay_echo, transition = RELAY_ECHO_RUNTIME.record_failure(
+                          self.relay_echo,
+                          failure_id,
+                      )
+                      return transition.to_dict()
+
+                  def save(self) -> bool:
+          ''',
+          )
+          PY
+      - name: Install dependencies
+        run: python -m pip install --upgrade pip -r requirements.txt -r requirements-dev.txt
+      - name: Format integrated files
+        run: >-
+          ruff format
+          game/core/relay_echo_state.py
+          game/core/save.py
+          tests/test_relay_echo_state.py
+          tests/test_relay_echo_save.py
+      - name: Verify focused integration
+        run: |
+          ruff check game/core/relay_echo_state.py game/core/save.py tests/test_relay_echo_state.py tests/test_relay_echo_save.py
+          python -m unittest tests.test_relay_echo_state tests.test_relay_echo_save -v
+          python -m tools.phase2_campaign_audit
+      - name: Commit production integration and remove helper
+        run: |
+          set -euo pipefail
+          rm .github/workflows/integrate-relay-runtime-state-once.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add game/core/relay_echo_state.py game/core/save.py tests/test_relay_echo_state.py tests/test_relay_echo_save.py .github/workflows/integrate-relay-runtime-state-once.yml
+          git commit -m 'Integrate transactional Relay Echo runtime state [relay-runtime-state]'
+          git push origin HEAD:agent/phase2-relay-echo-runtime-state
