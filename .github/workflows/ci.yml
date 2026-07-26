@@ -54,10 +54,10 @@ jobs:
       - name: Install dependencies
         run: python -m pip install --upgrade pip -r requirements.txt
       - name: Replay all eight chapters
-        run: python tools/classic_mode_replay.py --json-out build/classic-mode-replay.json
+        run: python -m tools.classic_mode_replay --json-out build/classic-mode-replay.json
       - name: Capture non-gating performance baseline
         run: >-
-          python tools/performance_baseline.py
+          python -m tools.performance_baseline
           --update-frames 30
           --draw-frames 3
           --rounds 1
