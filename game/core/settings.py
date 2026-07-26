@@ -5,6 +5,10 @@ Global settings, constants, and configuration.
 import json
 from pathlib import Path
 
+from game.data.content import apply_level_content, build_chapters
+from game.data.ip_tracks import get_identity, resolve_ip_track
+from game.data.levels import LEVELS
+
 # Paths
 ROOT = Path(__file__).resolve().parents[2]
 ASSETS = ROOT / "assets"
@@ -15,7 +19,14 @@ SETTINGS_PATH = ROOT / "settings.json"
 SCREEN_WIDTH = 1280
 SCREEN_HEIGHT = 720
 FPS = 60
-TITLE = "STARMAN: An Elon Odyssey"
+ACTIVE_IP_TRACK = resolve_ip_track()
+IDENTITY = get_identity(ACTIVE_IP_TRACK)
+TITLE = IDENTITY["game_title"]
+
+# Resolve every runtime chapter display string from stable content keys. The
+# original geometry, ids, collision data, and save semantics remain untouched.
+CHAPTERS = build_chapters(ACTIVE_IP_TRACK)
+apply_level_content(LEVELS, ACTIVE_IP_TRACK)
 
 # Physics / feel — tuned for readable jumps + Starship climb
 GRAVITY = 0.58
@@ -27,6 +38,7 @@ COYOTE_TIME = 10  # frames
 JUMP_BUFFER = 10  # frames
 HIT_STOP_FRAMES = 4
 SHAKE_DECAY = 0.85
+
 
 # Colors
 class Colors:
@@ -47,6 +59,7 @@ class Colors:
     SPACEX_BLUE = (20, 40, 80)
     MARS = (180, 80, 50)
 
+
 DEFAULT_KEYS = {
     "left": ["a", "left"],
     "right": ["d", "right"],
@@ -61,33 +74,6 @@ DEFAULT_KEYS = {
     "cancel": ["escape", "backspace"],
 }
 
-CHAPTERS = [
-    {"id": 1, "title": "Pretoria Streets", "subtitle": "Grit & Resolve", "year": "1980s",
-     "description": "Young Elon. School bullying. Street survival. Books and parts become weapons of the mind.",
-     "palette": "preoria", "playable": True},
-    {"id": 2, "title": "Crossing", "subtitle": "Canada & Arrival", "year": "1989–1992",
-     "description": "Travel, odd jobs, first terminals. Timing and early code unlock the path forward.",
-     "palette": "canada", "playable": True},
-    {"id": 3, "title": "College & Zip2", "subtitle": "Ship the Product", "year": "1995",
-     "description": "Campus nights and startup pressure. Symbol matching, pipelines, time pressure.",
-     "palette": "campus", "playable": True},
-    {"id": 4, "title": "X.com / PayPal Wars", "subtitle": "Corporate Arena", "year": "1999–2002",
-     "description": "Rival waves and negotiation choices. Resources shift with every decision.",
-     "palette": "corporate", "playable": True},
-    {"id": 5, "title": "Tesla Factory Floor", "subtitle": "Production Hell", "year": "2008–2010",
-     "description": "Automation puzzles, defending the line, prototype unlock.",
-     "palette": "tesla", "playable": True},
-    {"id": 6, "title": "SpaceX: Failures Before Flight", "subtitle": "Each Boom Teaches", "year": "2006–2010",
-     "description": "Assembly, launch windows, recovery. Failure is progress.",
-     "palette": "spacex", "playable": True},
-    {"id": 7, "title": "Starship to Mars", "subtitle": "Leaving Earth", "year": "Near Future",
-     "description": "Docking sequences, G-force rhythm, system triage. Spectacle.",
-     "palette": "starship", "playable": True},
-    {"id": 8, "title": "Mars Colony", "subtitle": "First City", "year": "Frontier",
-     "description": "Land, survive, expand. Oxygen, power, water. Open frontier.",
-     "palette": "mars", "playable": True},
-]
-
 
 def load_settings():
     defaults = {
@@ -100,8 +86,8 @@ def load_settings():
     }
     if SETTINGS_PATH.exists():
         try:
-            with open(SETTINGS_PATH, "r") as f:
-                data = json.load(f)
+            with open(SETTINGS_PATH) as file:
+                data = json.load(file)
                 defaults.update(data)
         except Exception:
             pass
@@ -110,7 +96,7 @@ def load_settings():
 
 def save_settings(data):
     try:
-        with open(SETTINGS_PATH, "w") as f:
-            json.dump(data, f, indent=2)
+        with open(SETTINGS_PATH, "w") as file:
+            json.dump(data, file, indent=2)
     except Exception:
         pass
