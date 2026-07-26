@@ -2,6 +2,7 @@ name: Format truth tests
 
 on:
   push:
+  pull_request:
 
 permissions:
   contents: read
