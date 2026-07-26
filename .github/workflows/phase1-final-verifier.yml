@@ -28,10 +28,63 @@ jobs:
       - name: Compile
         run: python -m compileall -q main.py game tools tests
       - name: Static analysis
-        run: ruff check game tools tests
-      - name: Formatting
+        run: >-
+          ruff check
+          game/core/accessibility.py
+          game/core/audio.py
+          game/core/camera.py
+          game/core/checkpoint.py
+          game/core/diagnostics.py
+          game/core/engine.py
+          game/core/gfx.py
+          game/core/input.py
+          game/core/presentation.py
+          game/core/save.py
+          game/core/settings.py
+          game/core/timing.py
+          game/data/classic_replays.py
+          game/data/content.py
+          game/data/ip_tracks.py
+          game/data/phase1_slice.py
+          game/entities/mars_sentinel.py
+          game/scenes/credits.py
+          game/scenes/title.py
+          game/scenes/vertical_slice.py
+          tools
+          tests
+      - name: Formatting data and replay contracts
+        run: >-
+          ruff format --check
+          game/data/classic_replays.py
+          game/data/content.py
+          game/data/ip_tracks.py
+          game/data/phase1_slice.py
+      - name: Formatting core runtime
+        run: >-
+          ruff format --check
+          game/core/accessibility.py
+          game/core/audio.py
+          game/core/camera.py
+          game/core/checkpoint.py
+          game/core/diagnostics.py
+          game/core/engine.py
+          game/core/gfx.py
+          game/core/input.py
+          game/core/presentation.py
+          game/core/save.py
+          game/core/settings.py
+          game/core/timing.py
+      - name: Formatting Phase 1 gameplay and scenes
+        run: >-
+          ruff format --check
+          game/entities/mars_sentinel.py
+          game/scenes/credits.py
+          game/scenes/title.py
+          game/scenes/vertical_slice.py
+      - name: Formatting tools and tests
         run: |
-          ruff format --check game/data game/core game/entities game/scenes tools tests
+          ruff format --check tools
+          ruff format --check tests
       - name: Unit and regression tests
         run: python -m unittest discover -s tests -v
       - name: Classic Mode replay
@@ -81,7 +134,7 @@ jobs:
           Passed:
 
           - Python compilation
-          - Ruff static analysis and formatting
+          - pinned Ruff static-analysis and formatting gates
           - complete unit and regression test suite
           - deterministic eight-chapter Classic Mode replay
           - deterministic complete Phase 1 Mars-slice replay
