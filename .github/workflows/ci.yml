@@ -48,19 +48,25 @@ jobs:
           game/scenes/title.py
           tools
           tests
-      - name: Formatting ratchet
+      - name: Formatting data catalog and replay tracks
+        run: >-
+          ruff format --check
+          game/data/classic_replays.py
+          game/data/content.py
+          game/data/ip_tracks.py
+      - name: Formatting core input and settings
         run: >-
           ruff format --check
           game/core/gfx.py
           game/core/input.py
           game/core/settings.py
-          game/data/classic_replays.py
-          game/data/content.py
-          game/data/ip_tracks.py
+      - name: Formatting identity-aware scenes
+        run: >-
+          ruff format --check
           game/scenes/credits.py
           game/scenes/title.py
-          tools
-          tests
+      - name: Formatting tools and tests
+        run: ruff format --check tools tests
       - name: Unit and Classic Mode regression tests
         run: python -m unittest discover -s tests -v
 
