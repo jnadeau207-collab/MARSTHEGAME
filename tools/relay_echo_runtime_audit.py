@@ -51,21 +51,28 @@ def audit_relay_runtime(manifest: dict[str, Any]) -> dict[str, Any]:
             }
         )
 
+    tranche = manifest.get("current_tranche")
+    runtime_verification = manifest.get("relay_echo_runtime_state_verification")
+    runtime_verification_valid = (
+        runtime_verification in {"pending", "passed"}
+        if tranche == "relay_echo_runtime_state"
+        else runtime_verification == "passed"
+    )
     record(
         "manifest_truth",
         manifest.get("phase") == "Phase 2"
         and manifest.get("status") == "in_progress"
-        and manifest.get("current_tranche") == "relay_echo_runtime_state"
+        and tranche in {"relay_echo_runtime_state", "relay_echo_playable_candidate"}
         and manifest.get("relay_echo_contract_verification") == "passed"
-        and manifest.get("relay_echo_runtime_state_verification") in {"pending", "passed"}
+        and runtime_verification_valid
         and manifest.get("implemented_missions") == ["ares_reach"]
         and manifest.get("contracted_missions") == [RELAY_ECHO_MISSION_ID]
         and manifest.get("full_campaign_claim") == "not_achieved"
         and manifest.get("aaa_claim") == "target_not_achieved",
         {
-            "current_tranche": manifest.get("current_tranche"),
+            "current_tranche": tranche,
             "contract_verification": manifest.get("relay_echo_contract_verification"),
-            "runtime_verification": manifest.get("relay_echo_runtime_state_verification"),
+            "runtime_verification": runtime_verification,
             "implemented_missions": manifest.get("implemented_missions"),
             "contracted_missions": manifest.get("contracted_missions"),
         },
@@ -167,8 +174,9 @@ def audit_relay_runtime(manifest: dict[str, Any]) -> dict[str, Any]:
         "checks": checks,
         "failures": failures,
         "truthfulness_note": (
-            "Relay Echo has a transactional runtime-state model but remains planned and "
-            "non-playable. Completion eligibility is not campaign completion."
+            "Relay Echo has a verified transactional runtime-state model and may have a "
+            "playable candidate, but remains planned and unavailable through campaign "
+            "routing. Completion eligibility is not campaign completion."
         ),
     }
 
