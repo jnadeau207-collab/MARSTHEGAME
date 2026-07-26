@@ -35,6 +35,7 @@ class VerticalSliceScene(LevelScene):
         self.ascent_timer = 0.0
         self.slice_complete = False
         self.completion_timer = 0.0
+        self.completion_transitioned = False
         self._landing_y = 790.0
         self._last_checkpoint_message = -1
 
@@ -79,6 +80,7 @@ class VerticalSliceScene(LevelScene):
         self.ascent_timer = 0.0
         self.slice_complete = False
         self.completion_timer = 0.0
+        self.completion_transitioned = False
         self.won = False
         self.dead_timer = 0.0
         self.engine.presentation.set_cinematic(self.arrival_timer > 0)
@@ -287,7 +289,8 @@ class VerticalSliceScene(LevelScene):
         if self.slice_complete:
             self.tick += dt
             self.completion_timer += dt
-            if self.completion_timer > 300:
+            if self.completion_timer > 300 and not self.completion_transitioned:
+                self.completion_transitioned = True
                 self.engine.go_title()
             return
         if self.arrival_timer > 0:
