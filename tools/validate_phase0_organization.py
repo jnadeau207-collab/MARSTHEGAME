@@ -69,7 +69,10 @@ def validate_manifest(manifest: dict[str, Any]) -> dict[str, Any]:
                 errors.append(f"{collection_name} {identifier} has no owner")
             if entry.get("status") not in _VALID_STATUSES:
                 errors.append(f"{collection_name} {identifier} is not active")
-            if entry.get("owner_type") == "agent" and entry.get("accountable_to") != accountable_human:
+            if (
+                entry.get("owner_type") == "agent"
+                and entry.get("accountable_to") != accountable_human
+            ):
                 errors.append(
                     f"{collection_name} {identifier} must be accountable to the named human"
                 )
@@ -77,9 +80,7 @@ def validate_manifest(manifest: dict[str, Any]) -> dict[str, Any]:
     truthfulness = manifest.get("truthfulness", {})
     claimed_human_headcount = truthfulness.get("claimed_human_headcount")
     human_owners = {
-        entry.get("owner")
-        for entry in [*leadership, *seats]
-        if entry.get("owner_type") == "human"
+        entry.get("owner") for entry in [*leadership, *seats] if entry.get("owner_type") == "human"
     }
     if claimed_human_headcount != len(human_owners):
         errors.append("claimed human headcount must equal unique named human owners")
