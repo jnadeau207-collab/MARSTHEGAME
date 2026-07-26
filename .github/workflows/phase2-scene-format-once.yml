@@ -1,0 +1,32 @@
+name: Phase 2 scene format once
+
+on:
+  push:
+    branches: [agent/phase2-campaign-foundation]
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    if: ${{ !contains(github.event.head_commit.message, '[phase2-scenes-formatted]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/phase2-campaign-foundation
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install pinned Ruff
+        run: python -m pip install -r requirements-dev.txt
+      - name: Apply exact scene formatting
+        run: ruff format game/scenes/campaign.py game/scenes/title.py
+      - name: Commit formatted production tree and remove helper
+        run: |
+          git rm .github/workflows/phase2-scene-format-once.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add game/scenes/campaign.py game/scenes/title.py
+          git commit -m "Apply pinned Phase 2 scene formatting [phase2-scenes-formatted]"
+          git push origin HEAD:agent/phase2-campaign-foundation
