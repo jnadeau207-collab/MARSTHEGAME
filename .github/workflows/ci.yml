@@ -47,7 +47,9 @@ jobs:
           game/core/engine.py
           game/core/gfx.py
           game/core/input.py
+          game/core/input_profiles.py
           game/core/presentation.py
+          game/core/relay_echo_accessibility.py
           game/core/relay_echo_state.py
           game/core/save.py
           game/core/settings.py
@@ -63,6 +65,8 @@ jobs:
           game/scenes/campaign.py
           game/scenes/credits.py
           game/scenes/relay_echo.py
+          game/scenes/relay_echo_accessible.py
+          game/scenes/settings.py
           game/scenes/title.py
           game/scenes/vertical_slice.py
           tools
@@ -89,7 +93,9 @@ jobs:
           game/core/engine.py
           game/core/gfx.py
           game/core/input.py
+          game/core/input_profiles.py
           game/core/presentation.py
+          game/core/relay_echo_accessibility.py
           game/core/relay_echo_state.py
           game/core/save.py
           game/core/settings.py
@@ -101,6 +107,8 @@ jobs:
           game/scenes/campaign.py
           game/scenes/credits.py
           game/scenes/relay_echo.py
+          game/scenes/relay_echo_accessible.py
+          game/scenes/settings.py
           game/scenes/title.py
           game/scenes/vertical_slice.py
       - name: Formatting replay, audit, and benchmark tools
@@ -127,6 +135,10 @@ jobs:
         run: >-
           python -m tools.relay_echo_candidate_audit
           --json-out build/relay-echo-candidate.json
+      - name: Audit Relay Echo accessibility and input parity
+        run: >-
+          python -m tools.relay_echo_accessibility_audit
+          --json-out build/relay-echo-accessibility-audit.json
 
   phase-artifacts:
     name: Classic Mode, Phase 1, and Phase 2 evidence
@@ -145,6 +157,10 @@ jobs:
         run: python -m tools.phase1_slice_replay --json-out build/phase1-slice-replay.json
       - name: Replay the complete Relay Echo candidate
         run: python -m tools.relay_echo_replay --json-out build/relay-echo-replay.json
+      - name: Prove Relay Echo accessibility and input parity
+        run: >-
+          python -m tools.relay_echo_accessibility_replay
+          --json-out build/relay-echo-accessibility-replay.json
       - name: Capture performance evidence
         run: >-
           python -m tools.performance_baseline
@@ -171,6 +187,10 @@ jobs:
         run: >-
           python -m tools.relay_echo_candidate_audit
           --json-out build/relay-echo-candidate.json
+      - name: Audit Relay Echo accessibility and input parity
+        run: >-
+          python -m tools.relay_echo_accessibility_audit
+          --json-out build/relay-echo-accessibility-audit.json
       - name: Upload Phase evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -180,6 +200,7 @@ jobs:
             build/classic-mode-replay.json
             build/phase1-slice-replay.json
             build/relay-echo-replay.json
+            build/relay-echo-accessibility-replay.json
             build/performance-baseline.json
             build/phase0-organization.json
             build/phase0-audit.json
@@ -187,6 +208,7 @@ jobs:
             build/phase2-campaign.json
             build/relay-echo-runtime.json
             build/relay-echo-candidate.json
+            build/relay-echo-accessibility-audit.json
           if-no-files-found: warn
 
   performance-regression:

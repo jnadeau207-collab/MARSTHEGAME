@@ -26,6 +26,7 @@ from game.scenes.campaign import CampaignScene
 from game.scenes.chapter_select import ChapterSelectScene
 from game.scenes.credits import CreditsScene
 from game.scenes.level import LevelScene
+from game.scenes.settings import SettingsScene
 from game.scenes.title import TitleScene
 from game.scenes.vertical_slice import VerticalSliceScene
 
@@ -221,6 +222,9 @@ class Engine:
 
     def go_title(self):
         self.replace(TitleScene(self))
+
+    def go_settings(self):
+        self.replace(SettingsScene(self))
 
     def go_chapter_select(self):
         self.replace(ChapterSelectScene(self))

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+from typing import Final
 
 import pygame
 
@@ -31,6 +32,15 @@ _KEY_NAME_MAP = {
 }
 
 _BUFFERED_ACTIONS = ("jump", "attack", "dash", "interact")
+
+GAMEPAD_BUTTON_ACTIONS: Final = {
+    0: ("jump", "confirm"),
+    1: ("attack", "cancel"),
+    2: ("dash",),
+    3: ("interact",),
+    6: ("cancel",),
+    7: ("pause",),
+}
 
 
 class InputManager:
@@ -133,16 +143,21 @@ class InputManager:
                     current.add("up")
                 if axis_y > 0.4:
                     current.add("down")
-                if self.joy.get_button(0):
-                    current.update(("jump", "confirm"))
-                if self.joy.get_button(1):
-                    current.add("attack")
-                if self.joy.get_button(2):
-                    current.add("dash")
-                if self.joy.get_button(3):
-                    current.add("interact")
-                if self.joy.get_button(7):
-                    current.add("pause")
+
+                if self.joy.get_numhats() > 0:
+                    hat_x, hat_y = self.joy.get_hat(0)
+                    if hat_x < 0:
+                        current.add("left")
+                    if hat_x > 0:
+                        current.add("right")
+                    if hat_y > 0:
+                        current.add("up")
+                    if hat_y < 0:
+                        current.add("down")
+
+                for button, actions in GAMEPAD_BUTTON_ACTIONS.items():
+                    if self.joy.get_button(button):
+                        current.update(actions)
             except Exception:
                 pass
 
