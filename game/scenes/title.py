@@ -24,7 +24,7 @@ class TitleScene(Scene):
             ("new", "New Classic Odyssey"),
             ("continue", "Continue Classic Mode"),
             ("chapters", "Classic Chapters"),
-            ("settings", "Settings"),
+            ("settings", "Accessibility & Settings"),
             ("credits", "Credits"),
             ("quit", "Quit"),
         ]
@@ -97,7 +97,7 @@ class TitleScene(Scene):
         elif option_id == "chapters":
             self.engine.go_chapter_select()
         elif option_id == "settings":
-            self.engine.settings["show_fps"] = not self.engine.settings.get("show_fps", False)
+            self.engine.go_settings()
         elif option_id == "credits":
             self.engine.go_credits()
         elif option_id == "quit":
@@ -159,31 +159,10 @@ class TitleScene(Scene):
             layers=5,
         )
         pygame.draw.circle(surface, (140, 55, 30), (mars_x, mars_y), 70)
-        pygame.draw.circle(
-            surface,
-            (160, 70, 40),
-            (mars_x - 20, mars_y - 15),
-            25,
-        )
-        pygame.draw.circle(
-            surface,
-            (100, 40, 25),
-            (mars_x + 25, mars_y + 10),
-            18,
-        )
-        pygame.draw.circle(
-            surface,
-            (180, 90, 50),
-            (mars_x - 5, mars_y + 20),
-            12,
-        )
-        pygame.draw.circle(
-            surface,
-            (200, 120, 80),
-            (mars_x, mars_y),
-            72,
-            1,
-        )
+        pygame.draw.circle(surface, (160, 70, 40), (mars_x - 20, mars_y - 15), 25)
+        pygame.draw.circle(surface, (100, 40, 25), (mars_x + 25, mars_y + 10), 18)
+        pygame.draw.circle(surface, (180, 90, 50), (mars_x - 5, mars_y + 20), 12)
+        pygame.draw.circle(surface, (200, 120, 80), (mars_x, mars_y), 72, 1)
 
         title_y = 88
         gfx.soft_circle_additive(
@@ -197,32 +176,20 @@ class TitleScene(Scene):
         shadow = self.engine.font_xl.render(self.short_title, True, (0, 40, 80))
         surface.blit(
             shadow,
-            (
-                SCREEN_WIDTH // 2 - title.get_width() // 2 + 3,
-                title_y + 3,
-            ),
+            (SCREEN_WIDTH // 2 - title.get_width() // 2 + 3, title_y + 3),
         )
-        surface.blit(
-            title,
-            (SCREEN_WIDTH // 2 - title.get_width() // 2, title_y),
-        )
+        surface.blit(title, (SCREEN_WIDTH // 2 - title.get_width() // 2, title_y))
 
         subtitle = self.engine.font_md.render(self.subtitle, True, Colors.ACCENT)
         surface.blit(
             subtitle,
-            (
-                SCREEN_WIDTH // 2 - subtitle.get_width() // 2,
-                title_y + 70,
-            ),
+            (SCREEN_WIDTH // 2 - subtitle.get_width() // 2, title_y + 70),
         )
 
         tagline = self.engine.font_sm.render(self.tagline, True, (140, 150, 170))
         surface.blit(
             tagline,
-            (
-                SCREEN_WIDTH // 2 - tagline.get_width() // 2,
-                title_y + 110,
-            ),
+            (SCREEN_WIDTH // 2 - tagline.get_width() // 2, title_y + 110),
         )
 
         start_y = 260
@@ -264,10 +231,7 @@ class TitleScene(Scene):
         )
         surface.blit(
             footer,
-            (
-                SCREEN_WIDTH // 2 - footer.get_width() // 2,
-                SCREEN_HEIGHT - 28,
-            ),
+            (SCREEN_WIDTH // 2 - footer.get_width() // 2, SCREEN_HEIGHT - 28),
         )
 
         gfx.draw_vignette(surface, strength=80)
