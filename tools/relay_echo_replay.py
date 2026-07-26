@@ -7,6 +7,7 @@ import argparse
 import json
 import os
 import random
+import traceback
 from pathlib import Path
 from typing import Any
 
@@ -256,13 +257,22 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--json-out", type=Path)
     args = parser.parse_args()
-    report = run_replay()
+    try:
+        report = run_replay()
+    except Exception as exc:
+        report = {
+            "schema_version": 1,
+            "status": "error",
+            "error_type": type(exc).__name__,
+            "error": str(exc),
+            "traceback": traceback.format_exc(),
+        }
     rendered = json.dumps(report, indent=2, sort_keys=True)
     print(rendered)
     if args.json_out:
         args.json_out.parent.mkdir(parents=True, exist_ok=True)
         args.json_out.write_text(rendered + "\n", encoding="utf-8")
-    return 0
+    return 0 if report["status"] == "pass" else 1
 
 
 if __name__ == "__main__":
