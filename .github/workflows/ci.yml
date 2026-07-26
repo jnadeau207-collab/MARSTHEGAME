@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  SDL_VIDEODRIVER: dummy
+  SDL_AUDIODRIVER: dummy
+  PYGAME_HIDE_SUPPORT_PROMPT: "1"
+
+jobs:
+  quality:
+    name: Quality (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - name: Install dependencies
+        run: python -m pip install --upgrade pip -r requirements.txt -r requirements-dev.txt
+      - name: Compile all Python sources
+        run: python -m compileall -q main.py game tools tests
+      - name: Static analysis ratchet
+        run: ruff check game/data/ip_tracks.py tools tests
+      - name: Formatting ratchet
+        run: ruff format --check game/data/ip_tracks.py tools tests
+      - name: Unit and Classic Mode regression tests
+        run: python -m unittest discover -s tests -v
+
+  classic-mode-artifacts:
+    name: Classic Mode replay and baseline
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: python -m pip install --upgrade pip -r requirements.txt
+      - name: Replay all eight chapters
+        run: python tools/classic_mode_replay.py --json-out build/classic-mode-replay.json
+      - name: Capture non-gating performance baseline
+        run: >-
+          python tools/performance_baseline.py
+          --update-frames 30
+          --draw-frames 3
+          --rounds 1
+          --json-out build/performance-baseline.json
+      - name: Upload Phase 0 evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase0-evidence-${{ github.sha }}
+          path: |
+            build/classic-mode-replay.json
+            build/performance-baseline.json
+          if-no-files-found: error
