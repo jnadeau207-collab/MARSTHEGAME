@@ -11,7 +11,8 @@ Non-negotiable runtime invariants:
 - Classic Mode chapters 1–8 must continue to load, accept controls, complete, save, and transition in order.
 - The default `real_world` identity must preserve current prototype behavior and copy.
 - The `fictionalized` identity must be selectable without gameplay, geometry, save, or level-schema forks.
-- Performance work must be measured against recorded Python baselines before replacement.
+- Performance work must pass same-runner base-versus-candidate measurement before replacement.
+- Agent-owned production lanes remain accountable to the named human authority.
 
 ## Current runtime layers
 
@@ -53,9 +54,15 @@ main.py
 - `tests/test_content_catalog.py` proves both IP tracks expose identical stable keys and preserve gameplay data.
 - `tests/test_input_manager.py` protects physical bindings, virtual actions, transitions, and buffering.
 - `tools/classic_mode_replay.py` runs every recorded input track twice through production gameplay, compares deterministic signatures, then verifies goal completion, save progression, and next-chapter/credits transitions.
-- `tools/performance_baseline.py` records scene setup, update, and offscreen draw timings as JSON evidence.
-- GitHub Actions runs Python 3.11 and 3.12 quality gates and uploads replay/performance evidence.
+- `tools/performance_baseline.py` records raw samples, median, and MAD for scene setup, update, and offscreen draw work.
+- `tools/performance_guard.py` compares base/candidate/base measurements on one runner against `config/performance_thresholds.json` and blocks individual or broad regressions.
+- `config/phase0_organization.json` defines the founder-accountable fourteen-seat operating cell; `tools.validate_phase0_organization.py` rejects missing ownership, disciplines, accountability, or truthful headcount.
+- GitHub Actions runs Python 3.11 and 3.12 quality gates and uploads replay, organization, baseline, and performance-verdict evidence.
 - Ruff operates as a ratchet. Legacy files enter the formatting gate as they are deliberately touched and reviewed.
+
+## Phase 0 operating model
+
+The founder holds final product, scope, release, legal-retention, staffing, budget, and merge authority. Fourteen functional seats cover the vertical-slice disciplines required to begin Phase 1. Agent-owned seats can implement and recommend but cannot approve irreversible decisions. The manifest records one human owner and does not misrepresent functional seats as employees.
 
 ## Planned native boundary
 
