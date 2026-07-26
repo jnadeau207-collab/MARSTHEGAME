@@ -59,18 +59,14 @@ class RelayEchoContractTests(unittest.TestCase):
     def test_accessibility_contract_cannot_be_reduced(self) -> None:
         data = relay_echo_contract()
         data["accessibility_requirements"] = tuple(
-            item
-            for item in data["accessibility_requirements"]
-            if item != "reduced_motion"
+            item for item in data["accessibility_requirements"] if item != "reduced_motion"
         )
         errors = validate_relay_echo_contract(data)
         self.assertTrue(any("missing accessibility" in error for error in errors))
 
     def test_replay_must_cover_contract_objectives_and_checkpoints(self) -> None:
         data = relay_echo_contract()
-        data["deterministic_replay"]["required_objectives"] = (
-            "reach_noctis_relay",
-        )
+        data["deterministic_replay"]["required_objectives"] = ("reach_noctis_relay",)
         data["deterministic_replay"]["required_checkpoints"] = (0, 1)
         errors = validate_relay_echo_contract(data)
         self.assertTrue(any("replay objective order" in error for error in errors))

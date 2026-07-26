@@ -465,9 +465,13 @@ def validate_relay_echo_contract(data: dict[str, Any] = RELAY_ECHO_CONTRACT) -> 
             for dependency in dependencies:
                 dependency_index = objective_index.get(dependency)
                 if dependency_index is None:
-                    errors.append(f"objective {objective_id} references unknown dependency {dependency}")
+                    errors.append(
+                        f"objective {objective_id} references unknown dependency {dependency}"
+                    )
                 elif dependency_index >= index:
-                    errors.append(f"objective {objective_id} dependency {dependency} must precede it")
+                    errors.append(
+                        f"objective {objective_id} dependency {dependency} must precede it"
+                    )
         checkpoint_id = objective.get("checkpoint_id")
         if isinstance(checkpoint_id, bool) or not isinstance(checkpoint_id, int):
             errors.append(f"objective {objective_id} requires an integer checkpoint")
@@ -614,7 +618,9 @@ def validate_relay_echo_contract(data: dict[str, Any] = RELAY_ECHO_CONTRACT) -> 
             errors.append(f"missing content package requirements: {missing_packages}")
         invalid_packages = sorted(key for key, value in packages.items() if value != "required")
         if invalid_packages:
-            errors.append(f"content packages may not be represented as complete: {invalid_packages}")
+            errors.append(
+                f"content packages may not be represented as complete: {invalid_packages}"
+            )
 
     boundary = data.get("procedural_authored_boundary", {})
     if boundary.get("deterministic_seed_required") is not True:
