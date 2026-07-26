@@ -25,21 +25,36 @@ class RelayEchoAccessibilityAuditTests(unittest.TestCase):
             self.replay_report if replay_report is None else replay_report,
         )
 
+    def pending_manifest(self) -> dict:
+        manifest = copy.deepcopy(self.manifest)
+        manifest["relay_echo_accessibility_parity_verification"] = "pending"
+        manifest["verification_run"] = "requested"
+        manifest["carried_release_gates"]["keyboard_gamepad_completion_parity"] = False
+        manifest["carried_release_gates"]["accessibility_path_verified"] = False
+        return manifest
+
     def test_committed_manifest_and_replay_pass(self) -> None:
         report = self.audit(self.manifest)
         self.assertEqual(report["status"], "pass")
         self.assertEqual(report["tranche"], "relay_echo_accessibility_parity")
 
     def test_parity_cannot_be_claimed_before_exact_verification(self) -> None:
-        manifest = copy.deepcopy(self.manifest)
+        manifest = self.pending_manifest()
         manifest["carried_release_gates"]["keyboard_gamepad_completion_parity"] = True
         report = self.audit(manifest)
         self.assertEqual(report["status"], "fail")
         self.assertIn("pending_release_gates_truthful", report["failures"])
 
     def test_accessibility_path_cannot_be_claimed_before_exact_verification(self) -> None:
-        manifest = copy.deepcopy(self.manifest)
+        manifest = self.pending_manifest()
         manifest["carried_release_gates"]["accessibility_path_verified"] = True
+        report = self.audit(manifest)
+        self.assertEqual(report["status"], "fail")
+        self.assertIn("pending_release_gates_truthful", report["failures"])
+
+    def test_verified_gates_require_a_numeric_run(self) -> None:
+        manifest = copy.deepcopy(self.manifest)
+        manifest["verification_run"] = "requested"
         report = self.audit(manifest)
         self.assertEqual(report["status"], "fail")
         self.assertIn("pending_release_gates_truthful", report["failures"])
