@@ -19,9 +19,37 @@ os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
 
 import pygame
 
+from game.core import gfx
 from game.core.save import SaveData
 from game.core.settings import SCREEN_HEIGHT, SCREEN_WIDTH
 from game.scenes.level import LevelScene
+
+
+class _LegacyGlowCache(dict):
+    """Preserve the just-created entry when the original cache clears itself."""
+
+    def __init__(self, initial: dict) -> None:
+        super().__init__(initial)
+        self._last_inserted: tuple[Any, Any] | None = None
+
+    def __setitem__(self, key: Any, value: Any) -> None:
+        super().__setitem__(key, value)
+        self._last_inserted = (key, value)
+
+    def clear(self) -> None:
+        last_inserted = self._last_inserted
+        super().clear()
+        if last_inserted is not None:
+            super().__setitem__(*last_inserted)
+
+
+def _install_legacy_glow_cache_compatibility() -> None:
+    """Allow the pre-fix base revision to complete rendering measurements."""
+
+    if hasattr(gfx, "_GLOW_CACHE_LIMIT"):
+        return
+    if not isinstance(gfx._glow_cache, _LegacyGlowCache):
+        gfx._glow_cache = _LegacyGlowCache(gfx._glow_cache)
 
 
 class NeutralInput:
@@ -159,6 +187,7 @@ def capture_baseline(
     if warmup_rounds < 0:
         raise ValueError("warmup_rounds cannot be negative")
 
+    _install_legacy_glow_cache_compatibility()
     pygame.init()
     pygame.display.set_mode((1, 1))
     try:
