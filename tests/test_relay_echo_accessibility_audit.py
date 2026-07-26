@@ -25,43 +25,42 @@ class RelayEchoAccessibilityAuditTests(unittest.TestCase):
             self.replay_report if replay_report is None else replay_report,
         )
 
-    def pending_manifest(self) -> dict:
-        manifest = copy.deepcopy(self.manifest)
-        manifest["relay_echo_accessibility_parity_verification"] = "pending"
-        manifest["verification_run"] = "requested"
-        manifest["carried_release_gates"]["keyboard_gamepad_completion_parity"] = False
-        manifest["carried_release_gates"]["accessibility_path_verified"] = False
-        return manifest
-
-    def test_committed_manifest_and_replay_pass(self) -> None:
+    def test_committed_manifest_and_replay_pass_after_promotion(self) -> None:
         report = self.audit(self.manifest)
         self.assertEqual(report["status"], "pass")
         self.assertEqual(report["tranche"], "relay_echo_accessibility_parity")
 
-    def test_parity_cannot_be_claimed_before_exact_verification(self) -> None:
-        manifest = self.pending_manifest()
-        manifest["carried_release_gates"]["keyboard_gamepad_completion_parity"] = True
-        report = self.audit(manifest)
-        self.assertEqual(report["status"], "fail")
-        self.assertIn("pending_release_gates_truthful", report["failures"])
-
-    def test_accessibility_path_cannot_be_claimed_before_exact_verification(self) -> None:
-        manifest = self.pending_manifest()
-        manifest["carried_release_gates"]["accessibility_path_verified"] = True
-        report = self.audit(manifest)
-        self.assertEqual(report["status"], "fail")
-        self.assertIn("pending_release_gates_truthful", report["failures"])
-
-    def test_verified_gates_require_a_numeric_run(self) -> None:
+    def test_parity_verification_must_remain_passed(self) -> None:
         manifest = copy.deepcopy(self.manifest)
-        manifest["verification_run"] = "requested"
+        manifest["relay_echo_accessibility_parity_verification"] = "pending"
         report = self.audit(manifest)
         self.assertEqual(report["status"], "fail")
-        self.assertIn("pending_release_gates_truthful", report["failures"])
+        self.assertIn("manifest_truth", report["failures"])
+
+    def test_verified_parity_requires_preserved_numeric_run(self) -> None:
+        manifest = copy.deepcopy(self.manifest)
+        manifest["relay_echo_accessibility_parity_run"] = "requested"
+        report = self.audit(manifest)
+        self.assertEqual(report["status"], "fail")
+        self.assertIn("manifest_truth", report["failures"])
+
+    def test_verified_accessibility_gates_cannot_be_removed(self) -> None:
+        manifest = copy.deepcopy(self.manifest)
+        manifest["carried_release_gates"]["accessibility_path_verified"] = False
+        report = self.audit(manifest)
+        self.assertEqual(report["status"], "fail")
+        self.assertIn("verified_release_gates_truthful", report["failures"])
+
+    def test_external_release_gate_fabrication_fails(self) -> None:
+        manifest = copy.deepcopy(self.manifest)
+        manifest["carried_release_gates"]["founder_direct_play_approval"] = True
+        report = self.audit(manifest)
+        self.assertEqual(report["status"], "fail")
+        self.assertIn("verified_release_gates_truthful", report["failures"])
 
     def test_unknown_tranche_fails(self) -> None:
         manifest = copy.deepcopy(self.manifest)
-        manifest["current_tranche"] = "relay_echo_promoted"
+        manifest["current_tranche"] = "relay_echo_replay_reset"
         report = self.audit(manifest)
         self.assertEqual(report["status"], "fail")
         self.assertIn("manifest_truth", report["failures"])
@@ -72,11 +71,11 @@ class RelayEchoAccessibilityAuditTests(unittest.TestCase):
         replay["input_parity"] = False
         report = self.audit(self.manifest, replay)
         self.assertEqual(report["status"], "fail")
-        self.assertIn("executable_parity_evidence", report["failures"])
+        self.assertIn("executable_parity_evidence_retained", report["failures"])
 
-    def test_manifest_cannot_fabricate_relay_echo_implementation(self) -> None:
+    def test_manifest_cannot_remove_relay_echo_implementation(self) -> None:
         manifest = copy.deepcopy(self.manifest)
-        manifest["implemented_missions"].append("relay_echo")
+        manifest["implemented_missions"] = ["ares_reach"]
         report = self.audit(manifest)
         self.assertEqual(report["status"], "fail")
         self.assertIn("manifest_truth", report["failures"])
