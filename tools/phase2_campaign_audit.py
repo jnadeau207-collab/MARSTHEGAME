@@ -142,10 +142,13 @@ def audit_campaign(manifest: dict[str, Any]) -> dict[str, Any]:
         completed=True,
         resource_gate_open=True,
     )
+    phase1_transaction_ok = (
+        completed_save.campaign["completed_missions"] == ["ares_reach"]
+        and "relay_echo" in completed_save.campaign["unlocked_missions"]
+    )
     record(
         "phase1_completion_transaction",
-        completed_save.campaign["completed_missions"] == ["ares_reach"]
-        and "relay_echo" in completed_save.campaign["unlocked_missions"],
+        phase1_transaction_ok,
         completed_save.campaign,
     )
 
@@ -179,14 +182,12 @@ def audit_campaign(manifest: dict[str, Any]) -> dict[str, Any]:
         "def start_campaign_mission" in engine_source
         and "CampaignScene" in engine_source
         and "_synchronize_phase1_campaign" in save_source
-        and 'CAMPAIGN_GRAPH.complete_mission(\n                campaign, "ares_reach"'
-        in save_source
+        and phase1_transaction_ok
         and '("campaign", "Frontier Campaign")' in title_source,
         {
             "engine_route": "def start_campaign_mission" in engine_source,
             "campaign_scene": "CampaignScene" in engine_source,
-            "completion_transaction": "_synchronize_phase1_campaign"
-            in save_source,
+            "completion_transaction": phase1_transaction_ok,
             "title_route": '("campaign", "Frontier Campaign")'
             in title_source,
         },
