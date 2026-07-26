@@ -38,8 +38,13 @@ jobs:
       - name: Static analysis ratchet
         run: >-
           ruff check
+          game/core/accessibility.py
+          game/core/audio.py
+          game/core/camera.py
+          game/core/engine.py
           game/core/gfx.py
           game/core/input.py
+          game/core/presentation.py
           game/core/settings.py
           game/data/classic_replays.py
           game/data/content.py
@@ -54,11 +59,16 @@ jobs:
           game/data/classic_replays.py
           game/data/content.py
           game/data/ip_tracks.py
-      - name: Formatting core input and settings
+      - name: Formatting core runtime
         run: >-
           ruff format --check
+          game/core/accessibility.py
+          game/core/audio.py
+          game/core/camera.py
+          game/core/engine.py
           game/core/gfx.py
           game/core/input.py
+          game/core/presentation.py
           game/core/settings.py
       - name: Formatting identity-aware scenes
         run: >-
@@ -77,9 +87,11 @@ jobs:
           --json-out build/phase0-organization.json
       - name: Audit Phase 0 completion
         run: python -m tools.phase0_audit --json-out build/phase0-audit.json
+      - name: Audit Phase 1 quality truth
+        run: python -m tools.phase1_quality_audit --json-out build/phase1-quality.json
 
   classic-mode-artifacts:
-    name: Classic Mode replay and baseline
+    name: Classic Mode replay and Phase 1 evidence
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -105,16 +117,19 @@ jobs:
           --json-out build/phase0-organization.json
       - name: Audit Phase 0 completion
         run: python -m tools.phase0_audit --json-out build/phase0-audit.json
-      - name: Upload Phase 0 evidence
+      - name: Audit Phase 1 quality truth
+        run: python -m tools.phase1_quality_audit --json-out build/phase1-quality.json
+      - name: Upload Phase evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: phase0-evidence-${{ github.sha }}
+          name: phase-evidence-${{ github.sha }}
           path: |
             build/classic-mode-replay.json
             build/performance-baseline.json
             build/phase0-organization.json
             build/phase0-audit.json
+            build/phase1-quality.json
           if-no-files-found: warn
 
   performance-regression:
