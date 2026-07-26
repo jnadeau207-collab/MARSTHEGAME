@@ -5,7 +5,7 @@
   "campaign_id": "frontier_campaign",
   "full_campaign_claim": "not_achieved",
   "aaa_claim": "target_not_achieved",
-  "integration_verification": "capturing_unit_test_failures",
+  "integration_verification": "definitive_verification_pending",
   "implemented_missions": [
     "ares_reach"
   ],
