@@ -9,6 +9,7 @@ import pygame
 from game.core import gfx
 from game.core.settings import SCREEN_HEIGHT, SCREEN_WIDTH, Colors
 from game.data.relay_echo_candidate import RELAY_ECHO_CANDIDATE
+from game.entities.collectible import Collectible
 from game.entities.enemy import Enemy
 from game.entities.player import Player
 from game.scenes.level import LevelScene
@@ -77,8 +78,7 @@ class RelayEchoScene(LevelScene):
     def _near(self, point: tuple[int, int]) -> bool:
         radius_x, radius_y = self.data["interactions"]["interaction_radius"]
         return (
-            abs(self.player.x - point[0]) <= radius_x
-            and abs(self.player.y - point[1]) <= radius_y
+            abs(self.player.x - point[0]) <= radius_x and abs(self.player.y - point[1]) <= radius_y
         )
 
     def _persist_objective(
@@ -123,18 +123,19 @@ class RelayEchoScene(LevelScene):
         return messages[objective_id]
 
     def _persist_failure(self, failure_id: str) -> bool:
-        previous = deepcopy(self.engine.save.relay_echo)
+        previous_state = deepcopy(self.engine.save.relay_echo)
+        previous_stats = dict(self.engine.save.stats)
         transition = self.engine.save.record_relay_echo_failure(failure_id)
+        if failure_id == "player_down":
+            self.engine.save.stats["deaths"] = self.engine.save.stats.get("deaths", 0) + 1
         if not self.engine.save.save():
-            self.engine.save.relay_echo = previous
+            self.engine.save.relay_echo = previous_state
+            self.engine.save.stats = previous_stats
             self.msg = f"Failure telemetry could not persist: {self.engine.save.last_error}"
             self.msg_timer = 240
             return False
         self._last_transition = transition
         self.phase = self.mission_state["current_state"]
-        self.engine.save.stats["deaths"] = self.engine.save.stats.get("deaths", 0) + (
-            1 if failure_id == "player_down" else 0
-        )
         self._restore_checkpoint()
         self.msg = (
             f"Telemetry retained — {failure_id.replace('_', ' ')}; "
@@ -155,8 +156,9 @@ class RelayEchoScene(LevelScene):
         self.player.invuln = 90
         self.player.parts = int(state["signal_fragments"])
         self.player.books = previous_books
-        self.enemies = [
-            Enemy(x, y, kind) for kind, x, y in self.data.get("enemies", ())
+        self.enemies = [Enemy(x, y, kind) for kind, x, y in self.data.get("enemies", ())]
+        self.collectibles = [
+            Collectible(x, y, kind) for kind, x, y in self.data.get("collectibles", ())
         ]
         if state["relay_core_open"]:
             for enemy in self._guardians():
@@ -279,9 +281,7 @@ class RelayEchoScene(LevelScene):
 
     def _draw_candidate_hud(self, surface) -> None:
         state = self.mission_state
-        objective = (state["current_objective"] or "candidate_complete").replace(
-            "_", " "
-        )
+        objective = (state["current_objective"] or "candidate_complete").replace("_", " ")
         heading = self.engine.font_sm.render(
             f"RELAY ECHO CANDIDATE  ·  {state['current_state'].replace('_', ' ').upper()}",
             True,
