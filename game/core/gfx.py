@@ -4,6 +4,7 @@ Pure pygame — layered shading, soft glows, bevels, vignette.
 """
 
 import math
+
 import pygame
 
 _GLOW_CACHE_LIMIT = 120
@@ -33,7 +34,11 @@ def soft_circle(surface, color, pos, radius, layers=4):
             pygame.draw.circle(s, (*color[:3], a), (cx, cy), r)
         _glow_cache[key] = s
     img = _glow_cache[key]
-    surface.blit(img, (pos[0] - img.get_width() // 2, pos[1] - img.get_height() // 2), special_flags=pygame.BLEND_ALPHA_SDL2)
+    surface.blit(
+        img,
+        (pos[0] - img.get_width() // 2, pos[1] - img.get_height() // 2),
+        special_flags=pygame.BLEND_ALPHA_SDL2,
+    )
 
 
 def soft_circle_additive(surface, color, pos, radius, layers=5):
@@ -51,7 +56,11 @@ def soft_circle_additive(surface, color, pos, radius, layers=5):
             pygame.draw.circle(s, (*color[:3], a), (cx, cy), r)
         _glow_cache[key] = s
     img = _glow_cache[key]
-    surface.blit(img, (pos[0] - img.get_width() // 2, pos[1] - img.get_height() // 2), special_flags=pygame.BLEND_ADD)
+    surface.blit(
+        img,
+        (pos[0] - img.get_width() // 2, pos[1] - img.get_height() // 2),
+        special_flags=pygame.BLEND_ADD,
+    )
 
 
 def bevel_rect(surface, rect, base, light=None, dark=None, top_h=5):
@@ -68,7 +77,13 @@ def bevel_rect(surface, rect, base, light=None, dark=None, top_h=5):
     # left/right subtle
     if rect.w > 10:
         pygame.draw.line(surface, light, (rect.x, rect.y), (rect.x, rect.bottom - 1), 1)
-        pygame.draw.line(surface, dark, (rect.right - 1, rect.y), (rect.right - 1, rect.bottom - 1), 1)
+        pygame.draw.line(
+            surface,
+            dark,
+            (rect.right - 1, rect.y),
+            (rect.right - 1, rect.bottom - 1),
+            1,
+        )
 
 
 def drop_shadow(surface, rect, offset=3, alpha=70):
@@ -91,7 +106,11 @@ def draw_vignette(surface, strength=90):
                 d = math.hypot(x - cx, y - cy) / max_d
                 a = int(strength * max(0, d - 0.35) ** 1.6)
                 if a > 2:
-                    pygame.draw.rect(_vignette, (0, 0, 0, min(180, a)), (x, y, step, step))
+                    pygame.draw.rect(
+                        _vignette,
+                        (0, 0, 0, min(180, a)),
+                        (x, y, step, step),
+                    )
     surface.blit(_vignette, (0, 0))
 
 
@@ -113,6 +132,7 @@ def shade(color, amount):
 def stipple_rect(surface, rect, color, density=0.15):
     """Cheap texture: sparse pixels."""
     import random
+
     rng = random.Random(rect.x * 31 + rect.y * 17)
     n = max(1, int(rect.w * rect.h * density / 40))
     for _ in range(n):
