@@ -19,8 +19,12 @@ Run the game with `python main.py`.
 
 ```bash
 python -m compileall -q main.py game tools tests
-ruff check game/core/gfx.py game/data/ip_tracks.py tools tests
-ruff format --check game/core/gfx.py game/data/ip_tracks.py tools tests
+ruff check game/core/gfx.py game/core/input.py game/core/settings.py \
+  game/data/classic_replays.py game/data/content.py game/data/ip_tracks.py \
+  game/scenes/credits.py game/scenes/title.py tools tests
+ruff format --check game/core/gfx.py game/core/input.py game/core/settings.py \
+  game/data/classic_replays.py game/data/content.py game/data/ip_tracks.py \
+  game/scenes/credits.py game/scenes/title.py tools tests
 python -m unittest discover -s tests -v
 python -m tools.classic_mode_replay --json-out build/classic-mode-replay.json
 python -m tools.performance_baseline --json-out build/performance-baseline.json
@@ -35,8 +39,10 @@ SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy python -m unittest discover -s tests
 ## Change rules
 
 - Never add Unreal, Unity, Godot, Bevy, or another game engine.
-- Keep level and narrative content data-driven.
+- Keep level geometry, narrative content, and replay tracks data-driven.
 - Preserve all eight Classic Mode chapters and their progression order.
+- Route identity-sensitive player-facing copy through stable keys in `game/data/content.py`.
+- Use virtual gameplay actions rather than platform key codes in replay data.
 - Add or update regression coverage for every behavior change.
 - Do not claim a performance improvement without before/after JSON baselines.
 - New branded names or likenesses must enter through the dual-track identity registry.
