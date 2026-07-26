@@ -231,3 +231,25 @@ jobs:
           name: performance-guard-${{ github.sha }}
           path: evidence/*.json
           if-no-files-found: warn
+
+  tools-format-evidence:
+    name: Exact tools formatter evidence
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install pinned Ruff
+        run: python -m pip install -r requirements-dev.txt
+      - name: Format complete tools tree
+        run: |
+          mkdir -p build/tools-format
+          ruff format tools
+          git diff -- tools > build/tools-format/format.patch
+          cp -R tools build/tools-format/tools
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tools-format-${{ github.sha }}
+          path: build/tools-format/
+          if-no-files-found: error
