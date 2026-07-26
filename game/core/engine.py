@@ -12,6 +12,7 @@ from game.core.diagnostics import CrashReporter
 from game.core.input import InputManager
 from game.core.particles import ParticleSystem
 from game.core.presentation import PresentationDirector
+from game.core.relay_echo_promotion import prepare_relay_echo_launch
 from game.core.save import SaveData
 from game.core.settings import (
     FPS,
@@ -26,6 +27,7 @@ from game.scenes.campaign import CampaignScene
 from game.scenes.chapter_select import ChapterSelectScene
 from game.scenes.credits import CreditsScene
 from game.scenes.level import LevelScene
+from game.scenes.relay_echo_promoted import PromotedRelayEchoScene
 from game.scenes.settings import SettingsScene
 from game.scenes.title import TitleScene
 from game.scenes.vertical_slice import VerticalSliceScene
@@ -202,17 +204,27 @@ class Engine:
         playable = CAMPAIGN_GRAPH.playable_mission_ids(self.save.campaign["completed_missions"])
         if mission_id not in playable:
             raise ValueError(f"campaign mission {mission_id!r} is not currently playable")
+
+        entrypoint = mission["entrypoint"]
+        if entrypoint not in {"vertical_slice", "relay_echo"}:
+            raise ValueError(f"campaign mission {mission_id!r} has no supported entrypoint")
+
         previous_campaign = deepcopy(self.save.campaign)
-        self.save.record_campaign_attempt(mission_id)
+        previous_relay = deepcopy(self.save.relay_echo)
+        if entrypoint == "relay_echo":
+            prepare_relay_echo_launch(self.save)
+        else:
+            self.save.record_campaign_attempt(mission_id)
+
         if not self.save.save():
             self.save.campaign = previous_campaign
+            self.save.relay_echo = previous_relay
             raise RuntimeError(f"could not persist campaign attempt: {self.save.last_error}")
-        if mission["entrypoint"] == "vertical_slice":
+
+        if entrypoint == "vertical_slice":
             self.replace(VerticalSliceScene(self))
             return
-        self.save.campaign = previous_campaign
-        self.save.save()
-        raise ValueError(f"campaign mission {mission_id!r} has no supported entrypoint")
+        self.replace(PromotedRelayEchoScene(self))
 
     def go_campaign(self):
         self.replace(CampaignScene(self))
