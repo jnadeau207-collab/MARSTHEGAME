@@ -1,0 +1,28 @@
+name: Durability diagnostics
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnostics:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt -r requirements-dev.txt
+      - name: Capture durability test transcript
+        run: |
+          mkdir -p build
+          python -m unittest -v tests.test_save_progression tests.test_diagnostics > build/durability-tests.txt 2>&1 || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: durability-diagnostics-${{ github.sha }}
+          path: build/durability-tests.txt
+          if-no-files-found: error
