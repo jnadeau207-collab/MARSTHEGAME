@@ -10,8 +10,8 @@
   "relay_echo_contract_verification": "passed",
   "relay_echo_runtime_state_verification": "passed",
   "relay_echo_playable_candidate_verification": "passed",
-  "relay_echo_accessibility_parity_verification": "pending",
-  "verification_run": "requested",
+  "relay_echo_accessibility_parity_verification": "passed",
+  "verification_run": "30223442710",
   "implemented_missions": [
     "ares_reach"
   ],
@@ -28,8 +28,8 @@
     "external_playtests_run": 0,
     "authored_final_assets_complete": false,
     "packaged_build_soak_complete": false,
-    "keyboard_gamepad_completion_parity": false,
-    "accessibility_path_verified": false
+    "keyboard_gamepad_completion_parity": true,
+    "accessibility_path_verified": true
   },
-  "truthfulness": "Phase 2 has one implemented mission and a verified hidden Relay Echo playable candidate. Keyboard/gamepad complete-path parity and the mission accessibility path are under verification. Relay Echo remains planned and absent from campaign routing; candidate completion is not campaign completion. Neither the full campaign nor AAA-quality target is claimed complete."
+  "truthfulness": "Phase 2 has one implemented mission and a verified hidden Relay Echo playable candidate. Keyboard/gamepad complete-path parity and the mission accessibility path passed exact-head verification in GitHub Actions run 30223442710. Relay Echo remains planned and absent from campaign routing; candidate completion is not campaign completion. Founder direct play, final authored assets, packaged-build soak, external playtests, full-campaign completion, and the AAA-quality target remain unachieved."
 }
