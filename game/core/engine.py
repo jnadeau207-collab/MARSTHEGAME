@@ -17,6 +17,7 @@ from game.scenes.chapter_select import ChapterSelectScene
 from game.scenes.credits import CreditsScene
 from game.scenes.level import LevelScene
 from game.scenes.title import TitleScene
+from game.scenes.vertical_slice import VerticalSliceScene
 
 
 class Engine:
@@ -85,6 +86,8 @@ class Engine:
         return {
             "scene": type(scene).__name__ if scene is not None else None,
             "chapter_id": getattr(scene, "chapter_id", None),
+            "slice_id": getattr(scene, "slice_id", None),
+            "slice_phase": getattr(scene, "phase", None),
             "simulation_steps": self.timing.total_simulation_steps,
             "frame_pacing": self.timing.monitor.snapshot(),
             "audio_state": self.audio.state,
@@ -172,6 +175,9 @@ class Engine:
     def start_chapter(self, chapter_id):
         self.save.current_chapter = chapter_id
         self.replace(LevelScene(self, chapter_id))
+
+    def go_vertical_slice(self):
+        self.replace(VerticalSliceScene(self))
 
     def go_title(self):
         self.replace(TitleScene(self))
