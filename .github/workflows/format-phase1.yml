@@ -29,10 +29,15 @@ jobs:
           tools/phase1_quality_audit.py
           tests/test_phase1_runtime.py
           tests/test_phase1_quality.py
+      - name: Capture exact patch
+        run: |
+          mkdir -p build
+          git diff --binary > build/phase1-format.patch
       - uses: actions/upload-artifact@v4
         with:
           name: formatted-phase1-${{ github.sha }}
           path: |
+            build/phase1-format.patch
             game/core/accessibility.py
             game/core/audio.py
             game/core/camera.py
