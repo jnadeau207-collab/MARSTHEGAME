@@ -1,4 +1,4 @@
-# AUTHORITATIVE PRODUCTION PLAN V2: MARSTHEGAME
+# AUTHORITATIVE PRODUCTION PLAN V3: MARSTHEGAME
 
 ## 1. Authority and reality
 
@@ -50,7 +50,7 @@ No third-party game engine may replace the project architecture. The custom runt
 
 Python remains orchestration, data, tools, and rapid-iteration code while it is fit for purpose. Hot paths are profiled before acceleration. Native C, C++, Rust, Cython, or extension modules are introduced only behind deterministic contracts, parity tests, Python fallbacks where practical, and same-runner performance evidence.
 
-The current Pygame renderer is a prototype presentation backend, not presumed to be the final shipping renderer. Phase 1 must prove whether it can support the slice quality bar or establish the migration boundary to a native custom renderer without breaking data and gameplay contracts.
+The current Pygame renderer is a prototype presentation backend, not presumed to be the final shipping renderer. Renderer decisions must be evidence-driven and must preserve gameplay, save, content, replay, and accessibility contracts.
 
 ## 5. Phase 0 — complete foundation
 
@@ -67,117 +67,126 @@ Phase 0 is complete when CI proves:
 
 The machine authority is `tools.phase0_audit` and `docs/PHASE0_COMPLETION.md`.
 
-## 6. Phase 1 — AAA-quality vertical slice
+## 6. Phase 1 — complete repository-executable vertical-slice boundary
+
+### Delivered boundary
+
+Phase 1 established:
+
+- a complete fictionalized Mars-landing path separate from Classic Mode,
+- deterministic fixed-step simulation and complete-path replay,
+- transactional saves and checkpoints,
+- crash and frame-pacing diagnostics,
+- accessibility-aware camera and presentation systems,
+- event-driven audio architecture,
+- adaptive combat, retained understanding after failure, meaningful resource interaction, and ascent spectacle,
+- machine-readable quality truth that rejects an unearned AAA claim.
+
+### Founder closure decision
+
+On July 26, 2026, the founder explicitly authorized the repository-executable Phase 1 boundary to close and Phase 2 to begin.
+
+This decision does **not** fabricate or waive:
+
+- founder direct-play approval,
+- final authored art, animation, music, sound design, or mix,
+- keyboard/gamepad end-to-end parity,
+- packaged-build soak evidence,
+- representative external fictionalized-track playtests,
+- the 80% external completion target,
+- the earnest-determination response target,
+- an earned AAA-quality designation.
+
+Those remain product and release gates carried forward across later development. The machine-readable AAA claim remains `target_not_achieved` until the evidence genuinely changes.
+
+## 7. Phase 2 — scalable fictionalized campaign foundation
 
 ### Goal
 
-Create one fictionalized Mars-landing vertical slice that can be played start to finish and proves the custom architecture can deliver the required quality. The slice is not a mock-up, trailer scene, benchmark room, or disconnected feature collection.
+Transform the Phase 1 mission and runtime into a scalable, validated fictionalized campaign architecture without pretending that planned missions are already playable.
 
-### Required player journey
+Phase 2 begins with one implemented campaign mission, `ares_reach`, backed by the Phase 1 Mars slice. Additional missions are authorized as planned nodes and become playable only when their runtime entrypoints, content, tests, replay evidence, and progression contracts exist.
 
-The slice must contain:
+### Campaign architecture
 
-1. a controlled cinematic arrival,
-2. a movement and traversal mastery section,
-3. readable combat with at least one enemy behavior requiring adaptation,
-4. a failure event that advances understanding rather than merely resetting,
-5. one meaningful resource interaction affecting the next encounter,
-6. one vehicle, ascent, descent, or equivalent spectacle sequence,
-7. a resolved ending beat that preserves “Failure is progress. The frontier is open.”
+Phase 2 must provide:
 
-### Phase 1 engineering workstreams
+- stable campaign and mission IDs,
+- an acyclic prerequisite graph,
+- deterministic mission ordering and unlock computation,
+- explicit `implemented` versus `planned` mission states,
+- fail-closed runtime routing that launches only implemented unlocked missions,
+- transactional campaign attempts, completion, and save migration,
+- deterministic transition evidence,
+- campaign diagnostics and audit output,
+- a player-facing campaign navigator that never markets planned content as finished.
 
-#### Runtime and determinism
+### Mission lifecycle
 
-- deterministic fixed-step simulation boundary,
-- frame-pacing instrumentation and hitch evidence,
-- replayable gameplay events,
-- recoverable save/checkpoint transactions,
-- crash and diagnostic reports suitable for playtests.
+Every implemented mission must eventually define:
 
-#### Game feel
+- entry and exit contracts,
+- objective and failure state machines,
+- checkpoint and persistence boundaries,
+- rewards and downstream unlock effects,
+- deterministic reference replay,
+- accessibility and input parity evidence,
+- CPU, draw, allocation, and hitch budgets,
+- required authored and procedural content packages.
 
-- data-driven movement and combat tuning profiles,
-- directional camera composition, look-ahead, dead zones, impulses, and reduced-motion behavior,
-- hit confirmation across animation, timing, sound, VFX, and camera feedback,
-- input remapping and keyboard/gamepad parity,
-- explicit latency and responsiveness checks.
+A mission may exist in the graph as `planned`, but it may not declare a runtime entrypoint or become launchable until those requirements are implemented.
 
-#### Visual presentation
+### Content and platform expansion
 
-- a documented silhouette, value, palette, material, lighting, and VFX language,
-- authored-plus-procedural environment layers,
-- scalable presentation settings,
-- target-resolution screenshot evidence and readability review,
-- a renderer migration plan if the prototype backend cannot meet the slice bar.
+Phase 2 authorizes incremental work on:
 
-#### Audio
+- additional fictionalized campaign missions,
+- mission and encounter authoring tools,
+- localization-ready content keys and text packages,
+- renderer/backend abstraction supported by profiling evidence,
+- packaged desktop builds and reference-machine soak testing,
+- platform services behind optional interfaces,
+- broader accessibility, settings, and remapping UX.
 
-- event-driven audio architecture,
-- master/music/SFX/dialogue/ambience buses,
-- priority, ducking, fades, and deterministic no-audio fallback,
-- adaptive music states tied to gameplay,
-- subtitle and visual-equivalent support for critical audio cues.
+Cloud saves, console certification, public real-world identity use, and large content-production promises remain unauthorized as claims until their prerequisites and evidence exist.
 
-#### UI, UX, and accessibility
+### Phase 2 measurable gates
 
-- complete remapping,
-- subtitle controls,
-- reduced motion and screen-shake controls,
-- contrast and color-independent gameplay communication,
-- difficulty/assist settings that preserve mastery while widening access,
-- readable menus and prompts at the target presentation resolution.
+The Phase 2 campaign foundation may be declared complete only when CI proves:
 
-#### Content and tools
+- Classic Mode remains exactly chapters 1–8 and passes its deterministic replay,
+- the Phase 1 mission remains deterministically replayable,
+- the campaign catalog has no duplicate IDs, missing references, self-dependencies, or cycles,
+- unlocks are derived from prerequisites rather than trusted from save data,
+- planned missions cannot claim entrypoints or launch,
+- campaign save migration and corruption recovery pass adversarial tests,
+- every implemented mission has a valid runtime route,
+- campaign attempts and completions emit deterministic transition evidence,
+- the Phase 2 audit passes without claiming that the full campaign or AAA target is complete.
 
-- data-defined slice content,
-- validation tools that fail on missing references or unreachable progression,
-- rapid iteration for encounter, camera, audio, and presentation tuning,
-- distributable fictionalized playtest build.
+### Phase 2 execution order
 
-### Phase 1 measurable gates
+1. Establish the stable campaign graph and truthful mission-status model.
+2. Migrate transactional saves to deterministic campaign progression.
+3. Add the campaign navigator and fail-closed runtime routing.
+4. Connect `ares_reach` completion to campaign unlock progression.
+5. Add campaign audit, replay, and CI evidence.
+6. Define the next mission’s data and contracts before implementing its content.
+7. Expand authoring, localization, renderer, packaging, and accessibility systems only behind measured requirements.
+8. Repeat mission by mission without lowering the AAA-quality target or pretending planned content is complete.
 
-The vertical slice cannot be declared complete until it passes:
-
-- 100% automated Classic Mode compatibility,
-- 100% deterministic slice replay for the committed reference path,
-- zero known progression blockers or save-corruption defects,
-- zero crashes across the release-candidate soak suite,
-- stable 60 Hz simulation and presentation budgets on the defined reference PC,
-- committed per-frame CPU, draw, allocation, and hitch thresholds,
-- keyboard and gamepad completion parity,
-- accessibility checklist completion with automated coverage where possible,
-- at least 80% completion in representative external fictionalized-track playtests,
-- a strong majority of playtest responses matching earnest determination,
-- founder approval based on direct play, not screenshots or reports alone.
-
-## 7. Phase 1 execution order
-
-1. Correct the operating truth and replace staffing proxies with quality gates.
-2. Establish the Phase 1 quality contract and machine-readable slice manifest.
-3. Implement the deterministic presentation, camera, accessibility, and audio foundations.
-4. Build the start-to-finish Mars-landing gameplay path.
-5. Add resource, failure-recovery, combat, and spectacle systems.
-6. Produce representative art and audio through the real content pipeline.
-7. Profile, accelerate, and migrate only proven hot paths.
-8. Package the fictionalized build and run external playtests.
-9. Repeat until the slice passes every gate without lowering standards.
-
-## 8. Later phases
-
-Full campaign scope, native platform backends, console certification, localization, cloud saves, and larger content production are authorized only after Phase 1 proves the quality and iteration model. No multi-year feature promise outranks a failed vertical slice.
-
-## 9. Permanent risk rules
+## 8. Permanent risk rules
 
 - Scope is cut before quality.
 - Evidence is strengthened before standards are lowered.
 - Native rewrites require parity and measured benefit.
 - Accessibility is designed with gameplay, not appended later.
 - Real-world identity remains legally gated.
-- The repository must never invent people, staffing, legal clearance, playtest results, or AAA status.
+- Planned campaign nodes are not playable content.
+- The repository must never invent people, staffing, legal clearance, playtest results, campaign completion, or AAA status.
 
-## 10. Execution directive
+## 9. Execution directive
 
-Build the smallest complete slice that can honestly prove the largest quality claim. Preserve Classic Mode. Keep the custom architecture. Measure everything important. Do not confuse ambition with completion.
+Build the smallest complete system that can honestly support the next larger claim. Preserve Classic Mode. Keep the custom architecture. Measure everything important. Treat mission status, campaign progress, and quality claims as validated data rather than prose.
 
 Failure is progress. The frontier is open.
