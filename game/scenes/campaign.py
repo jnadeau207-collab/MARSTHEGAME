@@ -1,4 +1,4 @@
-"""Phase 2 campaign navigator with truthful implemented/planned mission states."""
+"""Phase 2 campaign navigator with truthful implemented and planned mission states."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from game.scenes.base import Scene
 
 
 class CampaignScene(Scene):
-    """Expose campaign progression without presenting planned missions as playable."""
+    """Expose campaign progression without overstating planned or replayable content."""
 
     def __init__(self, engine) -> None:
         super().__init__(engine)
@@ -53,7 +53,7 @@ class CampaignScene(Scene):
             self._move(1)
         if inp.just_pressed("confirm") or inp.just_pressed("jump"):
             self._activate()
-        if inp.just_pressed("back") or inp.just_pressed("pause"):
+        if inp.just_pressed("cancel") or inp.just_pressed("pause"):
             self.engine.go_title()
 
     def _move(self, direction: int) -> None:
@@ -65,12 +65,18 @@ class CampaignScene(Scene):
         mission_id = self.mission_ids[self.selected]
         mission = CAMPAIGN_GRAPH.mission(mission_id)
         campaign = CAMPAIGN_GRAPH.normalize_state(self.engine.save.campaign)
+        completed = set(campaign["completed_missions"])
         unlocked = set(campaign["unlocked_missions"])
         if mission_id not in unlocked:
             prerequisites = ", ".join(mission["prerequisites"])
             self.message = f"LOCKED — complete {prerequisites} first"
             self.message_timer = 150
             self.engine.audio.play("ui_move", 0.45)
+            return
+        if mission_id in completed:
+            self.message = "MISSION COMPLETE — REPLAY TRANSACTION NOT YET AUTHORIZED"
+            self.message_timer = 210
+            self.engine.audio.play("terminal", 0.55)
             return
         if mission["status"] != MISSION_STATUS_IMPLEMENTED:
             self.message = "MISSION AUTHORIZED — CONTENT IN DEVELOPMENT"
@@ -107,7 +113,7 @@ class CampaignScene(Scene):
         title = self.engine.font_xl.render("FRONTIER CAMPAIGN", True, Colors.WHITE)
         surface.blit(title, (70, 54))
         subtitle = self.engine.font_sm.render(
-            "Implemented missions are playable. Planned missions are never presented as finished.",
+            "Implemented missions launch. Planned and unsupported replay states fail closed.",
             True,
             (145, 155, 175),
         )
@@ -154,7 +160,7 @@ class CampaignScene(Scene):
         )
         surface.blit(progress, (74, SCREEN_HEIGHT - 76))
         footer = self.engine.font_sm.render(
-            "W/S or arrows select  ·  Enter launch  ·  Esc return",
+            "W/S or arrows select  ·  Enter launch  ·  Esc / B return",
             True,
             (110, 120, 140),
         )
