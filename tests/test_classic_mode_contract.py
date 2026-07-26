@@ -23,6 +23,7 @@ class ClassicModeContractTests(unittest.TestCase):
             "ground_col",
             "solids",
             "objective",
+            "content_keys",
         }
         for chapter_id, level in LEVELS.items():
             with self.subTest(chapter_id=chapter_id):
@@ -31,6 +32,14 @@ class ClassicModeContractTests(unittest.TestCase):
                 self.assertGreater(level["height"], 0)
                 self.assertTrue(level["solids"])
                 self.assertTrue(level["objective"].strip())
+                self.assertEqual(
+                    set(level["content_keys"]),
+                    {"name", "objective", "narration"},
+                )
+                self.assertEqual(
+                    len(level["content_keys"]["narration"]),
+                    len(level.get("narration", [])),
+                )
 
     def test_spawns_and_goals_are_inside_each_world(self) -> None:
         for chapter_id, level in LEVELS.items():
