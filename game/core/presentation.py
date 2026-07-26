@@ -109,9 +109,7 @@ class PresentationDirector:
                 self.cue("death")
             self._last_state["player_alive"] = alive
 
-            collectible_total = int(getattr(player, "books", 0)) + int(
-                getattr(player, "parts", 0)
-            )
+            collectible_total = int(getattr(player, "books", 0)) + int(getattr(player, "parts", 0))
             previous_collectibles = self._last_state.get("collectibles")
             if previous_collectibles is not None and collectible_total > previous_collectibles:
                 self.cue("pickup")
