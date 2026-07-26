@@ -150,7 +150,9 @@ class VerticalSliceScene(LevelScene):
             return True
         if self.player.parts < self.required_parts:
             missing = self.required_parts - self.player.parts
-            self.msg = f"Relay shield requires {missing} more power cell{'s' if missing != 1 else ''}"
+            self.msg = (
+                f"Relay shield requires {missing} more power cell{'s' if missing != 1 else ''}"
+            )
             self.msg_timer = 140
             self.engine.audio.play("ui_move", 0.55)
             return False
