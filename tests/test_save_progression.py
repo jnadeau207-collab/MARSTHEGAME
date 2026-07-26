@@ -26,12 +26,18 @@ class SaveProgressionTests(unittest.TestCase):
         self.assertEqual(save.chapter_completed, 4)
         self.assertEqual(save.chapter_unlocked, 5)
 
-    def test_round_trip_preserves_progress_stats_and_generation(self) -> None:
+    def test_round_trip_preserves_progress_stats_slice_and_generation(self) -> None:
         original = self.make_save()
         original.complete_chapter(6)
         original.current_chapter = 7
         original.unlocks["dash"] = True
         original.stats["rockets_failed"] = 3
+        original.update_phase1_slice(
+            checkpoint_id=3,
+            failures=2,
+            best_phase="resource_gate",
+            resource_gate_open=True,
+        )
         self.assertTrue(original.save())
         self.assertEqual(original.generation, 1)
 
@@ -41,6 +47,26 @@ class SaveProgressionTests(unittest.TestCase):
         self.assertEqual(loaded.generation, 1)
         self.assertEqual(loaded.last_load_source, "primary")
         self.assertFalse(loaded.repaired_primary)
+        self.assertEqual(loaded.phase1_slice["checkpoint_id"], 3)
+        self.assertEqual(loaded.phase1_slice["failures"], 2)
+        self.assertTrue(loaded.phase1_slice["resource_gate_open"])
+
+    def test_completed_slice_requires_complete_phase(self) -> None:
+        save = self.make_save()
+        with self.assertRaisesRegex(ValueError, "best_phase complete"):
+            save.update_phase1_slice(completed=True, best_phase="ascent")
+        save.update_phase1_slice(
+            checkpoint_id=4,
+            best_phase="complete",
+            completed=True,
+            resource_gate_open=True,
+        )
+        self.assertTrue(save.phase1_slice["completed"])
+
+    def test_invalid_slice_checkpoint_fails_closed(self) -> None:
+        save = self.make_save()
+        with self.assertRaisesRegex(ValueError, "checkpoint_id"):
+            save.update_phase1_slice(checkpoint_id=8)
 
     def test_corrupt_primary_recovers_previous_generation_from_backup(self) -> None:
         save = self.make_save()
@@ -100,12 +126,15 @@ class SaveProgressionTests(unittest.TestCase):
         legacy = self.make_save()
         legacy.complete_chapter(5)
         legacy.current_chapter = 6
-        self.path.write_text(json.dumps(legacy.to_dict()), encoding="utf-8")
+        legacy_payload = legacy.to_dict()
+        legacy_payload.pop("phase1_slice")
+        self.path.write_text(json.dumps(legacy_payload), encoding="utf-8")
 
         loaded = self.make_save()
         self.assertTrue(loaded.load())
         self.assertEqual(loaded.last_load_source, "legacy")
         self.assertEqual(loaded.generation, 0)
+        self.assertEqual(loaded.phase1_slice["checkpoint_id"], 0)
         self.assertTrue(loaded.save())
 
         envelope = json.loads(self.path.read_text(encoding="utf-8"))
