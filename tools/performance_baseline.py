@@ -197,8 +197,7 @@ def capture_baseline(
                 _measure_chapter(chapter_id, update_frames, draw_frames)
 
             samples = [
-                _measure_chapter(chapter_id, update_frames, draw_frames)
-                for _ in range(rounds)
+                _measure_chapter(chapter_id, update_frames, draw_frames) for _ in range(rounds)
             ]
             metrics = {
                 metric: summarize_samples([sample[metric] for sample in samples])
@@ -213,9 +212,7 @@ def capture_baseline(
                     "chapter_id": chapter_id,
                     "metrics": metrics,
                     "setup_ms_median": metrics["setup_ms"]["median"],
-                    "update_ms_per_frame_median": metrics["update_ms_per_frame"][
-                        "median"
-                    ],
+                    "update_ms_per_frame_median": metrics["update_ms_per_frame"]["median"],
                     "draw_ms_per_frame_median": metrics["draw_ms_per_frame"]["median"],
                 }
             )
