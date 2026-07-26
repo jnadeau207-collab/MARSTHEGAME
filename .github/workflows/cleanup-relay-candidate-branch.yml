@@ -1,0 +1,29 @@
+name: Cleanup Relay Echo candidate branch
+
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/cleanup-relay-candidate-branch.yml]
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete merged candidate branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          status=$(curl --silent --output /tmp/response --write-out '%{http_code}' \
+            --request DELETE \
+            --header "Authorization: Bearer ${GH_TOKEN}" \
+            --header "Accept: application/vnd.github+json" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/refs/heads/agent%2Fphase2-relay-echo-playable-runtime")
+          if [[ "$status" != "204" && "$status" != "404" && "$status" != "422" ]]; then
+            cat /tmp/response
+            exit 1
+          fi
