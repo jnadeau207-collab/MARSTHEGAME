@@ -8,6 +8,7 @@
   "integration_verification": "passed",
   "current_tranche": "relay_echo_contract",
   "relay_echo_contract_verification": "pending",
+  "verification_run": "requested",
   "implemented_missions": [
     "ares_reach"
   ],
