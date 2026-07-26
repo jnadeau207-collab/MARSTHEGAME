@@ -75,6 +75,8 @@ jobs:
         run: >-
           python -m tools.validate_phase0_organization
           --json-out build/phase0-organization.json
+      - name: Audit Phase 0 completion
+        run: python -m tools.phase0_audit --json-out build/phase0-audit.json
 
   classic-mode-artifacts:
     name: Classic Mode replay and baseline
@@ -101,6 +103,8 @@ jobs:
         run: >-
           python -m tools.validate_phase0_organization
           --json-out build/phase0-organization.json
+      - name: Audit Phase 0 completion
+        run: python -m tools.phase0_audit --json-out build/phase0-audit.json
       - name: Upload Phase 0 evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -110,6 +114,7 @@ jobs:
             build/classic-mode-replay.json
             build/performance-baseline.json
             build/phase0-organization.json
+            build/phase0-audit.json
           if-no-files-found: warn
 
   performance-regression:
