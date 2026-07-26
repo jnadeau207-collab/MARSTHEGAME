@@ -1,0 +1,149 @@
+name: Advance Relay Echo candidate audits once
+
+on:
+  push:
+    branches: [agent/phase2-relay-echo-playable-runtime]
+    paths:
+      - .github/workflows/advance-relay-candidate-audits-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/phase2-relay-echo-playable-runtime
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Advance audit tranche compatibility
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace(path: str, old: str, new: str) -> None:
+              target = Path(path)
+              text = target.read_text(encoding="utf-8")
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"expected one match in {path}, found {count}: {old[:100]!r}")
+              target.write_text(text.replace(old, new), encoding="utf-8")
+
+          replace(
+              "tools/phase2_campaign_audit.py",
+              '''    "game/data/relay_echo.py",
+                  "game/scenes/campaign.py",
+          ''',
+              '''    "game/data/relay_echo.py",
+                  "game/data/relay_echo_candidate.py",
+                  "game/scenes/campaign.py",
+                  "game/scenes/relay_echo.py",
+          ''',
+          )
+          replace(
+              "tools/phase2_campaign_audit.py",
+              '''    "tools/relay_echo_runtime_audit.py",
+                  "tests/test_campaign.py",
+          ''',
+              '''    "tools/relay_echo_runtime_audit.py",
+                  "tools/relay_echo_candidate_audit.py",
+                  "tools/relay_echo_replay.py",
+                  "tests/test_campaign.py",
+          ''',
+          )
+          replace(
+              "tools/phase2_campaign_audit.py",
+              '''    "tests/test_relay_echo_contract.py",
+                  "tests/test_relay_echo_runtime_audit.py",
+          ''',
+              '''    "tests/test_relay_echo_candidate.py",
+                  "tests/test_relay_echo_candidate_audit.py",
+                  "tests/test_relay_echo_contract.py",
+                  "tests/test_relay_echo_runtime_audit.py",
+          ''',
+          )
+          replace(
+              "tools/phase2_campaign_audit.py",
+              '''        tranche in {"relay_echo_contract", "relay_echo_runtime_state"}
+          ''',
+              '''        tranche in {
+                      "relay_echo_contract",
+                      "relay_echo_runtime_state",
+                      "relay_echo_playable_candidate",
+                  }
+          ''',
+          )
+          replace(
+              "tools/phase2_campaign_audit.py",
+              '''            "Phase 2 has one implemented campaign mission, one verified non-playable "
+                      "mission contract, and an in-progress transactional mission-state tranche. "
+                      "Planned missions remain non-playable, and full-campaign and AAA-quality "
+                      "claims remain unachieved."
+          ''',
+              '''            "Phase 2 has one implemented campaign mission, one verified non-playable "
+                      "mission contract, a verified transactional mission-state model, and an "
+                      "in-progress playable candidate. Relay Echo remains planned and unavailable "
+                      "through campaign routing; full-campaign and AAA-quality claims remain "
+                      "unachieved."
+          ''',
+          )
+
+          replace(
+              "tools/relay_echo_runtime_audit.py",
+              '''    record(
+                      "manifest_truth",
+                      manifest.get("phase") == "Phase 2"
+                      and manifest.get("status") == "in_progress"
+                      and manifest.get("current_tranche") == "relay_echo_runtime_state"
+                      and manifest.get("relay_echo_contract_verification") == "passed"
+                      and manifest.get("relay_echo_runtime_state_verification") in {"pending", "passed"}
+          ''',
+              '''    tranche = manifest.get("current_tranche")
+                  runtime_verification = manifest.get("relay_echo_runtime_state_verification")
+                  runtime_verification_valid = (
+                      runtime_verification in {"pending", "passed"}
+                      if tranche == "relay_echo_runtime_state"
+                      else runtime_verification == "passed"
+                  )
+                  record(
+                      "manifest_truth",
+                      manifest.get("phase") == "Phase 2"
+                      and manifest.get("status") == "in_progress"
+                      and tranche in {"relay_echo_runtime_state", "relay_echo_playable_candidate"}
+                      and manifest.get("relay_echo_contract_verification") == "passed"
+                      and runtime_verification_valid
+          ''',
+          )
+          replace(
+              "tools/relay_echo_runtime_audit.py",
+              '''            "current_tranche": manifest.get("current_tranche"),
+                      "contract_verification": manifest.get("relay_echo_contract_verification"),
+                      "runtime_verification": manifest.get("relay_echo_runtime_state_verification"),
+          ''',
+              '''            "current_tranche": tranche,
+                      "contract_verification": manifest.get("relay_echo_contract_verification"),
+                      "runtime_verification": runtime_verification,
+          ''',
+          )
+          PY
+      - name: Install pinned Ruff
+        run: python -m pip install ruff==0.16.0
+      - name: Format and validate audit changes
+        run: |
+          ruff format tools/phase2_campaign_audit.py tools/relay_echo_runtime_audit.py
+          ruff check tools/phase2_campaign_audit.py tools/relay_echo_runtime_audit.py
+          python -m tools.phase2_campaign_audit
+          python -m tools.relay_echo_runtime_audit
+          python -m tools.relay_echo_candidate_audit
+      - name: Commit production audits and remove helper
+        run: |
+          set -euo pipefail
+          rm .github/workflows/advance-relay-candidate-audits-once.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add tools/phase2_campaign_audit.py tools/relay_echo_runtime_audit.py .github/workflows/advance-relay-candidate-audits-once.yml
+          git commit -m 'Advance audits to Relay Echo playable candidate [relay-candidate-audits]'
+          git push origin HEAD:agent/phase2-relay-echo-playable-runtime
