@@ -6,8 +6,15 @@ Pure pygame — layered shading, soft glows, bevels, vignette.
 import math
 import pygame
 
+_GLOW_CACHE_LIMIT = 120
 _glow_cache = {}
 _vignette = None
+
+
+def _reserve_glow_cache_entry():
+    """Bound glow cache growth without deleting the entry being created."""
+    if len(_glow_cache) >= _GLOW_CACHE_LIMIT:
+        _glow_cache.clear()
 
 
 def soft_circle(surface, color, pos, radius, layers=4):
@@ -16,6 +23,7 @@ def soft_circle(surface, color, pos, radius, layers=4):
         return
     key = (radius, color[0], color[1], color[2], layers)
     if key not in _glow_cache:
+        _reserve_glow_cache_entry()
         size = radius * 2 + 4
         s = pygame.Surface((size, size), pygame.SRCALPHA)
         cx = cy = size // 2
@@ -24,8 +32,6 @@ def soft_circle(surface, color, pos, radius, layers=4):
             a = int(40 * (i / layers) ** 1.4)
             pygame.draw.circle(s, (*color[:3], a), (cx, cy), r)
         _glow_cache[key] = s
-        if len(_glow_cache) > 120:
-            _glow_cache.clear()
     img = _glow_cache[key]
     surface.blit(img, (pos[0] - img.get_width() // 2, pos[1] - img.get_height() // 2), special_flags=pygame.BLEND_ALPHA_SDL2)
 
@@ -35,6 +41,7 @@ def soft_circle_additive(surface, color, pos, radius, layers=5):
         return
     key = ("add", radius, color[0], color[1], color[2], layers)
     if key not in _glow_cache:
+        _reserve_glow_cache_entry()
         size = radius * 2 + 4
         s = pygame.Surface((size, size), pygame.SRCALPHA)
         cx = cy = size // 2
