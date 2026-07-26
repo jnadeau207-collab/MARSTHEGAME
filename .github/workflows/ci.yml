@@ -36,9 +36,9 @@ jobs:
       - name: Compile all Python sources
         run: python -m compileall -q main.py game tools tests
       - name: Static analysis ratchet
-        run: ruff check game/data/ip_tracks.py tools tests
+        run: ruff check game/core/gfx.py game/data/ip_tracks.py tools tests
       - name: Formatting ratchet
-        run: ruff format --check game/data/ip_tracks.py tools tests
+        run: ruff format --check game/core/gfx.py game/data/ip_tracks.py tools tests
       - name: Unit and Classic Mode regression tests
         run: python -m unittest discover -s tests -v
 
