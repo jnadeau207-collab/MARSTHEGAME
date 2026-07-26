@@ -1,0 +1,45 @@
+name: Phase 1 current-head diagnostics
+
+on:
+  push:
+    branches: [agent/phase1-aaa-slice-foundation]
+
+permissions:
+  contents: write
+
+env:
+  SDL_VIDEODRIVER: dummy
+  SDL_AUDIODRIVER: dummy
+  PYGAME_HIDE_SUPPORT_PROMPT: "1"
+
+jobs:
+  diagnose:
+    if: ${{ !contains(github.event.head_commit.message, '[phase1-diagnostics]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/phase1-aaa-slice-foundation
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt -r requirements-dev.txt
+      - name: Capture concise failures
+        shell: bash
+        run: |
+          mkdir -p diagnostics
+          {
+            echo '=== RUFF ==='
+            ruff check game tools tests || true
+            echo
+            echo '=== PHASE 1 REPLAY ==='
+            python -m tools.phase1_slice_replay || true
+          } > diagnostics/phase1-current-head.txt 2>&1
+      - name: Commit diagnostic report
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add diagnostics/phase1-current-head.txt
+          git commit -m "Capture Phase 1 failures [phase1-diagnostics]"
+          git push origin HEAD:agent/phase1-aaa-slice-foundation
