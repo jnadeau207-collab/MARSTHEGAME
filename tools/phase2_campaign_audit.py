@@ -150,9 +150,7 @@ def audit_campaign(manifest: dict[str, Any]) -> dict[str, Any]:
                     f"implemented mission {mission['id']} has unsupported entrypoint {entrypoint!r}"
                 )
         elif entrypoint is not None:
-            route_errors.append(
-                f"planned mission {mission['id']} claims entrypoint {entrypoint!r}"
-            )
+            route_errors.append(f"planned mission {mission['id']} claims entrypoint {entrypoint!r}")
     record("runtime_routes_truthful", not route_errors, route_errors)
 
     record(

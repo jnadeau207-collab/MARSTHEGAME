@@ -11,9 +11,7 @@ from game.core.relay_echo_state import (
 
 class RelayEchoRuntimeStateTests(unittest.TestCase):
     def begin(self) -> dict:
-        state, transition = RELAY_ECHO_RUNTIME.begin_attempt(
-            RELAY_ECHO_RUNTIME.default_state()
-        )
+        state, transition = RELAY_ECHO_RUNTIME.begin_attempt(RELAY_ECHO_RUNTIME.default_state())
         self.assertEqual(transition.event, "attempt_prepared")
         self.assertEqual(state["attempts"], 1)
         self.assertTrue(state["active"])
@@ -31,9 +29,7 @@ class RelayEchoRuntimeStateTests(unittest.TestCase):
             ("extract_before_collapse", {}),
         )
         for objective_id, evidence in sequence:
-            state, transition = RELAY_ECHO_RUNTIME.complete_objective(
-                state, objective_id, evidence
-            )
+            state, transition = RELAY_ECHO_RUNTIME.complete_objective(state, objective_id, evidence)
             transitions.append(transition.to_dict())
         return state, transitions
 
@@ -61,9 +57,7 @@ class RelayEchoRuntimeStateTests(unittest.TestCase):
 
     def test_objective_evidence_fails_closed(self) -> None:
         state = self.begin()
-        state, _ = RELAY_ECHO_RUNTIME.complete_objective(
-            state, "reach_noctis_relay"
-        )
+        state, _ = RELAY_ECHO_RUNTIME.complete_objective(state, "reach_noctis_relay")
         with self.assertRaisesRegex(RelayEchoStateError, "three fragments"):
             RELAY_ECHO_RUNTIME.complete_objective(
                 state,
@@ -79,12 +73,8 @@ class RelayEchoRuntimeStateTests(unittest.TestCase):
 
     def test_failure_is_retained_after_objective_eventually_completes(self) -> None:
         state = self.begin()
-        state, _ = RELAY_ECHO_RUNTIME.complete_objective(
-            state, "reach_noctis_relay"
-        )
-        state, failure = RELAY_ECHO_RUNTIME.record_failure(
-            state, "fragment_chain_broken"
-        )
+        state, _ = RELAY_ECHO_RUNTIME.complete_objective(state, "reach_noctis_relay")
+        state, failure = RELAY_ECHO_RUNTIME.record_failure(state, "fragment_chain_broken")
         self.assertEqual(failure.event, "failure_recorded")
         self.assertEqual(failure.recovery, "objective_restart")
         self.assertEqual(state["telemetry_insight"], 1)
@@ -121,9 +111,7 @@ class RelayEchoRuntimeStateTests(unittest.TestCase):
     def test_revision_is_fully_derived(self) -> None:
         state = self.begin()
         state, _ = RELAY_ECHO_RUNTIME.record_failure(state, "player_down")
-        state, _ = RELAY_ECHO_RUNTIME.complete_objective(
-            state, "reach_noctis_relay"
-        )
+        state, _ = RELAY_ECHO_RUNTIME.complete_objective(state, "reach_noctis_relay")
         self.assertEqual(state["revision"], 3)
         corrupt = copy.deepcopy(state)
         corrupt["revision"] += 1

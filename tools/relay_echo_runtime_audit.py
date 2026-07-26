@@ -65,9 +65,7 @@ def audit_relay_runtime(manifest: dict[str, Any]) -> dict[str, Any]:
         {
             "current_tranche": manifest.get("current_tranche"),
             "contract_verification": manifest.get("relay_echo_contract_verification"),
-            "runtime_verification": manifest.get(
-                "relay_echo_runtime_state_verification"
-            ),
+            "runtime_verification": manifest.get("relay_echo_runtime_state_verification"),
             "implemented_missions": manifest.get("implemented_missions"),
             "contracted_missions": manifest.get("contracted_missions"),
         },
@@ -78,15 +76,11 @@ def audit_relay_runtime(manifest: dict[str, Any]) -> dict[str, Any]:
         "mission_remains_non_playable",
         mission["status"] == MISSION_STATUS_PLANNED
         and mission["entrypoint"] is None
-        and RELAY_ECHO_MISSION_ID not in CAMPAIGN_GRAPH.playable_mission_ids(
-            ("ares_reach",)
-        ),
+        and RELAY_ECHO_MISSION_ID not in CAMPAIGN_GRAPH.playable_mission_ids(("ares_reach",)),
         {
             "status": mission["status"],
             "entrypoint": mission["entrypoint"],
-            "playable_after_ares": CAMPAIGN_GRAPH.playable_mission_ids(
-                ("ares_reach",)
-            ),
+            "playable_after_ares": CAMPAIGN_GRAPH.playable_mission_ids(("ares_reach",)),
         },
     )
 
@@ -130,8 +124,7 @@ def audit_relay_runtime(manifest: dict[str, Any]) -> dict[str, Any]:
         and normalized["checkpoint_history"] == list(range(7))
         and normalized["completed_objectives"]
         == [objective_id for objective_id, _evidence in _REFERENCE_OBJECTIVES]
-        and normalized["failure_history"][0]["failure_id"]
-        == "fragment_chain_broken"
+        and normalized["failure_history"][0]["failure_id"] == "fragment_chain_broken"
         and normalized["telemetry_insight"] == 1
         and transitions[-1]["event"] == "relay_echo_completed",
         {
