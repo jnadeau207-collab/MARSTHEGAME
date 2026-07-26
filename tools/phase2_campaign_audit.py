@@ -28,7 +28,10 @@ from game.data.relay_echo import (
 ROOT = Path(__file__).resolve().parents[1]
 _SUPPORTED_ENTRYPOINTS = {"vertical_slice"}
 _REQUIRED_FILES = {
+    "game/core/accessibility.py",
     "game/core/campaign.py",
+    "game/core/input_profiles.py",
+    "game/core/relay_echo_accessibility.py",
     "game/core/relay_echo_state.py",
     "game/core/save.py",
     "game/data/campaign.py",
@@ -36,14 +39,20 @@ _REQUIRED_FILES = {
     "game/data/relay_echo_candidate.py",
     "game/scenes/campaign.py",
     "game/scenes/relay_echo.py",
+    "game/scenes/relay_echo_accessible.py",
+    "game/scenes/settings.py",
     "game/scenes/vertical_slice.py",
     "tools/phase2_campaign_audit.py",
+    "tools/relay_echo_accessibility_audit.py",
+    "tools/relay_echo_accessibility_replay.py",
     "tools/relay_echo_candidate_audit.py",
     "tools/relay_echo_replay.py",
     "tools/relay_echo_runtime_audit.py",
     "tests/test_campaign.py",
     "tests/test_campaign_save.py",
+    "tests/test_input_profiles.py",
     "tests/test_phase2_campaign_audit.py",
+    "tests/test_relay_echo_accessibility.py",
     "tests/test_relay_echo_candidate.py",
     "tests/test_relay_echo_candidate_audit.py",
     "tests/test_relay_echo_contract.py",
@@ -122,6 +131,7 @@ def audit_campaign(manifest: dict[str, Any]) -> dict[str, Any]:
         "relay_echo_contract",
         "relay_echo_runtime_state",
         "relay_echo_playable_candidate",
+        "relay_echo_accessibility_parity",
     }
     contract_verification = manifest.get("relay_echo_contract_verification")
     contract_verification_valid = (
@@ -217,7 +227,8 @@ def audit_campaign(manifest: dict[str, Any]) -> dict[str, Any]:
         and carried.get("external_playtests_run") == 0
         and carried.get("authored_final_assets_complete") is False
         and carried.get("packaged_build_soak_complete") is False
-        and carried.get("keyboard_gamepad_completion_parity") is False,
+        and carried.get("keyboard_gamepad_completion_parity") is False
+        and carried.get("accessibility_path_verified") is False,
         carried,
     )
 
@@ -251,11 +262,10 @@ def audit_campaign(manifest: dict[str, Any]) -> dict[str, Any]:
         "checks": checks,
         "failures": failures,
         "truthfulness_note": (
-            "Phase 2 has one implemented campaign mission, one verified non-playable "
-            "mission contract, a verified transactional mission-state model, and an "
-            "in-progress playable candidate. Relay Echo remains planned and unavailable "
-            "through campaign routing; full-campaign and AAA-quality claims remain "
-            "unachieved."
+            "Phase 2 has one implemented campaign mission and a verified hidden Relay Echo "
+            "playable candidate. Accessibility and keyboard/gamepad parity are under "
+            "verification. Relay Echo remains planned and unavailable through campaign "
+            "routing; full-campaign and AAA-quality claims remain unachieved."
         ),
     }
 
