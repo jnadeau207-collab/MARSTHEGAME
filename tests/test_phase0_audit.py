@@ -13,9 +13,12 @@ class Phase0AuditTests(unittest.TestCase):
         self.assertGreaterEqual(len(report["checks"]), 8)
         self.assertTrue(all(check["status"] == "pass" for check in report["checks"]))
 
-    def test_audit_preserves_truthful_staffing_boundary(self) -> None:
+    def test_audit_preserves_truthful_collaboration_boundary(self) -> None:
         report = run_audit()
-        self.assertIn("not a claim of fourteen human employees", report["truthfulness_note"])
+        self.assertIn("one human founder", report["truthfulness_note"])
+        self.assertIn("zero employees", report["truthfulness_note"])
+        self.assertIn("one AI collaborator", report["truthfulness_note"])
+        self.assertIn("not people or headcount", report["truthfulness_note"])
         self.assertIn("legal clearance", report["truthfulness_note"])
 
 
