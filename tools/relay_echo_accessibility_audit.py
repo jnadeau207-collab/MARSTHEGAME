@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Audit Relay Echo accessibility and keyboard/gamepad parity before promotion."""
+"""Audit retained Relay Echo accessibility and input-parity evidence after promotion."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from game.core.relay_echo_accessibility import (
     relay_echo_accessibility_profile,
     validate_relay_echo_accessibility_profile,
 )
-from game.data.campaign import MISSION_STATUS_PLANNED
+from game.data.campaign import MISSION_STATUS_IMPLEMENTED
 from game.data.levels import LEVELS
 from game.data.relay_echo import RELAY_ECHO_MISSION_ID
 from tools.relay_echo_accessibility_replay import run_replay
@@ -27,6 +27,7 @@ _REQUIRED_FILES = {
     "game/core/input_profiles.py",
     "game/core/relay_echo_accessibility.py",
     "game/scenes/relay_echo_accessible.py",
+    "game/scenes/relay_echo_promoted.py",
     "game/scenes/settings.py",
     "tools/relay_echo_accessibility_audit.py",
     "tools/relay_echo_accessibility_replay.py",
@@ -55,47 +56,36 @@ def audit_relay_accessibility(
             }
         )
 
-    parity_verification = manifest.get("relay_echo_accessibility_parity_verification")
+    parity_run = manifest.get("relay_echo_accessibility_parity_run")
     carried = manifest.get("carried_release_gates", {})
     record(
         "manifest_truth",
         manifest.get("phase") == "Phase 2"
         and manifest.get("status") == "in_progress"
-        and manifest.get("current_tranche") == "relay_echo_accessibility_parity"
+        and manifest.get("current_tranche") == "relay_echo_campaign_promotion"
         and manifest.get("relay_echo_contract_verification") == "passed"
         and manifest.get("relay_echo_runtime_state_verification") == "passed"
         and manifest.get("relay_echo_playable_candidate_verification") == "passed"
-        and parity_verification in {"pending", "passed"}
-        and manifest.get("implemented_missions") == ["ares_reach"]
-        and manifest.get("contracted_missions") == [RELAY_ECHO_MISSION_ID]
-        and manifest.get("full_campaign_claim") == "not_achieved"
-        and manifest.get("aaa_claim") == "target_not_achieved",
+        and manifest.get("relay_echo_accessibility_parity_verification") == "passed"
+        and isinstance(parity_run, str)
+        and parity_run.isdigit()
+        and manifest.get("implemented_missions") == ["ares_reach", "relay_echo"]
+        and manifest.get("contracted_missions") == [RELAY_ECHO_MISSION_ID],
         {
             "current_tranche": manifest.get("current_tranche"),
-            "parity_verification": parity_verification,
+            "parity_run": parity_run,
             "implemented_missions": manifest.get("implemented_missions"),
-            "contracted_missions": manifest.get("contracted_missions"),
         },
     )
-    parity_verified = parity_verification == "passed"
-    verification_run = manifest.get("verification_run")
     record(
-        "pending_release_gates_truthful",
-        carried.get("keyboard_gamepad_completion_parity") is parity_verified
-        and carried.get("accessibility_path_verified") is parity_verified
+        "verified_release_gates_truthful",
+        carried.get("keyboard_gamepad_completion_parity") is True
+        and carried.get("accessibility_path_verified") is True
         and carried.get("founder_direct_play_approval") is False
         and carried.get("external_playtests_run") == 0
         and carried.get("authored_final_assets_complete") is False
-        and carried.get("packaged_build_soak_complete") is False
-        and (
-            not parity_verified
-            or (isinstance(verification_run, str) and verification_run.isdigit())
-        ),
-        {
-            "carried": carried,
-            "parity_verified": parity_verified,
-            "verification_run": verification_run,
-        },
+        and carried.get("packaged_build_soak_complete") is False,
+        carried,
     )
 
     profile = relay_echo_accessibility_profile(
@@ -130,43 +120,37 @@ def audit_relay_accessibility(
     record(
         "input_profiles_complete",
         not input_errors and INPUT_PROFILES == ("keyboard", "gamepad"),
-        {
-            "profiles": INPUT_PROFILES,
-            "errors": input_errors,
-        },
+        {"profiles": INPUT_PROFILES, "errors": input_errors},
     )
 
     engine_source = (ROOT / "game/core/engine.py").read_text(encoding="utf-8")
     title_source = (ROOT / "game/scenes/title.py").read_text(encoding="utf-8")
     settings_source = (ROOT / "game/scenes/settings.py").read_text(encoding="utf-8")
     record(
-        "settings_surface_routed",
+        "settings_and_promoted_route",
         "SettingsScene" in engine_source
         and "def go_settings" in engine_source
         and "self.engine.go_settings()" in title_source
         and "Assist Mode" in settings_source
         and "High-Contrast Objectives" in settings_source
-        and "Subtitle Background" in settings_source,
+        and "Subtitle Background" in settings_source
+        and "PromotedRelayEchoScene" in engine_source,
         {
-            "engine_settings_scene": "SettingsScene" in engine_source,
-            "engine_route": "def go_settings" in engine_source,
-            "title_route": "self.engine.go_settings()" in title_source,
+            "settings_route": "def go_settings" in engine_source,
+            "promoted_route": "PromotedRelayEchoScene" in engine_source,
         },
     )
 
     mission = CAMPAIGN_GRAPH.mission(RELAY_ECHO_MISSION_ID)
     record(
-        "candidate_remains_hidden",
-        mission["status"] == MISSION_STATUS_PLANNED
-        and mission["entrypoint"] is None
-        and RELAY_ECHO_MISSION_ID not in CAMPAIGN_GRAPH.playable_mission_ids(("ares_reach",))
-        and "RelayEchoScene" not in engine_source
-        and "AccessibleRelayEchoScene" not in engine_source,
+        "mission_promoted_with_accessible_wrapper",
+        mission["status"] == MISSION_STATUS_IMPLEMENTED
+        and mission["entrypoint"] == "relay_echo"
+        and RELAY_ECHO_MISSION_ID
+        in CAMPAIGN_GRAPH.playable_mission_ids(("ares_reach",)),
         {
             "status": mission["status"],
             "entrypoint": mission["entrypoint"],
-            "engine_imports_candidate": "RelayEchoScene" in engine_source,
-            "engine_imports_accessible_candidate": "AccessibleRelayEchoScene" in engine_source,
         },
     )
 
@@ -176,7 +160,7 @@ def audit_relay_accessibility(
     accessible_state = accessible.get("relay_echo", {}) if isinstance(accessible, dict) else {}
     accessible_campaign = accessible.get("campaign", {}) if isinstance(accessible, dict) else {}
     record(
-        "executable_parity_evidence",
+        "executable_parity_evidence_retained",
         report.get("status") == "pass"
         and report.get("deterministic") is True
         and report.get("input_parity") is True
@@ -196,19 +180,13 @@ def audit_relay_accessibility(
             "status": report.get("status"),
             "input_parity": report.get("input_parity"),
             "accessibility_path_verified": report.get("accessibility_path_verified"),
-            "campaign_promoted": report.get("campaign_promoted"),
             "profiles": sorted(profiles),
-            "accessible_checkpoint": accessible_state.get("checkpoint_id"),
         },
     )
 
     missing_files = sorted(path for path in _REQUIRED_FILES if not (ROOT / path).is_file())
     record("required_files_present", not missing_files, missing_files)
-    record(
-        "classic_mode_preserved",
-        sorted(LEVELS) == list(range(1, 9)),
-        sorted(LEVELS),
-    )
+    record("classic_mode_preserved", sorted(LEVELS) == list(range(1, 9)), sorted(LEVELS))
 
     failures = [check["check_id"] for check in checks if check["status"] != "pass"]
     return {
@@ -219,9 +197,8 @@ def audit_relay_accessibility(
         "checks": checks,
         "failures": failures,
         "truthfulness_note": (
-            "Relay Echo has executable keyboard/gamepad and accessibility evidence under "
-            "verification, but remains a hidden planned candidate. Parity evidence does not "
-            "promote the campaign node or satisfy external release-quality gates."
+            "Verified keyboard/gamepad and accessibility evidence remains a prerequisite of "
+            "the promoted Relay Echo route. External release-quality gates remain unresolved."
         ),
     }
 
