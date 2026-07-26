@@ -11,7 +11,7 @@ from game.core.particles import ParticleSystem
 from game.core.presentation import PresentationDirector
 from game.core.save import SaveData
 from game.core.settings import FPS, SCREEN_HEIGHT, SCREEN_WIDTH, TITLE, load_settings, save_settings
-from game.core.timing import FixedStepScheduler
+from game.core.timing import FixedStepScheduler, FramePlan
 from game.scenes.chapter_select import ChapterSelectScene
 from game.scenes.credits import CreditsScene
 from game.scenes.level import LevelScene
@@ -35,7 +35,7 @@ class Engine:
         pygame.display.set_caption(TITLE)
         self.clock = pygame.time.Clock()
         self.timing = FixedStepScheduler(simulation_hz=FPS)
-        self.frame_plan = self.timing.plan(0.0)
+        self.frame_plan = FramePlan(0, 0.0, 0.0, 0.0)
         self.render_alpha = 0.0
         self.running = True
         self.input = InputManager(self.settings.get("keys"))
