@@ -53,9 +53,16 @@ class Phase2CampaignAuditTests(unittest.TestCase):
         self.assertEqual(report["status"], "fail")
         self.assertIn("relay_echo_contract_truth", report["failures"])
 
-    def test_contract_tranche_identity_is_required(self) -> None:
+    def test_unknown_tranche_identity_fails(self) -> None:
         manifest = copy.deepcopy(self.manifest)
-        manifest["current_tranche"] = "relay_echo_runtime"
+        manifest["current_tranche"] = "invented_tranche"
+        report = audit_campaign(manifest)
+        self.assertEqual(report["status"], "fail")
+        self.assertIn("relay_echo_contract_truth", report["failures"])
+
+    def test_runtime_tranche_requires_verified_contract(self) -> None:
+        manifest = copy.deepcopy(self.manifest)
+        manifest["relay_echo_contract_verification"] = "pending"
         report = audit_campaign(manifest)
         self.assertEqual(report["status"], "fail")
         self.assertIn("relay_echo_contract_truth", report["failures"])
