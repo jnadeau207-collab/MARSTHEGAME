@@ -19,7 +19,11 @@ class Phase1QualityTests(unittest.TestCase):
         self.assertEqual(report["status"], "pass")
         self.assertEqual(report["aaa_claim"], "target_not_achieved")
         self.assertFalse(report["playable_start_to_finish"])
-        self.assertTrue(report["pending_foundations"])
+        self.assertFalse(report["pending_foundations"])
+        self.assertEqual(
+            set(report["implemented_foundations"]),
+            set(self.manifest["runtime_foundation"]),
+        )
 
     def test_unearned_aaa_claim_fails(self) -> None:
         manifest = copy.deepcopy(self.manifest)
