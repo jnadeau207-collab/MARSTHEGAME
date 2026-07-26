@@ -42,10 +42,7 @@ def make_report(scale: float = 1.0, noise: float = 0.0) -> dict:
         }
         metrics = {}
         for metric, base in bases.items():
-            samples = [
-                base * (scale + noise * offset)
-                for offset in (-3, -2, -1, 0, 1, 2, 3)
-            ]
+            samples = [base * (scale + noise * offset) for offset in (-3, -2, -1, 0, 1, 2, 3)]
             metrics[metric] = summarize_samples(samples)
         chapters.append({"chapter_id": chapter_id, "metrics": metrics})
     return {
