@@ -56,6 +56,7 @@ jobs:
           game/data/content.py
           game/data/ip_tracks.py
           game/data/phase1_slice.py
+          game/data/relay_echo.py
           game/entities/mars_sentinel.py
           game/scenes/campaign.py
           game/scenes/credits.py
@@ -71,6 +72,7 @@ jobs:
           game/data/content.py
           game/data/ip_tracks.py
           game/data/phase1_slice.py
+          game/data/relay_echo.py
       - name: Formatting core runtime
         run: >-
           ruff format --check
