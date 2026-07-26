@@ -97,7 +97,9 @@ class TitleScene(Scene):
         elif option_id == "chapters":
             self.engine.go_chapter_select()
         elif option_id == "settings":
-            self.engine.settings["show_fps"] = not self.engine.settings.get("show_fps", False)
+            self.engine.settings["show_fps"] = not self.engine.settings.get(
+                "show_fps", False
+            )
         elif option_id == "credits":
             self.engine.go_credits()
         elif option_id == "quit":
@@ -123,13 +125,23 @@ class TitleScene(Scene):
             )
 
         for star in self.stars:
-            twinkle = 0.5 + 0.5 * math.sin(self.timer * 0.07 + star["tw"])
+            twinkle = 0.5 + 0.5 * math.sin(
+                self.timer * 0.07 + star["tw"]
+            )
             brightness = int(180 * twinkle * star["z"])
-            px = int((star["x"] + self.timer * star["z"] * 0.3) % SCREEN_WIDTH)
+            px = int(
+                (star["x"] + self.timer * star["z"] * 0.3) % SCREEN_WIDTH
+            )
             py = int(star["y"])
             color = (brightness, brightness, min(255, brightness + 40))
             if star["s"] >= 2:
-                gfx.soft_circle(surface, color, (px, py), star["s"] + 1, layers=2)
+                gfx.soft_circle(
+                    surface,
+                    color,
+                    (px, py),
+                    star["s"] + 1,
+                    layers=2,
+                )
             pygame.draw.circle(surface, color, (px, py), star["s"])
 
         for meteor in self.meteors:
@@ -145,12 +157,39 @@ class TitleScene(Scene):
                 )
 
         mars_x, mars_y = SCREEN_WIDTH - 180, SCREEN_HEIGHT - 80
-        gfx.soft_circle(surface, (120, 50, 30), (mars_x, mars_y), 110, layers=5)
+        gfx.soft_circle(
+            surface,
+            (120, 50, 30),
+            (mars_x, mars_y),
+            110,
+            layers=5,
+        )
         pygame.draw.circle(surface, (140, 55, 30), (mars_x, mars_y), 70)
-        pygame.draw.circle(surface, (160, 70, 40), (mars_x - 20, mars_y - 15), 25)
-        pygame.draw.circle(surface, (100, 40, 25), (mars_x + 25, mars_y + 10), 18)
-        pygame.draw.circle(surface, (180, 90, 50), (mars_x - 5, mars_y + 20), 12)
-        pygame.draw.circle(surface, (200, 120, 80), (mars_x, mars_y), 72, 1)
+        pygame.draw.circle(
+            surface,
+            (160, 70, 40),
+            (mars_x - 20, mars_y - 15),
+            25,
+        )
+        pygame.draw.circle(
+            surface,
+            (100, 40, 25),
+            (mars_x + 25, mars_y + 10),
+            18,
+        )
+        pygame.draw.circle(
+            surface,
+            (180, 90, 50),
+            (mars_x - 5, mars_y + 20),
+            12,
+        )
+        pygame.draw.circle(
+            surface,
+            (200, 120, 80),
+            (mars_x, mars_y),
+            72,
+            1,
+        )
 
         title_y = 88
         gfx.soft_circle_additive(
@@ -160,22 +199,57 @@ class TitleScene(Scene):
             120,
         )
 
-        title = self.engine.font_xl.render(self.short_title, True, Colors.WHITE)
-        shadow = self.engine.font_xl.render(self.short_title, True, (0, 40, 80))
-        surface.blit(shadow, (SCREEN_WIDTH // 2 - title.get_width() // 2 + 3, title_y + 3))
-        surface.blit(title, (SCREEN_WIDTH // 2 - title.get_width() // 2, title_y))
+        title = self.engine.font_xl.render(
+            self.short_title, True, Colors.WHITE
+        )
+        shadow = self.engine.font_xl.render(
+            self.short_title, True, (0, 40, 80)
+        )
+        surface.blit(
+            shadow,
+            (
+                SCREEN_WIDTH // 2 - title.get_width() // 2 + 3,
+                title_y + 3,
+            ),
+        )
+        surface.blit(
+            title,
+            (SCREEN_WIDTH // 2 - title.get_width() // 2, title_y),
+        )
 
-        subtitle = self.engine.font_md.render(self.subtitle, True, Colors.ACCENT)
-        surface.blit(subtitle, (SCREEN_WIDTH // 2 - subtitle.get_width() // 2, title_y + 70))
+        subtitle = self.engine.font_md.render(
+            self.subtitle, True, Colors.ACCENT
+        )
+        surface.blit(
+            subtitle,
+            (
+                SCREEN_WIDTH // 2 - subtitle.get_width() // 2,
+                title_y + 70,
+            ),
+        )
 
-        tagline = self.engine.font_sm.render(self.tagline, True, (140, 150, 170))
-        surface.blit(tagline, (SCREEN_WIDTH // 2 - tagline.get_width() // 2, title_y + 110))
+        tagline = self.engine.font_sm.render(
+            self.tagline, True, (140, 150, 170)
+        )
+        surface.blit(
+            tagline,
+            (
+                SCREEN_WIDTH // 2 - tagline.get_width() // 2,
+                title_y + 110,
+            ),
+        )
 
         start_y = 260
         panel_h = len(self.options) * 40 + 20
         panel = pygame.Surface((360, panel_h), pygame.SRCALPHA)
         panel.fill((0, 0, 0, 130))
-        pygame.draw.rect(panel, (0, 200, 255, 50), (0, 0, 360, panel_h), 1, border_radius=6)
+        pygame.draw.rect(
+            panel,
+            (0, 200, 255, 50),
+            (0, 0, 360, panel_h),
+            1,
+            border_radius=6,
+        )
         surface.blit(panel, (SCREEN_WIDTH // 2 - 180, start_y - 10))
 
         for index, (_option_id, label) in enumerate(self.options):
@@ -194,7 +268,9 @@ class TitleScene(Scene):
             else:
                 color = (200, 205, 215)
                 prefix = "  "
-            text = self.engine.font_md.render(f"{prefix}{label}", True, color)
+            text = self.engine.font_md.render(
+                f"{prefix}{label}", True, color
+            )
             surface.blit(text, (SCREEN_WIDTH // 2 - 145, y))
 
         footer = self.engine.font_sm.render(
@@ -202,6 +278,12 @@ class TitleScene(Scene):
             True,
             (100, 110, 130),
         )
-        surface.blit(footer, (SCREEN_WIDTH // 2 - footer.get_width() // 2, SCREEN_HEIGHT - 28))
+        surface.blit(
+            footer,
+            (
+                SCREEN_WIDTH // 2 - footer.get_width() // 2,
+                SCREEN_HEIGHT - 28,
+            ),
+        )
 
         gfx.draw_vignette(surface, strength=80)
