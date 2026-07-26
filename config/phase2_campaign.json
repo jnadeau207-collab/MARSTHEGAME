@@ -13,7 +13,7 @@
   "relay_echo_accessibility_parity_verification": "passed",
   "relay_echo_accessibility_parity_run": "30223550502",
   "relay_echo_campaign_promotion_verification": "pending",
-  "verification_run": null,
+  "verification_run": "requested",
   "implemented_missions": [
     "ares_reach",
     "relay_echo"
