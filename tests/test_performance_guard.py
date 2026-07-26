@@ -44,7 +44,7 @@ def make_report(scale: float = 1.0, noise: float = 0.0) -> dict:
         metrics = {}
         for metric, base in bases.items():
             samples = [
-                base * scale + noise * offset
+                base * (scale + noise * offset)
                 for offset in (-3, -2, -1, 0, 1, 2, 3)
             ]
             metrics[metric] = summarize_samples(samples)
