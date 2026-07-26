@@ -115,7 +115,7 @@ jobs:
           cache: pip
       - name: Install dependencies
         run: python -m pip install --upgrade pip -r requirements.txt
-      - name: Replay all eight Classic Mode chapters
+      - name: Replay all eight chapters (Classic Mode)
         run: python -m tools.classic_mode_replay --json-out build/classic-mode-replay.json
       - name: Replay the complete Phase 1 slice
         run: python -m tools.phase1_slice_replay --json-out build/phase1-slice-replay.json
