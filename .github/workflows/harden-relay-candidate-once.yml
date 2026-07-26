@@ -1,0 +1,108 @@
+name: Harden Relay Echo candidate once
+
+on:
+  push:
+    branches: [agent/phase2-relay-echo-playable-runtime]
+    paths:
+      - .github/workflows/harden-relay-candidate-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/phase2-relay-echo-playable-runtime
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Patch candidate restoration and persistence
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("game/scenes/relay_echo.py")
+          text = path.read_text(encoding="utf-8")
+
+          def replace(old: str, new: str) -> None:
+              global text
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"expected one match, found {count}: {old[:100]!r}")
+              text = text.replace(old, new)
+
+          replace(
+              "from game.entities.enemy import Enemy\nfrom game.entities.player import Player\n",
+              "from game.entities.collectible import Collectible\nfrom game.entities.enemy import Enemy\nfrom game.entities.player import Player\n",
+          )
+          replace(
+              '''    def _persist_failure(self, failure_id: str) -> bool:
+                  previous = deepcopy(self.engine.save.relay_echo)
+                  transition = self.engine.save.record_relay_echo_failure(failure_id)
+                  if not self.engine.save.save():
+                      self.engine.save.relay_echo = previous
+                      self.msg = f"Failure telemetry could not persist: {self.engine.save.last_error}"
+                      self.msg_timer = 240
+                      return False
+                  self._last_transition = transition
+                  self.phase = self.mission_state["current_state"]
+                  self.engine.save.stats["deaths"] = self.engine.save.stats.get("deaths", 0) + (
+                      1 if failure_id == "player_down" else 0
+                  )
+                  self._restore_checkpoint()
+          ''',
+              '''    def _persist_failure(self, failure_id: str) -> bool:
+                  previous_state = deepcopy(self.engine.save.relay_echo)
+                  previous_stats = dict(self.engine.save.stats)
+                  transition = self.engine.save.record_relay_echo_failure(failure_id)
+                  if failure_id == "player_down":
+                      self.engine.save.stats["deaths"] = (
+                          self.engine.save.stats.get("deaths", 0) + 1
+                      )
+                  if not self.engine.save.save():
+                      self.engine.save.relay_echo = previous_state
+                      self.engine.save.stats = previous_stats
+                      self.msg = f"Failure telemetry could not persist: {self.engine.save.last_error}"
+                      self.msg_timer = 240
+                      return False
+                  self._last_transition = transition
+                  self.phase = self.mission_state["current_state"]
+                  self._restore_checkpoint()
+          ''',
+          )
+          replace(
+              '''        self.enemies = [
+                      Enemy(x, y, kind) for kind, x, y in self.data.get("enemies", ())
+                  ]
+                  if state["relay_core_open"]:
+          ''',
+              '''        self.enemies = [
+                      Enemy(x, y, kind) for kind, x, y in self.data.get("enemies", ())
+                  ]
+                  self.collectibles = [
+                      Collectible(x, y, kind)
+                      for kind, x, y in self.data.get("collectibles", ())
+                  ]
+                  if state["relay_core_open"]:
+          ''',
+          )
+          path.write_text(text, encoding="utf-8")
+          PY
+      - name: Install pinned Ruff
+        run: python -m pip install ruff==0.16.0
+      - name: Format and validate
+        run: |
+          ruff format game/scenes/relay_echo.py
+          ruff check game/scenes/relay_echo.py
+      - name: Commit production patch and remove helper
+        run: |
+          set -euo pipefail
+          rm .github/workflows/harden-relay-candidate-once.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add game/scenes/relay_echo.py .github/workflows/harden-relay-candidate-once.yml
+          git commit -m 'Harden Relay Echo candidate recovery [relay-candidate-hardening]'
+          git push origin HEAD:agent/phase2-relay-echo-playable-runtime
