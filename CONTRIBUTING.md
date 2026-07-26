@@ -22,8 +22,8 @@ python -m compileall -q main.py game tools tests
 ruff check game/data/ip_tracks.py tools tests
 ruff format --check game/data/ip_tracks.py tools tests
 python -m unittest discover -s tests -v
-python tools/classic_mode_replay.py --json-out build/classic-mode-replay.json
-python tools/performance_baseline.py --json-out build/performance-baseline.json
+python -m tools.classic_mode_replay --json-out build/classic-mode-replay.json
+python -m tools.performance_baseline --json-out build/performance-baseline.json
 ```
 
 Use dummy SDL drivers in headless environments:
