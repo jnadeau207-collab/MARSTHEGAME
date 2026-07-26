@@ -6,7 +6,11 @@ from pathlib import Path
 from typing import Any
 
 from game.core.campaign import CAMPAIGN_GRAPH, CampaignStateError
-from game.core.checkpoint import CheckpointError, CheckpointLoadResult, TransactionalJsonStore
+from game.core.checkpoint import (
+    CheckpointError,
+    CheckpointLoadResult,
+    TransactionalJsonStore,
+)
 from game.core.settings import SAVE_PATH
 
 _DEFAULT_UNLOCKS = {
@@ -67,7 +71,9 @@ class SaveData:
         return value
 
     @staticmethod
-    def _bounded_float(value: Any, minimum: float, maximum: float, field: str) -> float:
+    def _bounded_float(
+        value: Any, minimum: float, maximum: float, field: str
+    ) -> float:
         if isinstance(value, bool) or not isinstance(value, (int, float)):
             raise ValueError(f"{field} must be numeric")
         numeric = float(value)
@@ -99,7 +105,11 @@ class SaveData:
         for key in result:
             if key in value:
                 stat = value[key]
-                if isinstance(stat, bool) or not isinstance(stat, int) or stat < 0:
+                if (
+                    isinstance(stat, bool)
+                    or not isinstance(stat, int)
+                    or stat < 0
+                ):
                     raise ValueError(f"stat {key} must be a non-negative integer")
                 result[key] = stat
         return result
@@ -138,6 +148,19 @@ class SaveData:
             "resource_gate_open": resource_gate_open,
         }
 
+    @staticmethod
+    def _synchronize_phase1_campaign(
+        phase1_slice: dict[str, Any], campaign: dict[str, Any]
+    ) -> dict[str, Any]:
+        if (
+            phase1_slice["completed"]
+            and "ares_reach" not in campaign["completed_missions"]
+        ):
+            campaign, _transition = CAMPAIGN_GRAPH.complete_mission(
+                campaign, "ares_reach"
+            )
+        return campaign
+
     def _validated_state(self, data: Any) -> dict[str, Any]:
         if not isinstance(data, dict):
             raise ValueError("save payload must be an object")
@@ -163,8 +186,10 @@ class SaveData:
             raise ValueError("chapter_completed cannot exceed chapter_unlocked")
         if current_chapter > chapter_unlocked:
             raise ValueError("current_chapter cannot exceed chapter_unlocked")
+        phase1_slice = self._validated_phase1_slice(data.get("phase1_slice"))
         try:
             campaign = CAMPAIGN_GRAPH.normalize_state(data.get("campaign"))
+            campaign = self._synchronize_phase1_campaign(phase1_slice, campaign)
         except CampaignStateError as exc:
             raise ValueError(f"campaign state is invalid: {exc}") from exc
         return {
@@ -173,7 +198,7 @@ class SaveData:
             "current_chapter": current_chapter,
             "unlocks": self._validated_flags(data.get("unlocks")),
             "stats": self._validated_stats(data.get("stats")),
-            "phase1_slice": self._validated_phase1_slice(data.get("phase1_slice")),
+            "phase1_slice": phase1_slice,
             "campaign": campaign,
             "settings_volume": self._bounded_float(
                 data.get("settings_volume", 0.7),
@@ -234,13 +259,20 @@ class SaveData:
             if value is not None:
                 candidate[key] = value
         self.phase1_slice = self._validated_phase1_slice(candidate)
+        self.campaign = self._synchronize_phase1_campaign(
+            self.phase1_slice, self.campaign
+        )
 
     def record_campaign_attempt(self, mission_id: str) -> dict[str, Any]:
-        self.campaign, transition = CAMPAIGN_GRAPH.record_attempt(self.campaign, mission_id)
+        self.campaign, transition = CAMPAIGN_GRAPH.record_attempt(
+            self.campaign, mission_id
+        )
         return transition.to_dict()
 
     def complete_campaign_mission(self, mission_id: str) -> dict[str, Any]:
-        self.campaign, transition = CAMPAIGN_GRAPH.complete_mission(self.campaign, mission_id)
+        self.campaign, transition = CAMPAIGN_GRAPH.complete_mission(
+            self.campaign, mission_id
+        )
         return transition.to_dict()
 
     def save(self) -> bool:
@@ -281,9 +313,15 @@ class SaveData:
                 try:
                     backup = self.store.load_backup(repair_primary=False)
                     return self._load_result(backup)
-                except (CheckpointError, FileNotFoundError, OSError, ValueError) as backup_error:
+                except (
+                    CheckpointError,
+                    FileNotFoundError,
+                    OSError,
+                    ValueError,
+                ) as backup_error:
                     raise ValueError(
-                        f"primary and backup save payloads are invalid: {primary_error}; {backup_error}"
+                        "primary and backup save payloads are invalid: "
+                        f"{primary_error}; {backup_error}"
                     ) from backup_error
         except FileNotFoundError:
             return False
