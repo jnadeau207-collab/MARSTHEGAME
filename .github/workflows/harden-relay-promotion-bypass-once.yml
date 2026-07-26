@@ -1,0 +1,86 @@
+name: Harden Relay Echo promotion bypass once
+
+on:
+  push:
+    branches: [agent/phase2-relay-echo-promotion]
+    paths: [.github/workflows/harden-relay-promotion-bypass-once.yml]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/phase2-relay-echo-promotion
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Close generic completion bypass and update regression
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          save_path = Path("game/core/save.py")
+          save_text = save_path.read_text(encoding="utf-8")
+          old_save = '''    def complete_campaign_mission(self, mission_id: str) -> dict[str, Any]:
+              self.campaign, transition = CAMPAIGN_GRAPH.complete_mission(self.campaign, mission_id)
+              return transition.to_dict()
+          '''
+          new_save = '''    def complete_campaign_mission(self, mission_id: str) -> dict[str, Any]:
+              if mission_id == "relay_echo":
+                  raise ValueError(
+                      "Relay Echo campaign completion requires the combined promotion transaction"
+                  )
+              self.campaign, transition = CAMPAIGN_GRAPH.complete_mission(self.campaign, mission_id)
+              return transition.to_dict()
+          '''
+          if old_save not in save_text:
+              raise SystemExit("SaveData completion block not found")
+          save_path.write_text(save_text.replace(old_save, new_save, 1), encoding="utf-8")
+
+          test_path = Path("tests/test_relay_echo_save.py")
+          test_text = test_path.read_text(encoding="utf-8")
+          old_test = '''    def test_completion_eligibility_does_not_complete_planned_campaign_node(self) -> None:
+              save = self.make_save()
+              self.unlock_relay(save)
+              save.prepare_relay_echo_attempt()
+              self.complete_runtime_path(save)
+              self.assertTrue(save.relay_echo["completion_eligible"])
+              self.assertNotIn("relay_echo", save.campaign["completed_missions"])
+              self.assertNotIn("phobos_vector", save.campaign["unlocked_missions"])
+              with self.assertRaisesRegex(ValueError, "not currently playable"):
+                  save.complete_campaign_mission("relay_echo")
+          '''
+          new_test = '''    def test_runtime_completion_cannot_bypass_combined_campaign_transaction(self) -> None:
+              save = self.make_save()
+              self.unlock_relay(save)
+              save.prepare_relay_echo_attempt()
+              self.complete_runtime_path(save)
+              self.assertTrue(save.relay_echo["completion_eligible"])
+              self.assertNotIn("relay_echo", save.campaign["completed_missions"])
+              self.assertNotIn("phobos_vector", save.campaign["unlocked_missions"])
+              with self.assertRaisesRegex(ValueError, "combined promotion transaction"):
+                  save.complete_campaign_mission("relay_echo")
+              self.assertNotIn("relay_echo", save.campaign["completed_missions"])
+              self.assertNotIn("phobos_vector", save.campaign["unlocked_missions"])
+          '''
+          if old_test not in test_text:
+              raise SystemExit("stale Relay Echo save regression block not found")
+          test_path.write_text(test_text.replace(old_test, new_test, 1), encoding="utf-8")
+          PY
+          python -m pip install ruff==0.16.0
+          ruff check --fix game/core/save.py tests/test_relay_echo_save.py
+          ruff format game/core/save.py tests/test_relay_echo_save.py
+      - name: Commit production patch and remove helper
+        env:
+          BRANCH: agent/phase2-relay-echo-promotion
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git rm .github/workflows/harden-relay-promotion-bypass-once.yml
+          git add game/core/save.py tests/test_relay_echo_save.py
+          git commit -m "Require atomic Relay Echo campaign completion" || exit 0
+          git push origin "HEAD:${BRANCH}"
