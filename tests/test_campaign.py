@@ -35,7 +35,7 @@ class CampaignCatalogTests(unittest.TestCase):
 
     def test_planned_mission_cannot_claim_entrypoint(self) -> None:
         missions = copy.deepcopy(list(CAMPAIGN_MISSIONS))
-        missions[1]["entrypoint"] = "pretend_scene"
+        missions[2]["entrypoint"] = "pretend_scene"
         errors = validate_campaign_catalog(missions)
         self.assertTrue(any("may not claim" in error for error in errors))
 
@@ -60,7 +60,20 @@ class CampaignProgressionTests(unittest.TestCase):
         self.assertEqual(completed["current_mission"], "relay_echo")
         self.assertEqual(completed["revision"], 2)
         self.assertEqual(
-            CAMPAIGN_GRAPH.playable_mission_ids(completed["completed_missions"]), ("ares_reach",)
+            CAMPAIGN_GRAPH.playable_mission_ids(completed["completed_missions"]),
+            ("ares_reach", "relay_echo"),
+        )
+
+    def test_relay_echo_completion_unlocks_planned_successor(self) -> None:
+        state = CAMPAIGN_GRAPH.default_state()
+        state, _transition = CAMPAIGN_GRAPH.complete_mission(state, "ares_reach")
+        state, _transition = CAMPAIGN_GRAPH.complete_mission(state, "relay_echo")
+        self.assertEqual(state["completed_missions"], ["ares_reach", "relay_echo"])
+        self.assertIn("phobos_vector", state["unlocked_missions"])
+        self.assertEqual(state["current_mission"], "phobos_vector")
+        self.assertNotIn(
+            "phobos_vector",
+            CAMPAIGN_GRAPH.playable_mission_ids(state["completed_missions"]),
         )
 
     def test_forged_unlocks_are_rejected(self) -> None:
@@ -76,12 +89,12 @@ class CampaignProgressionTests(unittest.TestCase):
         with self.assertRaisesRegex(CampaignStateError, "missing prerequisites"):
             CAMPAIGN_GRAPH.normalize_state(state)
 
-    def test_planned_mission_cannot_start(self) -> None:
+    def test_planned_successor_cannot_start(self) -> None:
         state = CAMPAIGN_GRAPH.default_state()
-        attempted, _transition = CAMPAIGN_GRAPH.record_attempt(state, "ares_reach")
-        completed, _transition = CAMPAIGN_GRAPH.complete_mission(attempted, "ares_reach")
+        state, _transition = CAMPAIGN_GRAPH.complete_mission(state, "ares_reach")
+        state, _transition = CAMPAIGN_GRAPH.complete_mission(state, "relay_echo")
         with self.assertRaisesRegex(CampaignStateError, "not currently playable"):
-            CAMPAIGN_GRAPH.record_attempt(completed, "relay_echo")
+            CAMPAIGN_GRAPH.record_attempt(state, "phobos_vector")
 
 
 if __name__ == "__main__":
