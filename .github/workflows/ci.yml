@@ -46,6 +46,7 @@ jobs:
           game/core/input.py
           game/core/presentation.py
           game/core/settings.py
+          game/core/timing.py
           game/data/classic_replays.py
           game/data/content.py
           game/data/ip_tracks.py
@@ -70,6 +71,7 @@ jobs:
           game/core/input.py
           game/core/presentation.py
           game/core/settings.py
+          game/core/timing.py
       - name: Formatting identity-aware scenes
         run: >-
           ruff format --check
