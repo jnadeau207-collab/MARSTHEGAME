@@ -141,8 +141,7 @@ def evaluate_reports(
 
             if not passed:
                 failures.append(
-                    f"{metric} chapter {chapter_id}: {candidate_center:.6f} ms "
-                    f"> {limit:.6f} ms"
+                    f"{metric} chapter {chapter_id}: {candidate_center:.6f} ms > {limit:.6f} ms"
                 )
 
             baseline_total += baseline_center
