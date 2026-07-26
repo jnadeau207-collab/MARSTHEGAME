@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Headless Classic Mode lifecycle replay for all eight chapters."""
+"""Headless deterministic Classic Mode replay for all eight chapters."""
 
 from __future__ import annotations
 
@@ -15,33 +15,11 @@ os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
 
 import pygame
 
+from game.core.input import InputManager
 from game.core.save import SaveData
+from game.data.classic_replays import CLASSIC_INPUT_TRACKS, expand_track, track_digest
 from game.data.levels import LEVELS
 from game.scenes.level import LevelScene
-
-
-class NeutralInput:
-    """Input adapter that deliberately produces no player actions."""
-
-    @staticmethod
-    def has_buffer(_action: str) -> bool:
-        return False
-
-    @staticmethod
-    def just_pressed(_action: str) -> bool:
-        return False
-
-    @staticmethod
-    def consume_buffer(_action: str) -> bool:
-        return False
-
-    @staticmethod
-    def is_held(_action: str) -> bool:
-        return False
-
-    @staticmethod
-    def get_axis() -> tuple[int, int]:
-        return 0, 0
 
 
 class NullParticles:
@@ -76,7 +54,7 @@ class ReplayEngine:
 
     def __init__(self) -> None:
         pygame.font.init()
-        self.input = NeutralInput()
+        self.input = InputManager(initialize_joystick=False)
         self.particles = NullParticles()
         self.save = MemorySave()
         self.font_sm = pygame.font.Font(None, 16)
@@ -111,6 +89,7 @@ def _validate_level_contract(chapter_id: int, data: dict[str, Any]) -> None:
         "ground_col",
         "solids",
         "objective",
+        "content_keys",
     }
     missing = required.difference(data)
     if missing:
@@ -130,18 +109,94 @@ def _validate_level_contract(chapter_id: int, data: dict[str, Any]) -> None:
             raise AssertionError(f"Chapter {chapter_id} solid {index} is invalid: {solid}")
 
 
+def _player_signature(scene: LevelScene) -> dict[str, Any]:
+    player = scene.player
+    return {
+        "position": [round(player.x, 6), round(player.y, 6)],
+        "velocity": [round(player.vx, 6), round(player.vy, 6)],
+        "state": player.state,
+        "facing": player.facing,
+        "alive": player.alive,
+        "on_ground": player.on_ground,
+        "dash_timer": player.dash_timer,
+        "jumps_left": player.jumps_left,
+        "books": player.books,
+        "parts": player.parts,
+        "terminals_activated": sorted(scene.terminals_activated),
+        "living_enemies": sum(enemy.alive for enemy in scene.enemies),
+        "remaining_collectibles": sum(not collectible.collected for collectible in scene.collectibles),
+    }
+
+
+def _run_recorded_input_track(chapter_id: int) -> dict[str, Any]:
+    engine = ReplayEngine()
+    scene = LevelScene(engine, chapter_id)
+    scene.on_enter()
+    scene.player.invuln = 100_000
+
+    track = CLASSIC_INPUT_TRACKS[chapter_id]
+    start = _player_signature(scene)
+    exercised_actions: set[str] = set()
+    frame_count = 0
+
+    for actions in expand_track(track):
+        engine.input.update_from_actions(actions)
+        exercised_actions.update(actions)
+        scene.update(1.0)
+        frame_count += 1
+        if not scene.player.alive:
+            raise AssertionError(f"Chapter {chapter_id} input replay killed the player")
+        if scene.won:
+            raise AssertionError(
+                f"Chapter {chapter_id} smoke track unexpectedly completed the chapter"
+            )
+
+    return {
+        "chapter_id": chapter_id,
+        "frames": frame_count,
+        "track_sha256": track_digest(track),
+        "actions": sorted(exercised_actions),
+        "start": start,
+        "end": _player_signature(scene),
+    }
+
+
+def _verify_recorded_input_tracks(expected_ids: list[int]) -> list[dict[str, Any]]:
+    if sorted(CLASSIC_INPUT_TRACKS) != expected_ids:
+        raise AssertionError(
+            f"Classic input track ids changed: {sorted(CLASSIC_INPUT_TRACKS)}"
+        )
+
+    results = []
+    for chapter_id in expected_ids:
+        first = _run_recorded_input_track(chapter_id)
+        second = _run_recorded_input_track(chapter_id)
+        if first != second:
+            raise AssertionError(
+                f"Chapter {chapter_id} input replay is nondeterministic:\n"
+                f"first={first}\nsecond={second}"
+            )
+        if first["start"] == first["end"]:
+            raise AssertionError(f"Chapter {chapter_id} input track did not move gameplay state")
+        results.append(first)
+    return results
+
+
 def run_replay() -> dict[str, Any]:
-    """Instantiate, complete, and transition through every Classic Mode chapter."""
+    """Replay controls, then complete and transition every Classic Mode chapter."""
 
     expected_ids = list(range(1, 9))
     if sorted(LEVELS) != expected_ids:
         raise AssertionError(f"Classic Mode chapter ids changed: {sorted(LEVELS)}")
 
     pygame.init()
-    engine = ReplayEngine()
+    input_results: list[dict[str, Any]] = []
     chapter_results: list[dict[str, Any]] = []
+    engine = ReplayEngine()
 
     try:
+        input_results = _verify_recorded_input_tracks(expected_ids)
+
         for chapter_id in expected_ids:
             data = LEVELS[chapter_id]
             _validate_level_contract(chapter_id, data)
@@ -160,6 +215,7 @@ def run_replay() -> dict[str, Any]:
             if len(scene.solids) != len(data["solids"]):
                 raise AssertionError(f"Chapter {chapter_id} lost collision geometry during load")
 
+            engine.input.update_from_actions(())
             scene.player.x = float(scene.goal_rect.x)
             scene.player.y = float(scene.goal_rect.y)
             scene.player.vx = 0.0
@@ -192,6 +248,7 @@ def run_replay() -> dict[str, Any]:
                     "counts": initial_counts,
                     "goal_completed": True,
                     "transition": expected_transition,
+                    "content_keys": data["content_keys"],
                 }
             )
     finally:
@@ -199,6 +256,7 @@ def run_replay() -> dict[str, Any]:
 
     return {
         "classic_mode_chapters": expected_ids,
+        "input_replays": input_results,
         "chapter_results": chapter_results,
         "completed_through": engine.save.chapter_completed,
         "unlocked_through": engine.save.chapter_unlocked,
