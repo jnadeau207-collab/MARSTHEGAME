@@ -3,13 +3,13 @@ name: Integrate Relay Echo replay save once
 on:
   push:
     branches: [agent/phase2-relay-echo-replay-reset]
-    paths: [.github/workflows/integrate-relay-replay-save-once.yml]
 
 permissions:
   contents: write
 
 jobs:
   patch:
+    if: github.event.head_commit.message != 'Persist Relay Echo replay archive'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
