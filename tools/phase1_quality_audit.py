@@ -72,7 +72,11 @@ def audit_quality(manifest: dict[str, Any]) -> dict[str, Any]:
     emotional_result = evidence.get("emotional_response_result")
     founder_approval = evidence.get("founder_direct_play_approval")
     if playtests_run == 0:
-        if completion_rate is not None or emotional_result is not None or founder_approval is not False:
+        if (
+            completion_rate is not None
+            or emotional_result is not None
+            or founder_approval is not False
+        ):
             errors.append("external evidence cannot be recorded before playtests exist")
     elif manifest.get("aaa_claim") == "target_not_achieved":
         errors.append("existing playtest evidence must move the claim to candidate review")
