@@ -2,11 +2,12 @@
 Enemies with shaded, detailed silhouettes.
 """
 
-import math
 import random
+
 import pygame
-from game.core.settings import Colors, GRAVITY
+
 from game.core import gfx
+from game.core.settings import GRAVITY
 
 
 class Enemy:

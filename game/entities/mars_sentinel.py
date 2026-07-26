@@ -7,7 +7,7 @@ import math
 import pygame
 
 from game.core import gfx
-from game.core.settings import Colors, GRAVITY
+from game.core.settings import GRAVITY, Colors
 
 
 class MarsSentinel:
@@ -141,11 +141,7 @@ class MarsSentinel:
         self.y += self.vy * dt
         self._resolve_y(solids)
 
-        if (
-            player.alive
-            and player.invuln == 0
-            and self.get_rect().colliderect(player.get_rect())
-        ):
+        if player.alive and player.invuln == 0 and self.get_rect().colliderect(player.get_rect()):
             damage = 2 if self.state == "charge" and self.tier >= 2 else 1
             player.take_damage(damage, -self.facing * 6, -5)
             if self.state == "charge":

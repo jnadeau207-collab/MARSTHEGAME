@@ -4,7 +4,9 @@ Particle system with soft glow and varied styles.
 
 import math
 import random
+
 import pygame
+
 from game.core import gfx
 
 
@@ -29,8 +31,19 @@ class ParticleSystem:
         self.particles = []
         self.max_particles = max_particles
 
-    def emit(self, x, y, count=8, speed=3.0, color=(255, 200, 80), life=30, size=3,
-             gravity=0.15, spread=1.0, style="circle"):
+    def emit(
+        self,
+        x,
+        y,
+        count=8,
+        speed=3.0,
+        color=(255, 200, 80),
+        life=30,
+        size=3,
+        gravity=0.15,
+        spread=1.0,
+        style="circle",
+    ):
         for _ in range(count):
             if len(self.particles) >= self.max_particles:
                 self.particles.pop(0)
@@ -38,9 +51,19 @@ class ParticleSystem:
             spd = random.uniform(speed * 0.25, speed) * spread
             vx = spd * math.cos(angle)
             vy = spd * math.sin(angle) - random.uniform(0, speed * 0.45)
-            self.particles.append(Particle(
-                x, y, vx, vy, life + random.randint(-6, 6), color,
-                size + random.randint(0, 1), gravity, style))
+            self.particles.append(
+                Particle(
+                    x,
+                    y,
+                    vx,
+                    vy,
+                    life + random.randint(-6, 6),
+                    color,
+                    size + random.randint(0, 1),
+                    gravity,
+                    style,
+                )
+            )
 
     def emit_burst(self, x, y, color=(255, 100, 50)):
         self.emit(x, y, count=22, speed=6.0, color=color, life=28, size=4, style="glow")
