@@ -73,12 +73,12 @@ def run_audit() -> dict[str, Any]:
         {"key_count": len(real_keys)},
     )
 
-    organization = _load_json("config/phase0_organization.json")
-    organization_report = validate_manifest(organization)
+    operating_model = _load_json("config/phase0_organization.json")
+    operating_report = validate_manifest(operating_model)
     record(
-        "leadership_and_vertical_slice_cell",
-        organization_report["status"] == "pass",
-        organization_report,
+        "sole_founder_ai_collaboration",
+        operating_report["status"] == "pass",
+        operating_report,
     )
 
     performance_policy = _load_json("config/performance_thresholds.json")
@@ -107,7 +107,7 @@ def run_audit() -> dict[str, Any]:
         "Quality (Python",
         "Replay all eight chapters",
         "Same-runner performance guard",
-        "Validate Phase 0 organization",
+        "Validate founder + AI operating model",
         "Enforce performance regression policy",
     )
     missing_markers = [marker for marker in required_workflow_markers if marker not in workflow]
@@ -119,16 +119,16 @@ def run_audit() -> dict[str, Any]:
 
     failures = [check["check_id"] for check in checks if check["status"] != "pass"]
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "phase": "Phase 0",
         "status": "pass" if not failures else "fail",
-        "scope": "repository-executable legal/IP architecture, hardening, performance, ownership, and operating-cell requirements",
+        "scope": "repository-executable legal/IP architecture, hardening, performance, and truthful founder-AI operation",
         "checks": checks,
         "failures": failures,
         "truthfulness_note": (
-            "The fourteen functional seats are an active founder-accountable operating model, "
-            "not a claim of fourteen human employees. Public real-world-track release remains "
-            "blocked pending written legal clearance."
+            "The project has one human founder, zero employees, zero contractors, and one AI "
+            "collaborator. Workstreams are not people or headcount. Public real-world-track "
+            "release remains blocked pending written legal clearance."
         ),
     }
 
@@ -142,7 +142,7 @@ def main() -> int:
         report = run_audit()
     except Exception as exc:
         report = {
-            "schema_version": 1,
+            "schema_version": 2,
             "phase": "Phase 0",
             "status": "error",
             "error_type": type(exc).__name__,
