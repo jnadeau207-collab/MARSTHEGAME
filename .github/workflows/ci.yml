@@ -71,6 +71,10 @@ jobs:
         run: ruff format --check tests
       - name: Unit and Classic Mode regression tests
         run: python -m unittest discover -s tests -v
+      - name: Validate Phase 0 organization
+        run: >-
+          python -m tools.validate_phase0_organization
+          --json-out build/phase0-organization.json
 
   classic-mode-artifacts:
     name: Classic Mode replay and baseline
@@ -85,13 +89,18 @@ jobs:
         run: python -m pip install --upgrade pip -r requirements.txt
       - name: Replay all eight chapters
         run: python -m tools.classic_mode_replay --json-out build/classic-mode-replay.json
-      - name: Capture non-gating performance baseline
+      - name: Capture performance evidence
         run: >-
           python -m tools.performance_baseline
-          --update-frames 30
-          --draw-frames 3
-          --rounds 1
+          --update-frames 90
+          --draw-frames 5
+          --warmup-rounds 2
+          --rounds 7
           --json-out build/performance-baseline.json
+      - name: Validate Phase 0 organization
+        run: >-
+          python -m tools.validate_phase0_organization
+          --json-out build/phase0-organization.json
       - name: Upload Phase 0 evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -100,4 +109,77 @@ jobs:
           path: |
             build/classic-mode-replay.json
             build/performance-baseline.json
+            build/phase0-organization.json
+          if-no-files-found: warn
+
+  performance-regression:
+    name: Same-runner performance guard
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out candidate revision
+        uses: actions/checkout@v4
+        with:
+          path: candidate
+      - name: Check out base revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: baseline
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install runtime dependencies
+        run: python -m pip install --upgrade pip -r candidate/requirements.txt
+      - name: Install benchmark harness into base revision
+        run: |
+          mkdir -p baseline/tools evidence
+          cp candidate/tools/performance_baseline.py baseline/tools/performance_baseline.py
+          touch baseline/tools/__init__.py
+      - name: Capture first base measurement
+        working-directory: baseline
+        env:
+          GITHUB_SHA: ${{ github.event.pull_request.base.sha }}
+        run: >-
+          python -m tools.performance_baseline
+          --update-frames 90
+          --draw-frames 5
+          --warmup-rounds 2
+          --rounds 7
+          --json-out ../evidence/base-a.json
+      - name: Capture candidate measurement
+        working-directory: candidate
+        run: >-
+          python -m tools.performance_baseline
+          --update-frames 90
+          --draw-frames 5
+          --warmup-rounds 2
+          --rounds 7
+          --json-out ../evidence/candidate.json
+      - name: Capture second base measurement
+        working-directory: baseline
+        env:
+          GITHUB_SHA: ${{ github.event.pull_request.base.sha }}
+        run: >-
+          python -m tools.performance_baseline
+          --update-frames 90
+          --draw-frames 5
+          --warmup-rounds 2
+          --rounds 7
+          --json-out ../evidence/base-b.json
+      - name: Enforce performance regression policy
+        working-directory: candidate
+        run: >-
+          python -m tools.performance_guard
+          --baseline ../evidence/base-a.json
+          --baseline ../evidence/base-b.json
+          --candidate ../evidence/candidate.json
+          --policy config/performance_thresholds.json
+          --json-out ../evidence/performance-guard.json
+      - name: Upload performance comparison evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-guard-${{ github.sha }}
+          path: evidence/*.json
           if-no-files-found: warn
