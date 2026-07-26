@@ -33,9 +33,7 @@ class Phase0OrganizationTests(unittest.TestCase):
         manifest["truthfulness"]["other_human_contributor_count"] = 1
         report = validate_manifest(manifest)
         self.assertEqual(report["status"], "fail")
-        self.assertTrue(
-            any("other_human_contributor_count" in error for error in report["errors"])
-        )
+        self.assertTrue(any("other_human_contributor_count" in error for error in report["errors"]))
 
     def test_ai_cannot_be_presented_as_employee(self) -> None:
         manifest = copy.deepcopy(self.manifest)
