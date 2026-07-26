@@ -1,4 +1,4 @@
-"""Validated, transactional Classic, slice, and campaign progression state."""
+"""Validated, transactional Classic, slice, campaign, and mission state."""
 
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ from game.core.checkpoint import (
     CheckpointLoadResult,
     TransactionalJsonStore,
 )
+from game.core.relay_echo_state import RELAY_ECHO_RUNTIME, RelayEchoStateError
 from game.core.settings import SAVE_PATH
 
 _DEFAULT_UNLOCKS = {
@@ -60,6 +61,7 @@ class SaveData:
         self.stats = dict(_DEFAULT_STATS)
         self.phase1_slice = dict(_DEFAULT_PHASE1_SLICE)
         self.campaign = CAMPAIGN_GRAPH.default_state()
+        self.relay_echo = RELAY_ECHO_RUNTIME.default_state()
         self.settings_volume = 0.7
 
     @staticmethod
@@ -150,6 +152,20 @@ class SaveData:
             campaign, _transition = CAMPAIGN_GRAPH.complete_mission(campaign, "ares_reach")
         return campaign
 
+    @staticmethod
+    def _validate_relay_campaign_boundary(
+        relay_echo: dict[str, Any], campaign: dict[str, Any]
+    ) -> None:
+        if not relay_echo["attempts"]:
+            return
+        if (
+            "ares_reach" not in campaign["completed_missions"]
+            or "relay_echo" not in campaign["unlocked_missions"]
+        ):
+            raise ValueError(
+                "Relay Echo runtime progress requires completed Ares Reach and an unlocked Relay Echo node"
+            )
+
     def _validated_state(self, data: Any) -> dict[str, Any]:
         if not isinstance(data, dict):
             raise ValueError("save payload must be an object")
@@ -181,6 +197,11 @@ class SaveData:
             campaign = self._synchronize_phase1_campaign(phase1_slice, campaign)
         except CampaignStateError as exc:
             raise ValueError(f"campaign state is invalid: {exc}") from exc
+        try:
+            relay_echo = RELAY_ECHO_RUNTIME.normalize_state(data.get("relay_echo"))
+        except RelayEchoStateError as exc:
+            raise ValueError(f"Relay Echo state is invalid: {exc}") from exc
+        self._validate_relay_campaign_boundary(relay_echo, campaign)
         return {
             "chapter_unlocked": chapter_unlocked,
             "chapter_completed": chapter_completed,
@@ -189,6 +210,7 @@ class SaveData:
             "stats": self._validated_stats(data.get("stats")),
             "phase1_slice": phase1_slice,
             "campaign": campaign,
+            "relay_echo": relay_echo,
             "settings_volume": self._bounded_float(
                 data.get("settings_volume", 0.7),
                 0.0,
@@ -205,6 +227,7 @@ class SaveData:
         self.stats = dict(state["stats"])
         self.phase1_slice = dict(state["phase1_slice"])
         self.campaign = CAMPAIGN_GRAPH.normalize_state(state["campaign"])
+        self.relay_echo = RELAY_ECHO_RUNTIME.normalize_state(state["relay_echo"])
         self.settings_volume = state["settings_volume"]
 
     def to_dict(self) -> dict[str, Any]:
@@ -216,6 +239,7 @@ class SaveData:
             "stats": dict(self.stats),
             "phase1_slice": dict(self.phase1_slice),
             "campaign": CAMPAIGN_GRAPH.normalize_state(self.campaign),
+            "relay_echo": RELAY_ECHO_RUNTIME.normalize_state(self.relay_echo),
             "settings_volume": self.settings_volume,
         }
 
@@ -256,6 +280,36 @@ class SaveData:
 
     def complete_campaign_mission(self, mission_id: str) -> dict[str, Any]:
         self.campaign, transition = CAMPAIGN_GRAPH.complete_mission(self.campaign, mission_id)
+        return transition.to_dict()
+
+    def prepare_relay_echo_attempt(self) -> dict[str, Any]:
+        if (
+            "ares_reach" not in self.campaign["completed_missions"]
+            or "relay_echo" not in self.campaign["unlocked_missions"]
+        ):
+            raise ValueError(
+                "Relay Echo preparation requires completed Ares Reach and an unlocked mission node"
+            )
+        self.relay_echo, transition = RELAY_ECHO_RUNTIME.begin_attempt(self.relay_echo)
+        return transition.to_dict()
+
+    def complete_relay_echo_objective(
+        self,
+        objective_id: str,
+        evidence: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        self.relay_echo, transition = RELAY_ECHO_RUNTIME.complete_objective(
+            self.relay_echo,
+            objective_id,
+            evidence,
+        )
+        return transition.to_dict()
+
+    def record_relay_echo_failure(self, failure_id: str) -> dict[str, Any]:
+        self.relay_echo, transition = RELAY_ECHO_RUNTIME.record_failure(
+            self.relay_echo,
+            failure_id,
+        )
         return transition.to_dict()
 
     def save(self) -> bool:
