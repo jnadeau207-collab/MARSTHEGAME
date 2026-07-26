@@ -41,6 +41,7 @@ jobs:
           game/core/accessibility.py
           game/core/audio.py
           game/core/camera.py
+          game/core/campaign.py
           game/core/checkpoint.py
           game/core/diagnostics.py
           game/core/engine.py
@@ -50,11 +51,13 @@ jobs:
           game/core/save.py
           game/core/settings.py
           game/core/timing.py
+          game/data/campaign.py
           game/data/classic_replays.py
           game/data/content.py
           game/data/ip_tracks.py
           game/data/phase1_slice.py
           game/entities/mars_sentinel.py
+          game/scenes/campaign.py
           game/scenes/credits.py
           game/scenes/title.py
           game/scenes/vertical_slice.py
@@ -63,6 +66,7 @@ jobs:
       - name: Formatting data and replay contracts
         run: >-
           ruff format --check
+          game/data/campaign.py
           game/data/classic_replays.py
           game/data/content.py
           game/data/ip_tracks.py
@@ -73,6 +77,7 @@ jobs:
           game/core/accessibility.py
           game/core/audio.py
           game/core/camera.py
+          game/core/campaign.py
           game/core/checkpoint.py
           game/core/diagnostics.py
           game/core/engine.py
@@ -82,14 +87,15 @@ jobs:
           game/core/save.py
           game/core/settings.py
           game/core/timing.py
-      - name: Formatting Phase 1 gameplay and scenes
+      - name: Formatting campaign and gameplay scenes
         run: >-
           ruff format --check
           game/entities/mars_sentinel.py
+          game/scenes/campaign.py
           game/scenes/credits.py
           game/scenes/title.py
           game/scenes/vertical_slice.py
-      - name: Formatting replay and benchmark tools
+      - name: Formatting replay, audit, and benchmark tools
         run: ruff format --check tools
       - name: Formatting regression tests
         run: ruff format --check tests
@@ -103,9 +109,11 @@ jobs:
         run: python -m tools.phase0_audit --json-out build/phase0-audit.json
       - name: Audit Phase 1 quality truth
         run: python -m tools.phase1_quality_audit --json-out build/phase1-quality.json
+      - name: Audit Phase 2 campaign truth
+        run: python -m tools.phase2_campaign_audit --json-out build/phase2-campaign.json
 
   phase-artifacts:
-    name: Classic Mode and Phase 1 replay evidence
+    name: Classic Mode, Phase 1, and Phase 2 evidence
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -135,6 +143,8 @@ jobs:
         run: python -m tools.phase0_audit --json-out build/phase0-audit.json
       - name: Audit Phase 1 quality truth
         run: python -m tools.phase1_quality_audit --json-out build/phase1-quality.json
+      - name: Audit Phase 2 campaign truth
+        run: python -m tools.phase2_campaign_audit --json-out build/phase2-campaign.json
       - name: Upload Phase evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -147,6 +157,7 @@ jobs:
             build/phase0-organization.json
             build/phase0-audit.json
             build/phase1-quality.json
+            build/phase2-campaign.json
           if-no-files-found: warn
 
   performance-regression:
