@@ -6,10 +6,11 @@
   "full_campaign_claim": "not_achieved",
   "aaa_claim": "target_not_achieved",
   "integration_verification": "passed",
-  "current_tranche": "relay_echo_runtime_state",
+  "current_tranche": "relay_echo_playable_candidate",
   "relay_echo_contract_verification": "passed",
   "relay_echo_runtime_state_verification": "passed",
-  "verification_run": "30219020338",
+  "relay_echo_playable_candidate_verification": "pending",
+  "verification_run": null,
   "implemented_missions": [
     "ares_reach"
   ],
@@ -28,5 +29,5 @@
     "packaged_build_soak_complete": false,
     "keyboard_gamepad_completion_parity": false
   },
-  "truthfulness": "Phase 2 has one implemented mission, one verified mission contract, and a verified transactional Relay Echo runtime-state model. Relay Echo remains planned and non-playable; completion eligibility is not campaign completion. Neither the full campaign nor AAA-quality target is claimed complete."
+  "truthfulness": "Phase 2 has one implemented mission, one verified Relay Echo contract, one verified transactional runtime-state model, and a complete playable-candidate path under verification. Relay Echo remains planned and is not exposed through campaign routing; candidate completion is not campaign completion. Neither the full campaign nor AAA-quality target is claimed complete."
 }
