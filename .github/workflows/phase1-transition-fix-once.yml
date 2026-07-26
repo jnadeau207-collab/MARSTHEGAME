@@ -1,0 +1,66 @@
+name: Phase 1 transition fix once
+
+on:
+  push:
+    branches: [agent/phase1-aaa-slice-foundation]
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: ${{ !contains(github.event.head_commit.message, '[phase1-transition-fix]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/phase1-aaa-slice-foundation
+      - name: Make completion transition idempotent
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('game/scenes/vertical_slice.py')
+          text = path.read_text(encoding='utf-8')
+          old = '''        self.slice_complete = False
+        self.completion_timer = 0.0
+        self._landing_y = 790.0
+'''
+          new = '''        self.slice_complete = False
+        self.completion_timer = 0.0
+        self.completion_transitioned = False
+        self._landing_y = 790.0
+'''
+          if old not in text:
+              raise SystemExit('constructor transition anchor missing')
+          text = text.replace(old, new, 1)
+          old = '''        self.slice_complete = False
+        self.completion_timer = 0.0
+        self.won = False
+'''
+          new = '''        self.slice_complete = False
+        self.completion_timer = 0.0
+        self.completion_transitioned = False
+        self.won = False
+'''
+          if old not in text:
+              raise SystemExit('on_enter transition anchor missing')
+          text = text.replace(old, new, 1)
+          old = '''            if self.completion_timer > 300:
+                self.engine.go_title()
+'''
+          new = '''            if self.completion_timer > 300 and not self.completion_transitioned:
+                self.completion_transitioned = True
+                self.engine.go_title()
+'''
+          if old not in text:
+              raise SystemExit('completion transition block missing')
+          text = text.replace(old, new, 1)
+          path.write_text(text, encoding='utf-8')
+          PY
+      - name: Commit transition fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add game/scenes/vertical_slice.py
+          git commit -m "Make Phase 1 completion transition idempotent [phase1-transition-fix]"
+          git push origin HEAD:agent/phase1-aaa-slice-foundation
