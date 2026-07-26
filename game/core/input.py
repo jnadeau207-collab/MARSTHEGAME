@@ -42,6 +42,8 @@ class InputManager:
         self.keys_pressed: set[str] = set()
         self.keys_released: set[str] = set()
         self.buffer: dict[str, int] = {}
+        self._pending_pressed: set[str] = set()
+        self._pending_released: set[str] = set()
         self.joy = None
         if initialize_joystick:
             self._init_joystick()
@@ -55,10 +57,45 @@ class InputManager:
     def rebind(self, action, keys) -> None:
         self.bindings[action] = list(keys) if isinstance(keys, list) else [keys]
 
+    def _tick_buffers(self) -> None:
+        for action in list(self.buffer):
+            self.buffer[action] -= 1
+            if self.buffer[action] <= 0:
+                del self.buffer[action]
+
+    def _buffer_pressed_actions(self) -> None:
+        for action in _BUFFERED_ACTIONS:
+            if self.just_pressed(action):
+                self.buffer[action] = 10
+
     def update(self) -> None:
-        """Poll hardware and apply one input frame."""
+        """Poll and immediately apply one legacy input frame."""
 
         self.update_from_actions(self._poll_hardware())
+
+    def poll_hardware_frame(self) -> None:
+        """Capture hardware edges until the fixed-step simulation consumes them."""
+
+        current = self._poll_hardware()
+        self._pending_pressed.update(current - self.keys_down)
+        self._pending_released.update(self.keys_down - current)
+        self.keys_down = current
+
+    def begin_simulation_step(self) -> None:
+        """Expose each pending edge to exactly one simulation step."""
+
+        self.keys_pressed = set(self._pending_pressed)
+        self.keys_released = set(self._pending_released)
+        self._pending_pressed.clear()
+        self._pending_released.clear()
+        self._buffer_pressed_actions()
+
+    def end_simulation_step(self) -> None:
+        """Advance simulation-time buffers and retire transient edges."""
+
+        self._tick_buffers()
+        self.keys_pressed.clear()
+        self.keys_released.clear()
 
     def update_from_actions(self, active_inputs: Iterable[str]) -> None:
         """Apply a deterministic frame of physical keys or virtual actions.
@@ -70,20 +107,15 @@ class InputManager:
 
         self.keys_pressed.clear()
         self.keys_released.clear()
-
-        for action in list(self.buffer):
-            self.buffer[action] -= 1
-            if self.buffer[action] <= 0:
-                del self.buffer[action]
+        self._pending_pressed.clear()
+        self._pending_released.clear()
+        self._tick_buffers()
 
         current = set(active_inputs)
         self.keys_pressed = current - self.keys_down
         self.keys_released = self.keys_down - current
         self.keys_down = current
-
-        for action in _BUFFERED_ACTIONS:
-            if self.just_pressed(action):
-                self.buffer[action] = 10
+        self._buffer_pressed_actions()
 
     def _poll_hardware(self) -> set[str]:
         pressed = pygame.key.get_pressed()

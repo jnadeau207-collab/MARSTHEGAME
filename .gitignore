@@ -1,7 +1,10 @@
 __pycache__/
 *.pyc
 savegame.json
+savegame.json.bak
+savegame.json.tmp
 settings.json
+crashes/
 .DS_Store
 *.egg-info/
 dist/

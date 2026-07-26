@@ -3,12 +3,20 @@ Player: Elon — high-detail procedural sprite with shading, animation, glow.
 """
 
 import math
+
 import pygame
-from game.core.settings import (
-    GRAVITY, PLAYER_SPEED, PLAYER_JUMP, PLAYER_DASH_SPEED,
-    PLAYER_DASH_DURATION, COYOTE_TIME, JUMP_BUFFER, Colors
-)
+
 from game.core import gfx
+from game.core.settings import (
+    COYOTE_TIME,
+    GRAVITY,
+    JUMP_BUFFER,
+    PLAYER_DASH_DURATION,
+    PLAYER_DASH_SPEED,
+    PLAYER_JUMP,
+    PLAYER_SPEED,
+    Colors,
+)
 
 
 class Player:
@@ -75,8 +83,16 @@ class Player:
             self.vy = 0
             self.state = "dash"
             if self.dash_timer % 2 == 0:
-                particles.emit(self.x + self.w / 2, self.y + self.h / 2,
-                               count=2, speed=1.2, color=(0, 200, 255), life=12, size=2, gravity=0)
+                particles.emit(
+                    self.x + self.w / 2,
+                    self.y + self.h / 2,
+                    count=2,
+                    speed=1.2,
+                    color=(0, 200, 255),
+                    life=12,
+                    size=2,
+                    gravity=0,
+                )
             if self.dash_timer == 0:
                 self.vx *= 0.4
         else:
@@ -102,20 +118,35 @@ class Player:
                     inp.consume_buffer("jump")
                     particles.emit_dust(self.x + self.w / 2, self.y + self.h)
                     if self.jumps_left == 0 and self.can_double_jump:
-                        particles.emit(self.x + self.w / 2, self.y + self.h,
-                                       count=12, speed=3.2, color=Colors.ACCENT, life=22, size=3)
+                        particles.emit(
+                            self.x + self.w / 2,
+                            self.y + self.h,
+                            count=12,
+                            speed=3.2,
+                            color=Colors.ACCENT,
+                            life=22,
+                            size=3,
+                        )
                     self.state = "jump"
 
             if not inp.is_held("jump") and self.vy < -4:
                 self.vy *= 0.55
 
-            if self.can_dash and (inp.just_pressed("dash") or inp.consume_buffer("dash")) and self.dash_timer == 0:
+            if (
+                self.can_dash
+                and (inp.just_pressed("dash") or inp.consume_buffer("dash"))
+                and self.dash_timer == 0
+            ):
                 self.dash_timer = PLAYER_DASH_DURATION
                 self.dash_dir = self.facing
                 self.invuln = max(self.invuln, 8)
-                particles.emit(self.x + self.w / 2, self.y + self.h / 2, count=10, speed=3, color=Colors.ACCENT)
+                particles.emit(
+                    self.x + self.w / 2, self.y + self.h / 2, count=10, speed=3, color=Colors.ACCENT
+                )
 
-            if (inp.just_pressed("attack") or inp.consume_buffer("attack")) and self.attack_cooldown == 0:
+            if (
+                inp.just_pressed("attack") or inp.consume_buffer("attack")
+            ) and self.attack_cooldown == 0:
                 self.attack_timer = 12
                 self.attack_cooldown = 20
                 self.state = "attack"
@@ -250,8 +281,13 @@ class Player:
         pygame.draw.rect(surface, jacket, (sx + 5, sy + 11, 16, 15), border_radius=2)
         pygame.draw.rect(surface, jacket_hi, (sx + 6, sy + 11, 14, 5), border_radius=2)
         # collar / zipper
-        pygame.draw.line(surface, (70, 90, 130) if self.state != "hurt" else (200, 80, 80),
-                         (sx + 13, sy + 12), (sx + 13, sy + 24), 1)
+        pygame.draw.line(
+            surface,
+            (70, 90, 130) if self.state != "hurt" else (200, 80, 80),
+            (sx + 13, sy + 12),
+            (sx + 13, sy + 24),
+            1,
+        )
         # shoulder pads
         pygame.draw.rect(surface, jacket_hi, (sx + 3, sy + 12, 5, 5), border_radius=1)
         pygame.draw.rect(surface, jacket_hi, (sx + 18, sy + 12, 5, 5), border_radius=1)
@@ -265,9 +301,14 @@ class Player:
             pygame.draw.circle(surface, (200, 170, 140), (ax, ay), 3)
             # energy slash
             gfx.soft_circle(surface, Colors.GOLD, (ax + (8 if f > 0 else -8), ay), 14, layers=3)
-            pygame.draw.arc(surface, Colors.GOLD,
-                            (ax - 10, ay - 12, 36, 36),
-                            0.3 if f > 0 else 2.5, 2.5 if f > 0 else 5.5, 2)
+            pygame.draw.arc(
+                surface,
+                Colors.GOLD,
+                (ax - 10, ay - 12, 36, 36),
+                0.3 if f > 0 else 2.5,
+                2.5 if f > 0 else 5.5,
+                2,
+            )
         else:
             swing = int(math.sin(self.anim * 8) * 3) if self.state == "run" else 0
             pygame.draw.line(surface, arm, (sx + 6, sy + 15), (sx + 2, sy + 24 + swing), 3)

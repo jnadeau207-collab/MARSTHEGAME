@@ -3,8 +3,9 @@ Chapter select – walk the full arc.
 """
 
 import pygame
+
+from game.core.settings import CHAPTERS, SCREEN_HEIGHT, SCREEN_WIDTH, Colors
 from game.scenes.base import Scene
-from game.core.settings import SCREEN_WIDTH, SCREEN_HEIGHT, Colors, CHAPTERS
 
 
 class ChapterSelectScene(Scene):
@@ -67,7 +68,9 @@ class ChapterSelectScene(Scene):
             t = self.engine.font_sm.render(line, True, Colors.WHITE)
             surface.blit(t, (card.x + 30, card.y + 200 + i * 22))
 
-        nav = self.engine.font_sm.render("<  Left / Right  >    Enter to launch    Esc back", True, Colors.GRAY)
+        nav = self.engine.font_sm.render(
+            "<  Left / Right  >    Enter to launch    Esc back", True, Colors.GRAY
+        )
         surface.blit(nav, (SCREEN_WIDTH // 2 - nav.get_width() // 2, SCREEN_HEIGHT - 50))
 
         for i in range(len(CHAPTERS)):

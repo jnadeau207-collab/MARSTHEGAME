@@ -4,9 +4,11 @@ Collectibles with glow, spin, and sparkle.
 
 import math
 import random
+
 import pygame
-from game.core.settings import Colors
+
 from game.core import gfx
+from game.core.settings import Colors
 
 
 class Collectible:
@@ -81,8 +83,9 @@ class Collectible:
             pygame.draw.rect(surface, (0, 40, 60), (sx + 1, sy + 2, 16, 14), border_radius=3)
             pygame.draw.rect(surface, Colors.ACCENT, (sx + 2, sy + 3, 14, 12), border_radius=2)
             for i, w in enumerate((10, 7, 11)):
-                pygame.draw.line(surface, (0, 30, 40),
-                                 (sx + 4, sy + 6 + i * 3), (sx + 4 + w, sy + 6 + i * 3), 1)
+                pygame.draw.line(
+                    surface, (0, 30, 40), (sx + 4, sy + 6 + i * 3), (sx + 4 + w, sy + 6 + i * 3), 1
+                )
             # blink cursor
             if int(self.bob * 3) % 2:
                 pygame.draw.rect(surface, (255, 255, 255), (sx + 5, sy + 13, 5, 1))

@@ -38,38 +38,62 @@ jobs:
       - name: Static analysis ratchet
         run: >-
           ruff check
+          game/core/accessibility.py
+          game/core/audio.py
+          game/core/camera.py
+          game/core/checkpoint.py
+          game/core/diagnostics.py
+          game/core/engine.py
           game/core/gfx.py
           game/core/input.py
+          game/core/presentation.py
+          game/core/save.py
           game/core/settings.py
+          game/core/timing.py
           game/data/classic_replays.py
           game/data/content.py
           game/data/ip_tracks.py
+          game/data/phase1_slice.py
+          game/entities/mars_sentinel.py
           game/scenes/credits.py
           game/scenes/title.py
+          game/scenes/vertical_slice.py
           tools
           tests
-      - name: Formatting data catalog and replay tracks
+      - name: Formatting data and replay contracts
         run: >-
           ruff format --check
           game/data/classic_replays.py
           game/data/content.py
           game/data/ip_tracks.py
-      - name: Formatting core input and settings
+          game/data/phase1_slice.py
+      - name: Formatting core runtime
         run: >-
           ruff format --check
+          game/core/accessibility.py
+          game/core/audio.py
+          game/core/camera.py
+          game/core/checkpoint.py
+          game/core/diagnostics.py
+          game/core/engine.py
           game/core/gfx.py
           game/core/input.py
+          game/core/presentation.py
+          game/core/save.py
           game/core/settings.py
-      - name: Formatting identity-aware scenes
+          game/core/timing.py
+      - name: Formatting Phase 1 gameplay and scenes
         run: >-
           ruff format --check
+          game/entities/mars_sentinel.py
           game/scenes/credits.py
           game/scenes/title.py
+          game/scenes/vertical_slice.py
       - name: Formatting replay and benchmark tools
         run: ruff format --check tools
       - name: Formatting regression tests
         run: ruff format --check tests
-      - name: Unit and Classic Mode regression tests
+      - name: Unit and regression tests
         run: python -m unittest discover -s tests -v
       - name: Validate founder + AI operating model
         run: >-
@@ -77,9 +101,11 @@ jobs:
           --json-out build/phase0-organization.json
       - name: Audit Phase 0 completion
         run: python -m tools.phase0_audit --json-out build/phase0-audit.json
+      - name: Audit Phase 1 quality truth
+        run: python -m tools.phase1_quality_audit --json-out build/phase1-quality.json
 
-  classic-mode-artifacts:
-    name: Classic Mode replay and baseline
+  phase-artifacts:
+    name: Classic Mode and Phase 1 replay evidence
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -89,8 +115,10 @@ jobs:
           cache: pip
       - name: Install dependencies
         run: python -m pip install --upgrade pip -r requirements.txt
-      - name: Replay all eight chapters
+      - name: Replay all eight chapters (Classic Mode)
         run: python -m tools.classic_mode_replay --json-out build/classic-mode-replay.json
+      - name: Replay the complete Phase 1 slice
+        run: python -m tools.phase1_slice_replay --json-out build/phase1-slice-replay.json
       - name: Capture performance evidence
         run: >-
           python -m tools.performance_baseline
@@ -105,16 +133,20 @@ jobs:
           --json-out build/phase0-organization.json
       - name: Audit Phase 0 completion
         run: python -m tools.phase0_audit --json-out build/phase0-audit.json
-      - name: Upload Phase 0 evidence
+      - name: Audit Phase 1 quality truth
+        run: python -m tools.phase1_quality_audit --json-out build/phase1-quality.json
+      - name: Upload Phase evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: phase0-evidence-${{ github.sha }}
+          name: phase-evidence-${{ github.sha }}
           path: |
             build/classic-mode-replay.json
+            build/phase1-slice-replay.json
             build/performance-baseline.json
             build/phase0-organization.json
             build/phase0-audit.json
+            build/phase1-quality.json
           if-no-files-found: warn
 
   performance-regression:
