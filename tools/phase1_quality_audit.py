@@ -22,7 +22,11 @@ _REQUIRED_RUNTIME_FILES = {
     "game/core/accessibility.py",
     "game/core/audio.py",
     "game/core/camera.py",
+    "game/core/checkpoint.py",
+    "game/core/diagnostics.py",
+    "game/core/engine.py",
     "game/core/presentation.py",
+    "game/core/save.py",
     "game/core/timing.py",
 }
 _REQUIRED_GATES = {
