@@ -155,6 +155,7 @@ class ParityDriver(ReferenceDriver):
         result = super().run()
         result["input_profile"] = self.profile
         result["accessibility"] = self.scene.accessibility_evidence()
+        result["presentation_detail"] = list(self.engine.presentation.event_log)
         return result
 
 
@@ -242,8 +243,9 @@ def run_replay() -> dict[str, Any]:
 
     accessible_evidence = accessible["accessibility"]
     base_radius = tuple(RELAY_ECHO_CANDIDATE["interactions"]["interaction_radius"])
+    effective_radius = tuple(accessible_evidence["effective_interaction_radius"])
     base_overload = int(RELAY_ECHO_CANDIDATE["interactions"]["overload_frames"])
-    if tuple(accessible_evidence["effective_interaction_radius"]) <= base_radius:
+    if any(effective <= base for effective, base in zip(effective_radius, base_radius)):
         raise AssertionError("assist mode did not increase interaction radius")
     if accessible_evidence["effective_overload_frames"] <= base_overload:
         raise AssertionError("assist mode did not extend the overload window")
