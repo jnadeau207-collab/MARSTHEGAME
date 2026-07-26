@@ -5,7 +5,6 @@ import unittest
 from tools.performance_baseline import summarize_samples
 from tools.performance_guard import evaluate_reports
 
-
 POLICY = {
     "schema_version": 1,
     "policy_name": "test-policy",
