@@ -59,7 +59,9 @@ class CampaignProgressionTests(unittest.TestCase):
         self.assertEqual(completed["unlocked_missions"], ["ares_reach", "relay_echo"])
         self.assertEqual(completed["current_mission"], "relay_echo")
         self.assertEqual(completed["revision"], 2)
-        self.assertEqual(CAMPAIGN_GRAPH.playable_mission_ids(completed["completed_missions"]), ("ares_reach",))
+        self.assertEqual(
+            CAMPAIGN_GRAPH.playable_mission_ids(completed["completed_missions"]), ("ares_reach",)
+        )
 
     def test_forged_unlocks_are_rejected(self) -> None:
         state = CAMPAIGN_GRAPH.default_state()
