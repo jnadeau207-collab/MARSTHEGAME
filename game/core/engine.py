@@ -6,6 +6,7 @@ import pygame
 
 from game.core.accessibility import normalize_runtime_settings
 from game.core.audio import AudioDirector
+from game.core.diagnostics import CrashReporter
 from game.core.input import InputManager
 from game.core.particles import ParticleSystem
 from game.core.presentation import PresentationDirector
@@ -51,6 +52,8 @@ class Engine:
         self.font_md = pygame.font.SysFont("consolas", 24)
         self.font_lg = pygame.font.SysFont("consolas", 40)
         self.font_xl = pygame.font.SysFont("consolas", 56)
+        self.diagnostics = CrashReporter()
+        self.diagnostics.install(self.diagnostic_context)
 
         self.push(TitleScene(self))
 
@@ -74,6 +77,24 @@ class Engine:
 
     def current(self):
         return self.scene_stack[-1] if self.scene_stack else None
+
+    def diagnostic_context(self) -> dict:
+        scene = self.current()
+        recent_audio = [entry["event"] for entry in list(self.audio.event_log)[-16:]]
+        recent_presentation = [entry["name"] for entry in list(self.presentation.event_log)[-16:]]
+        return {
+            "scene": type(scene).__name__ if scene is not None else None,
+            "chapter_id": getattr(scene, "chapter_id", None),
+            "simulation_steps": self.timing.total_simulation_steps,
+            "frame_pacing": self.timing.monitor.snapshot(),
+            "audio_state": self.audio.state,
+            "recent_audio_events": recent_audio,
+            "recent_presentation_events": recent_presentation,
+            "save_generation": self.save.generation,
+            "save_source": self.save.last_load_source,
+            "save_repaired": self.save.repaired_primary,
+            "save_error": self.save.last_error,
+        }
 
     def trigger_hit_stop(self, frames=4):
         scaled = self.presentation.hit_stop_frames(frames)
@@ -139,6 +160,7 @@ class Engine:
 
         save_settings(self.settings)
         self.save.save()
+        self.diagnostics.uninstall()
         pygame.quit()
         sys.exit(0)
 
