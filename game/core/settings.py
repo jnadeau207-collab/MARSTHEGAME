@@ -1,10 +1,9 @@
-"""
-Global settings, constants, and configuration.
-"""
+"""Global settings, constants, and configuration."""
 
 import json
 from pathlib import Path
 
+from game.core.accessibility import DEFAULT_ACCESSIBILITY, normalize_runtime_settings
 from game.data.content import apply_level_content, build_chapters
 from game.data.ip_tracks import get_identity, resolve_ip_track
 from game.data.levels import LEVELS
@@ -80,23 +79,27 @@ def load_settings():
         "volume_master": 0.7,
         "volume_sfx": 0.8,
         "volume_music": 0.5,
+        "volume_ambience": 0.6,
+        "volume_dialogue": 0.8,
         "fullscreen": False,
         "show_fps": False,
         "keys": DEFAULT_KEYS.copy(),
+        "accessibility": DEFAULT_ACCESSIBILITY.copy(),
     }
     if SETTINGS_PATH.exists():
         try:
-            with open(SETTINGS_PATH) as file:
+            with open(SETTINGS_PATH, encoding="utf-8") as file:
                 data = json.load(file)
                 defaults.update(data)
-        except Exception:
+        except (OSError, json.JSONDecodeError, TypeError):
             pass
-    return defaults
+    return normalize_runtime_settings(defaults)
 
 
 def save_settings(data):
     try:
-        with open(SETTINGS_PATH, "w") as file:
-            json.dump(data, file, indent=2)
-    except Exception:
+        normalized = normalize_runtime_settings(data)
+        with open(SETTINGS_PATH, "w", encoding="utf-8") as file:
+            json.dump(normalized, file, indent=2, sort_keys=True)
+    except (OSError, TypeError, ValueError):
         pass
