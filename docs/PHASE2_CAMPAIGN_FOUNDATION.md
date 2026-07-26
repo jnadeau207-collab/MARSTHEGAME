@@ -6,6 +6,7 @@
 - Status: in progress
 - Campaign: `frontier_campaign`
 - Implemented missions: `ares_reach`
+- Contracted but non-playable missions: `relay_echo`
 - Planned missions: `relay_echo`, `phobos_vector`, `frontier_burn`
 - Full-campaign claim: **not achieved**
 - AAA-quality claim: **target not achieved**
@@ -55,9 +56,27 @@ The save validates:
 
 Old saves without campaign data migrate to the default `ares_reach` state. Corrupt campaign state participates in the existing primary/backup recovery path.
 
+## Relay Echo contract tranche
+
+`relay_echo` now has an executable mission contract in `game/data/relay_echo.py`. The contract establishes:
+
+- entry and exit state,
+- six ordered objectives and their dependency graph,
+- seven checkpoint and persistence boundaries,
+- five explicit failure and recovery policies,
+- deterministic replay requirements,
+- localization-ready `mission.relay_echo.*` content keys,
+- accessibility requirements,
+- CPU, draw, allocation, hitch, enemy, and effect budgets,
+- authored/procedural boundaries,
+- eight promotion gates.
+
+This does not make Relay Echo playable. The campaign catalog still records it as `planned`, its runtime entrypoint remains `None`, and fail-closed routing continues to reject launch. The contract exists to prevent runtime implementation from drifting or claiming completion without evidence.
+
 ## Evidence
 
 - `game/data/campaign.py`
+- `game/data/relay_echo.py`
 - `game/core/campaign.py`
 - `game/scenes/campaign.py`
 - `config/phase2_campaign.json`
@@ -65,9 +84,12 @@ Old saves without campaign data migrate to the default `ares_reach` state. Corru
 - `tests/test_campaign.py`
 - `tests/test_campaign_save.py`
 - `tests/test_phase2_campaign_audit.py`
+- `tests/test_relay_echo_contract.py`
+- `docs/RELAY_ECHO_MISSION_CONTRACT.md`
+- `docs/decisions/0011-contract-missions-before-runtime.md`
 
 ## What remains
 
-This tranche does not claim that later mission content exists. The next mission must receive data contracts, progression state, encounter design, replay coverage, performance budgets, and a real runtime entrypoint before it can move from `planned` to `implemented`.
+Relay Echo must remain non-playable until its runtime entrypoint, mission save state, objective and failure state machine, deterministic replay, accessibility path, measured performance evidence, authored content package, and campaign completion transaction all exist and pass.
 
 All unresolved direct-play, authored-asset, packaged-build, external-playtest, and AAA-quality evidence gates remain active.

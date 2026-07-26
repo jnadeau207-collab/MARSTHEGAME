@@ -19,18 +19,25 @@ from game.data.campaign import (
 )
 from game.data.levels import LEVELS
 from game.data.phase1_slice import SLICE_ID
+from game.data.relay_echo import (
+    RELAY_ECHO_LIFECYCLE,
+    RELAY_ECHO_MISSION_ID,
+    validate_relay_echo_contract,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 _SUPPORTED_ENTRYPOINTS = {"vertical_slice"}
 _REQUIRED_FILES = {
     "game/core/campaign.py",
     "game/data/campaign.py",
+    "game/data/relay_echo.py",
     "game/scenes/campaign.py",
     "game/scenes/vertical_slice.py",
     "tools/phase2_campaign_audit.py",
     "tests/test_campaign.py",
     "tests/test_campaign_save.py",
     "tests/test_phase2_campaign_audit.py",
+    "tests/test_relay_echo_contract.py",
 }
 
 
@@ -94,6 +101,31 @@ def audit_campaign(manifest: dict[str, Any]) -> dict[str, Any]:
             "implemented": implemented,
             "planned": planned,
         },
+    )
+
+    relay_mission = CAMPAIGN_GRAPH.mission(RELAY_ECHO_MISSION_ID)
+    relay_contract_errors = validate_relay_echo_contract()
+    relay_contract_evidence = {
+        "catalog_contract": relay_mission.get("contract"),
+        "catalog_status": relay_mission.get("status"),
+        "contract_errors": relay_contract_errors,
+        "contract_lifecycle": RELAY_ECHO_LIFECYCLE,
+        "entrypoint": relay_mission.get("entrypoint"),
+        "manifest_contracts": manifest.get("contracted_missions"),
+        "tranche": manifest.get("current_tranche"),
+        "verification": manifest.get("relay_echo_contract_verification"),
+    }
+    record(
+        "relay_echo_contract_truth",
+        manifest.get("current_tranche") == "relay_echo_contract"
+        and manifest.get("contracted_missions") == [RELAY_ECHO_MISSION_ID]
+        and manifest.get("relay_echo_contract_verification") in {"pending", "passed"}
+        and relay_mission.get("contract") == RELAY_ECHO_MISSION_ID
+        and relay_mission.get("status") == MISSION_STATUS_PLANNED
+        and relay_mission.get("entrypoint") is None
+        and RELAY_ECHO_LIFECYCLE == "contracted_not_playable"
+        and not relay_contract_errors,
+        relay_contract_evidence,
     )
 
     route_errors = []
@@ -190,13 +222,14 @@ def audit_campaign(manifest: dict[str, Any]) -> dict[str, Any]:
         "status": "pass" if not failures else "fail",
         "campaign_id": CAMPAIGN_ID,
         "implemented_missions": implemented,
+        "contracted_missions": manifest.get("contracted_missions", []),
         "planned_missions": planned,
         "checks": checks,
         "failures": failures,
         "truthfulness_note": (
-            "Phase 2 has one implemented campaign mission. Planned missions are "
-            "graph nodes, not playable content. Full-campaign and AAA-quality "
-            "claims remain unachieved."
+            "Phase 2 has one implemented campaign mission and one validated non-playable "
+            "mission contract. Planned missions are not playable content. Full-campaign "
+            "and AAA-quality claims remain unachieved."
         ),
     }
 

@@ -18,6 +18,7 @@ class Phase2CampaignAuditTests(unittest.TestCase):
         report = audit_campaign(self.manifest)
         self.assertEqual(report["status"], "pass")
         self.assertEqual(report["implemented_missions"], ["ares_reach"])
+        self.assertEqual(report["contracted_missions"], ["relay_echo"])
         self.assertEqual(
             report["planned_missions"],
             ["relay_echo", "phobos_vector", "frontier_burn"],
@@ -44,6 +45,20 @@ class Phase2CampaignAuditTests(unittest.TestCase):
         report = audit_campaign(manifest)
         self.assertEqual(report["status"], "fail")
         self.assertIn("manifest_matches_catalog", report["failures"])
+
+    def test_manifest_cannot_fabricate_a_contract(self) -> None:
+        manifest = copy.deepcopy(self.manifest)
+        manifest["contracted_missions"] = ["relay_echo", "phobos_vector"]
+        report = audit_campaign(manifest)
+        self.assertEqual(report["status"], "fail")
+        self.assertIn("relay_echo_contract_truth", report["failures"])
+
+    def test_contract_tranche_identity_is_required(self) -> None:
+        manifest = copy.deepcopy(self.manifest)
+        manifest["current_tranche"] = "relay_echo_runtime"
+        report = audit_campaign(manifest)
+        self.assertEqual(report["status"], "fail")
+        self.assertIn("relay_echo_contract_truth", report["failures"])
 
 
 if __name__ == "__main__":

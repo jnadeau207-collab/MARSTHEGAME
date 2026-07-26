@@ -25,6 +25,7 @@ CAMPAIGN_MISSIONS: Final = (
         "location": "Mars — Ares Reach",
         "status": MISSION_STATUS_IMPLEMENTED,
         "entrypoint": "vertical_slice",
+        "contract": None,
         "prerequisites": (),
         "design_pillars": (
             "mythic_kinetic_earnestness",
@@ -39,6 +40,7 @@ CAMPAIGN_MISSIONS: Final = (
         "location": "Mars — Noctis Relay",
         "status": MISSION_STATUS_PLANNED,
         "entrypoint": None,
+        "contract": "relay_echo",
         "prerequisites": ("ares_reach",),
         "design_pillars": (
             "player_agency_through_mastery",
@@ -52,6 +54,7 @@ CAMPAIGN_MISSIONS: Final = (
         "location": "Mars Orbit — Phobos Transfer",
         "status": MISSION_STATUS_PLANNED,
         "entrypoint": None,
+        "contract": None,
         "prerequisites": ("relay_echo",),
         "design_pillars": (
             "multiplanetary_progression",
@@ -65,6 +68,7 @@ CAMPAIGN_MISSIONS: Final = (
         "location": "Interplanetary Transfer",
         "status": MISSION_STATUS_PLANNED,
         "entrypoint": None,
+        "contract": None,
         "prerequisites": ("phobos_vector",),
         "design_pillars": (
             "multiplanetary_progression",
