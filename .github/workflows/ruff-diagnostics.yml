@@ -1,0 +1,39 @@
+name: Ruff diagnostics
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnostics:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Ruff
+        run: python -m pip install -r requirements-dev.txt
+      - name: Capture diagnostics
+        run: |
+          mkdir -p build
+          ruff check \
+            game/core/gfx.py \
+            game/core/input.py \
+            game/core/settings.py \
+            game/data/classic_replays.py \
+            game/data/content.py \
+            game/data/ip_tracks.py \
+            game/scenes/credits.py \
+            game/scenes/title.py \
+            tools \
+            tests \
+            --output-format json > build/ruff-diagnostics.json || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ruff-diagnostics-${{ github.sha }}
+          path: build/ruff-diagnostics.json
+          if-no-files-found: error
