@@ -6,15 +6,26 @@ from copy import deepcopy
 from typing import Any
 
 DEFAULT_ACCESSIBILITY: dict[str, Any] = {
+    "assist_mode": False,
     "reduced_motion": False,
     "screen_shake": 1.0,
     "hit_stop": 1.0,
     "flash_intensity": 1.0,
     "subtitles": True,
+    "subtitle_background": True,
     "subtitle_scale": 1.0,
     "high_contrast": False,
     "hold_assist": False,
 }
+
+_BOOLEAN_SETTINGS = (
+    "assist_mode",
+    "reduced_motion",
+    "subtitles",
+    "subtitle_background",
+    "high_contrast",
+    "hold_assist",
+)
 
 
 def _clamp(value: Any, minimum: float, maximum: float, fallback: float) -> float:
@@ -30,7 +41,7 @@ def normalize_accessibility(value: Any) -> dict[str, Any]:
 
     source = value if isinstance(value, dict) else {}
     result = deepcopy(DEFAULT_ACCESSIBILITY)
-    for key in ("reduced_motion", "subtitles", "high_contrast", "hold_assist"):
+    for key in _BOOLEAN_SETTINGS:
         if key in source:
             result[key] = bool(source[key])
 
@@ -43,6 +54,17 @@ def normalize_accessibility(value: Any) -> dict[str, Any]:
         result["screen_shake"] = 0.0
         result["flash_intensity"] = min(result["flash_intensity"], 0.35)
     return result
+
+
+def subtitle_policy(value: Any) -> dict[str, Any]:
+    """Return normalized subtitle visibility, background, and scale policy."""
+
+    normalized = normalize_accessibility(value)
+    return {
+        "visible": normalized["subtitles"],
+        "background": normalized["subtitle_background"],
+        "scale": normalized["subtitle_scale"],
+    }
 
 
 def normalize_runtime_settings(settings: dict[str, Any]) -> dict[str, Any]:
