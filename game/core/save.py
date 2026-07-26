@@ -1,11 +1,16 @@
-"""Validated, transactional progression and vertical-slice save state."""
+"""Validated, transactional Classic, slice, and campaign progression state."""
 
 from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
 
-from game.core.checkpoint import CheckpointError, CheckpointLoadResult, TransactionalJsonStore
+from game.core.campaign import CAMPAIGN_GRAPH, CampaignStateError
+from game.core.checkpoint import (
+    CheckpointError,
+    CheckpointLoadResult,
+    TransactionalJsonStore,
+)
 from game.core.settings import SAVE_PATH
 
 _DEFAULT_UNLOCKS = {
@@ -54,6 +59,7 @@ class SaveData:
         self.unlocks = dict(_DEFAULT_UNLOCKS)
         self.stats = dict(_DEFAULT_STATS)
         self.phase1_slice = dict(_DEFAULT_PHASE1_SLICE)
+        self.campaign = CAMPAIGN_GRAPH.default_state()
         self.settings_volume = 0.7
 
     @staticmethod
@@ -136,6 +142,14 @@ class SaveData:
             "resource_gate_open": resource_gate_open,
         }
 
+    @staticmethod
+    def _synchronize_phase1_campaign(
+        phase1_slice: dict[str, Any], campaign: dict[str, Any]
+    ) -> dict[str, Any]:
+        if phase1_slice["completed"] and "ares_reach" not in campaign["completed_missions"]:
+            campaign, _transition = CAMPAIGN_GRAPH.complete_mission(campaign, "ares_reach")
+        return campaign
+
     def _validated_state(self, data: Any) -> dict[str, Any]:
         if not isinstance(data, dict):
             raise ValueError("save payload must be an object")
@@ -161,13 +175,20 @@ class SaveData:
             raise ValueError("chapter_completed cannot exceed chapter_unlocked")
         if current_chapter > chapter_unlocked:
             raise ValueError("current_chapter cannot exceed chapter_unlocked")
+        phase1_slice = self._validated_phase1_slice(data.get("phase1_slice"))
+        try:
+            campaign = CAMPAIGN_GRAPH.normalize_state(data.get("campaign"))
+            campaign = self._synchronize_phase1_campaign(phase1_slice, campaign)
+        except CampaignStateError as exc:
+            raise ValueError(f"campaign state is invalid: {exc}") from exc
         return {
             "chapter_unlocked": chapter_unlocked,
             "chapter_completed": chapter_completed,
             "current_chapter": current_chapter,
             "unlocks": self._validated_flags(data.get("unlocks")),
             "stats": self._validated_stats(data.get("stats")),
-            "phase1_slice": self._validated_phase1_slice(data.get("phase1_slice")),
+            "phase1_slice": phase1_slice,
+            "campaign": campaign,
             "settings_volume": self._bounded_float(
                 data.get("settings_volume", 0.7),
                 0.0,
@@ -183,6 +204,7 @@ class SaveData:
         self.unlocks = dict(state["unlocks"])
         self.stats = dict(state["stats"])
         self.phase1_slice = dict(state["phase1_slice"])
+        self.campaign = CAMPAIGN_GRAPH.normalize_state(state["campaign"])
         self.settings_volume = state["settings_volume"]
 
     def to_dict(self) -> dict[str, Any]:
@@ -193,6 +215,7 @@ class SaveData:
             "unlocks": dict(self.unlocks),
             "stats": dict(self.stats),
             "phase1_slice": dict(self.phase1_slice),
+            "campaign": CAMPAIGN_GRAPH.normalize_state(self.campaign),
             "settings_volume": self.settings_volume,
         }
 
@@ -225,6 +248,15 @@ class SaveData:
             if value is not None:
                 candidate[key] = value
         self.phase1_slice = self._validated_phase1_slice(candidate)
+        self.campaign = self._synchronize_phase1_campaign(self.phase1_slice, self.campaign)
+
+    def record_campaign_attempt(self, mission_id: str) -> dict[str, Any]:
+        self.campaign, transition = CAMPAIGN_GRAPH.record_attempt(self.campaign, mission_id)
+        return transition.to_dict()
+
+    def complete_campaign_mission(self, mission_id: str) -> dict[str, Any]:
+        self.campaign, transition = CAMPAIGN_GRAPH.complete_mission(self.campaign, mission_id)
+        return transition.to_dict()
 
     def save(self) -> bool:
         try:
@@ -264,9 +296,15 @@ class SaveData:
                 try:
                     backup = self.store.load_backup(repair_primary=False)
                     return self._load_result(backup)
-                except (CheckpointError, FileNotFoundError, OSError, ValueError) as backup_error:
+                except (
+                    CheckpointError,
+                    FileNotFoundError,
+                    OSError,
+                    ValueError,
+                ) as backup_error:
                     raise ValueError(
-                        f"primary and backup save payloads are invalid: {primary_error}; {backup_error}"
+                        "primary and backup save payloads are invalid: "
+                        f"{primary_error}; {backup_error}"
                     ) from backup_error
         except FileNotFoundError:
             return False

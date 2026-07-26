@@ -200,16 +200,12 @@ class ReferenceDriver:
             "failures": self.scene.failure_count,
             "insight": self.scene.insight_level,
             "resource_gate_open": self.scene.resource_gate_open,
-            "sentinels_alive": [
-                enemy.sentinel_id for enemy in self.scene.enemies if enemy.alive
-            ],
+            "sentinels_alive": [enemy.sentinel_id for enemy in self.scene.enemies if enemy.alive],
             "save": dict(self.engine.save.phase1_slice),
             "save_generation": self.engine.save.generation,
             "transition": list(self.engine.transitions),
             "audio_events": [entry["event"] for entry in self.engine.audio.event_log],
-            "presentation_events": [
-                entry["name"] for entry in self.engine.presentation.event_log
-            ],
+            "presentation_events": [entry["name"] for entry in self.engine.presentation.event_log],
         }
 
 
@@ -222,9 +218,7 @@ def run_replay() -> dict[str, Any]:
         pygame.quit()
     if first != second:
         raise AssertionError(
-            "Phase 1 slice replay is nondeterministic:\n"
-            f"first={first}\n"
-            f"second={second}"
+            f"Phase 1 slice replay is nondeterministic:\nfirst={first}\nsecond={second}"
         )
     return {
         "schema_version": 1,

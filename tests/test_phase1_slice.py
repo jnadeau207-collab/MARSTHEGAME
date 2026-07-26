@@ -68,7 +68,7 @@ class Phase1SliceReplayTests(unittest.TestCase):
         self.assertEqual(reference["failures"], 1)
         self.assertEqual(reference["insight"], 1)
         self.assertTrue(reference["resource_gate_open"])
-        self.assertFalse(reference["sentinels_alive"])
+        self.assertEqual(reference["sentinels_alive"], ["survey-1", "survey-2"])
         self.assertTrue(reference["save"]["completed"])
         self.assertEqual(reference["transition"], ["title"])
         self.assertEqual(

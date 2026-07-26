@@ -1,18 +1,28 @@
 """Main engine: scene stack, fixed-step loop, and global systems."""
 
 import sys
+from copy import deepcopy
 
 import pygame
 
 from game.core.accessibility import normalize_runtime_settings
 from game.core.audio import AudioDirector
+from game.core.campaign import CAMPAIGN_GRAPH
 from game.core.diagnostics import CrashReporter
 from game.core.input import InputManager
 from game.core.particles import ParticleSystem
 from game.core.presentation import PresentationDirector
 from game.core.save import SaveData
-from game.core.settings import FPS, SCREEN_HEIGHT, SCREEN_WIDTH, TITLE, load_settings, save_settings
+from game.core.settings import (
+    FPS,
+    SCREEN_HEIGHT,
+    SCREEN_WIDTH,
+    TITLE,
+    load_settings,
+    save_settings,
+)
 from game.core.timing import FixedStepScheduler, FramePlan
+from game.scenes.campaign import CampaignScene
 from game.scenes.chapter_select import ChapterSelectScene
 from game.scenes.credits import CreditsScene
 from game.scenes.level import LevelScene
@@ -26,7 +36,12 @@ class Engine:
         mixer_ready = False
         try:
             if not pygame.mixer.get_init():
-                pygame.mixer.init(frequency=22_050, size=-16, channels=2, buffer=512)
+                pygame.mixer.init(
+                    frequency=22_050,
+                    size=-16,
+                    channels=2,
+                    buffer=512,
+                )
             mixer_ready = bool(pygame.mixer.get_init())
         except pygame.error:
             mixer_ready = False
@@ -88,6 +103,8 @@ class Engine:
             "chapter_id": getattr(scene, "chapter_id", None),
             "slice_id": getattr(scene, "slice_id", None),
             "slice_phase": getattr(scene, "phase", None),
+            "campaign_mission": self.save.campaign.get("current_mission"),
+            "campaign_revision": self.save.campaign.get("revision"),
             "simulation_steps": self.timing.total_simulation_steps,
             "frame_pacing": self.timing.monitor.snapshot(),
             "audio_state": self.audio.state,
@@ -157,7 +174,10 @@ class Engine:
                     f"hitches {pacing['hitch_count']}"
                 )
                 fps_txt = self.font_sm.render(text, True, (180, 180, 180))
-                self.screen.blit(fps_txt, (SCREEN_WIDTH - fps_txt.get_width() - 8, 8))
+                self.screen.blit(
+                    fps_txt,
+                    (SCREEN_WIDTH - fps_txt.get_width() - 8, 8),
+                )
 
             pygame.display.flip()
 
@@ -176,8 +196,28 @@ class Engine:
         self.save.current_chapter = chapter_id
         self.replace(LevelScene(self, chapter_id))
 
+    def start_campaign_mission(self, mission_id: str) -> None:
+        mission = CAMPAIGN_GRAPH.mission(mission_id)
+        playable = CAMPAIGN_GRAPH.playable_mission_ids(self.save.campaign["completed_missions"])
+        if mission_id not in playable:
+            raise ValueError(f"campaign mission {mission_id!r} is not currently playable")
+        previous_campaign = deepcopy(self.save.campaign)
+        self.save.record_campaign_attempt(mission_id)
+        if not self.save.save():
+            self.save.campaign = previous_campaign
+            raise RuntimeError(f"could not persist campaign attempt: {self.save.last_error}")
+        if mission["entrypoint"] == "vertical_slice":
+            self.replace(VerticalSliceScene(self))
+            return
+        self.save.campaign = previous_campaign
+        self.save.save()
+        raise ValueError(f"campaign mission {mission_id!r} has no supported entrypoint")
+
+    def go_campaign(self):
+        self.replace(CampaignScene(self))
+
     def go_vertical_slice(self):
-        self.replace(VerticalSliceScene(self))
+        self.start_campaign_mission("ares_reach")
 
     def go_title(self):
         self.replace(TitleScene(self))

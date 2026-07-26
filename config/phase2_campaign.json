@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "phase": "Phase 2",
+  "status": "in_progress",
+  "campaign_id": "frontier_campaign",
+  "full_campaign_claim": "not_achieved",
+  "aaa_claim": "target_not_achieved",
+  "integration_verification": "passed",
+  "implemented_missions": [
+    "ares_reach"
+  ],
+  "planned_missions": [
+    "relay_echo",
+    "phobos_vector",
+    "frontier_burn"
+  ],
+  "carried_release_gates": {
+    "founder_direct_play_approval": false,
+    "external_playtests_run": 0,
+    "authored_final_assets_complete": false,
+    "packaged_build_soak_complete": false,
+    "keyboard_gamepad_completion_parity": false
+  },
+  "truthfulness": "Phase 2 has begun with one implemented mission and a validated planned campaign graph. Planned nodes are not playable content, and neither the full campaign nor AAA-quality target is claimed complete."
+}
