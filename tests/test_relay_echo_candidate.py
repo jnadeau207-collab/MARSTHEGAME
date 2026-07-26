@@ -47,9 +47,7 @@ class RelayEchoCandidateDataTests(unittest.TestCase):
 
     def test_candidate_requires_exactly_three_signal_fragments(self) -> None:
         data = relay_echo_candidate()
-        data["collectibles"] = tuple(
-            item for item in data["collectibles"] if item[0] != "part"
-        )
+        data["collectibles"] = tuple(item for item in data["collectibles"] if item[0] != "part")
         errors = validate_relay_echo_candidate(data)
         self.assertTrue(any("exactly three" in error for error in errors))
 

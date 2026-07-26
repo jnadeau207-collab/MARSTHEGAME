@@ -189,9 +189,7 @@ def audit_campaign(manifest: dict[str, Any]) -> dict[str, Any]:
         completed_save.campaign["completed_missions"] == ["ares_reach"]
         and "relay_echo" in completed_save.campaign["unlocked_missions"]
         and "relay_echo"
-        in CAMPAIGN_GRAPH.playable_mission_ids(
-            completed_save.campaign["completed_missions"]
-        )
+        in CAMPAIGN_GRAPH.playable_mission_ids(completed_save.campaign["completed_missions"])
     )
     record(
         "phase1_completion_transaction",
@@ -216,9 +214,7 @@ def audit_campaign(manifest: dict[str, Any]) -> dict[str, Any]:
     )
 
     engine_source = (ROOT / "game/core/engine.py").read_text(encoding="utf-8")
-    promotion_source = (ROOT / "game/core/relay_echo_promotion.py").read_text(
-        encoding="utf-8"
-    )
+    promotion_source = (ROOT / "game/core/relay_echo_promotion.py").read_text(encoding="utf-8")
     title_source = (ROOT / "game/scenes/title.py").read_text(encoding="utf-8")
     record(
         "runtime_campaign_integration",

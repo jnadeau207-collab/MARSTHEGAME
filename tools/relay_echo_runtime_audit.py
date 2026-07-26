@@ -74,8 +74,7 @@ def audit_relay_runtime(manifest: dict[str, Any]) -> dict[str, Any]:
         "mission_route_promoted",
         mission["status"] == MISSION_STATUS_IMPLEMENTED
         and mission["entrypoint"] == "relay_echo"
-        and RELAY_ECHO_MISSION_ID
-        in CAMPAIGN_GRAPH.playable_mission_ids(("ares_reach",)),
+        and RELAY_ECHO_MISSION_ID in CAMPAIGN_GRAPH.playable_mission_ids(("ares_reach",)),
         {
             "status": mission["status"],
             "entrypoint": mission["entrypoint"],

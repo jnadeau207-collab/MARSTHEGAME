@@ -91,9 +91,7 @@ def audit_relay_promotion(
     promoted_scene_source = (ROOT / "game/scenes/relay_echo_promoted.py").read_text(
         encoding="utf-8"
     )
-    transaction_source = (ROOT / "game/core/relay_echo_promotion.py").read_text(
-        encoding="utf-8"
-    )
+    transaction_source = (ROOT / "game/core/relay_echo_promotion.py").read_text(encoding="utf-8")
     record(
         "runtime_routing_and_transactions",
         "PromotedRelayEchoScene" in engine_source

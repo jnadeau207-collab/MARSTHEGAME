@@ -73,9 +73,7 @@ class PromotionDriver(ReferenceDriver):
         if not relay["completion_eligible"] or relay["checkpoint_id"] != 6:
             raise AssertionError("promoted Relay Echo did not commit mission completion")
         if campaign["completed_missions"] != ["ares_reach", "relay_echo"]:
-            raise AssertionError(
-                f"campaign completion mismatch: {campaign['completed_missions']}"
-            )
+            raise AssertionError(f"campaign completion mismatch: {campaign['completed_missions']}")
         if "phobos_vector" not in campaign["unlocked_missions"]:
             raise AssertionError("Relay Echo completion did not unlock Phobos Vector")
         if campaign["current_mission"] != "phobos_vector":
@@ -105,9 +103,7 @@ class PromotionDriver(ReferenceDriver):
                 CAMPAIGN_GRAPH.playable_mission_ids(campaign["completed_missions"])
             ),
             "audio_events": [entry["event"] for entry in self.engine.audio.event_log],
-            "presentation_events": [
-                entry["name"] for entry in self.engine.presentation.event_log
-            ],
+            "presentation_events": [entry["name"] for entry in self.engine.presentation.event_log],
         }
 
 
@@ -120,8 +116,7 @@ def run_replay() -> dict[str, Any]:
         pygame.quit()
     if first != second:
         raise AssertionError(
-            "Relay Echo promotion replay is nondeterministic:\n"
-            f"first={first}\nsecond={second}"
+            f"Relay Echo promotion replay is nondeterministic:\nfirst={first}\nsecond={second}"
         )
     return {
         "schema_version": 1,

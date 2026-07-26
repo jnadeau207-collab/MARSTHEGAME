@@ -30,10 +30,7 @@ class PromotedRelayEchoScene(AccessibleRelayEchoScene):
         if not self.engine.save.save():
             self.engine.save.relay_echo = previous_relay
             self.engine.save.campaign = previous_campaign
-            self.msg = (
-                "Mission completion failed to persist: "
-                f"{self.engine.save.last_error}"
-            )
+            self.msg = f"Mission completion failed to persist: {self.engine.save.last_error}"
             self.msg_timer = 240
             return False
 

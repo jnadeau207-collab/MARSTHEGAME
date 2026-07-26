@@ -146,8 +146,7 @@ def audit_relay_accessibility(
         "mission_promoted_with_accessible_wrapper",
         mission["status"] == MISSION_STATUS_IMPLEMENTED
         and mission["entrypoint"] == "relay_echo"
-        and RELAY_ECHO_MISSION_ID
-        in CAMPAIGN_GRAPH.playable_mission_ids(("ares_reach",)),
+        and RELAY_ECHO_MISSION_ID in CAMPAIGN_GRAPH.playable_mission_ids(("ares_reach",)),
         {
             "status": mission["status"],
             "entrypoint": mission["entrypoint"],

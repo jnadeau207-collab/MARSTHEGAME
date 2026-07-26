@@ -77,17 +77,13 @@ def audit_relay_candidate(manifest: dict[str, Any]) -> dict[str, Any]:
 
     mission = CAMPAIGN_GRAPH.mission(RELAY_ECHO_MISSION_ID)
     engine_source = (ROOT / "game/core/engine.py").read_text(encoding="utf-8")
-    promoted_source = (ROOT / "game/scenes/relay_echo_promoted.py").read_text(
-        encoding="utf-8"
-    )
+    promoted_source = (ROOT / "game/scenes/relay_echo_promoted.py").read_text(encoding="utf-8")
     record(
         "candidate_promoted_through_wrapper",
         mission["status"] == MISSION_STATUS_IMPLEMENTED
         and mission["entrypoint"] == "relay_echo"
-        and RELAY_ECHO_MISSION_ID
-        in CAMPAIGN_GRAPH.playable_mission_ids(("ares_reach",))
-        and "from game.scenes.relay_echo_promoted import PromotedRelayEchoScene"
-        in engine_source
+        and RELAY_ECHO_MISSION_ID in CAMPAIGN_GRAPH.playable_mission_ids(("ares_reach",))
+        and "from game.scenes.relay_echo_promoted import PromotedRelayEchoScene" in engine_source
         and "AccessibleRelayEchoScene" in promoted_source
         and "complete_relay_echo_campaign" in promoted_source,
         {
