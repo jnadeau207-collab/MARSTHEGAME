@@ -1,4 +1,4 @@
-"""Validated, transactional single-slot progression save."""
+"""Validated, transactional progression and vertical-slice save state."""
 
 from __future__ import annotations
 
@@ -19,6 +19,22 @@ _DEFAULT_STATS = {
     "code_terminals": 0,
     "rockets_failed": 0,
 }
+_DEFAULT_PHASE1_SLICE = {
+    "checkpoint_id": 0,
+    "failures": 0,
+    "best_phase": "arrival",
+    "completed": False,
+    "resource_gate_open": False,
+}
+_PHASE1_PHASES = {
+    "arrival",
+    "movement_mastery",
+    "adaptive_combat",
+    "failure_recovery",
+    "resource_gate",
+    "ascent",
+    "complete",
+}
 
 
 class SaveData:
@@ -37,6 +53,7 @@ class SaveData:
         self.current_chapter = 1
         self.unlocks = dict(_DEFAULT_UNLOCKS)
         self.stats = dict(_DEFAULT_STATS)
+        self.phase1_slice = dict(_DEFAULT_PHASE1_SLICE)
         self.settings_volume = 0.7
 
     @staticmethod
@@ -85,6 +102,40 @@ class SaveData:
                 result[key] = stat
         return result
 
+    @classmethod
+    def _validated_phase1_slice(cls, value: Any) -> dict[str, Any]:
+        if value is None:
+            return dict(_DEFAULT_PHASE1_SLICE)
+        if not isinstance(value, dict):
+            raise ValueError("phase1_slice must be an object")
+        checkpoint_id = cls._bounded_int(
+            value.get("checkpoint_id", 0),
+            0,
+            4,
+            "phase1_slice.checkpoint_id",
+        )
+        failures = value.get("failures", 0)
+        if isinstance(failures, bool) or not isinstance(failures, int) or failures < 0:
+            raise ValueError("phase1_slice.failures must be a non-negative integer")
+        best_phase = value.get("best_phase", "arrival")
+        if best_phase not in _PHASE1_PHASES:
+            raise ValueError("phase1_slice.best_phase is unknown")
+        completed = value.get("completed", False)
+        resource_gate_open = value.get("resource_gate_open", False)
+        if not isinstance(completed, bool):
+            raise ValueError("phase1_slice.completed must be boolean")
+        if not isinstance(resource_gate_open, bool):
+            raise ValueError("phase1_slice.resource_gate_open must be boolean")
+        if completed and best_phase != "complete":
+            raise ValueError("completed Phase 1 slice must have best_phase complete")
+        return {
+            "checkpoint_id": checkpoint_id,
+            "failures": failures,
+            "best_phase": best_phase,
+            "completed": completed,
+            "resource_gate_open": resource_gate_open,
+        }
+
     def _validated_state(self, data: Any) -> dict[str, Any]:
         if not isinstance(data, dict):
             raise ValueError("save payload must be an object")
@@ -116,6 +167,7 @@ class SaveData:
             "current_chapter": current_chapter,
             "unlocks": self._validated_flags(data.get("unlocks")),
             "stats": self._validated_stats(data.get("stats")),
+            "phase1_slice": self._validated_phase1_slice(data.get("phase1_slice")),
             "settings_volume": self._bounded_float(
                 data.get("settings_volume", 0.7),
                 0.0,
@@ -130,6 +182,7 @@ class SaveData:
         self.current_chapter = state["current_chapter"]
         self.unlocks = dict(state["unlocks"])
         self.stats = dict(state["stats"])
+        self.phase1_slice = dict(state["phase1_slice"])
         self.settings_volume = state["settings_volume"]
 
     def to_dict(self) -> dict[str, Any]:
@@ -139,6 +192,7 @@ class SaveData:
             "current_chapter": self.current_chapter,
             "unlocks": dict(self.unlocks),
             "stats": dict(self.stats),
+            "phase1_slice": dict(self.phase1_slice),
             "settings_volume": self.settings_volume,
         }
 
@@ -149,6 +203,28 @@ class SaveData:
         chapter_id = self._bounded_int(chapter_id, 1, 8, "chapter_id")
         self.chapter_completed = max(self.chapter_completed, chapter_id)
         self.chapter_unlocked = max(self.chapter_unlocked, chapter_id + 1)
+
+    def update_phase1_slice(
+        self,
+        *,
+        checkpoint_id: int | None = None,
+        failures: int | None = None,
+        best_phase: str | None = None,
+        completed: bool | None = None,
+        resource_gate_open: bool | None = None,
+    ) -> None:
+        candidate = dict(self.phase1_slice)
+        updates = {
+            "checkpoint_id": checkpoint_id,
+            "failures": failures,
+            "best_phase": best_phase,
+            "completed": completed,
+            "resource_gate_open": resource_gate_open,
+        }
+        for key, value in updates.items():
+            if value is not None:
+                candidate[key] = value
+        self.phase1_slice = self._validated_phase1_slice(candidate)
 
     def save(self) -> bool:
         try:
