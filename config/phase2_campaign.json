@@ -6,8 +6,13 @@
   "full_campaign_claim": "not_achieved",
   "aaa_claim": "target_not_achieved",
   "integration_verification": "passed",
+  "current_tranche": "relay_echo_contract",
+  "relay_echo_contract_verification": "pending",
   "implemented_missions": [
     "ares_reach"
+  ],
+  "contracted_missions": [
+    "relay_echo"
   ],
   "planned_missions": [
     "relay_echo",
@@ -21,5 +26,5 @@
     "packaged_build_soak_complete": false,
     "keyboard_gamepad_completion_parity": false
   },
-  "truthfulness": "Phase 2 has begun with one implemented mission and a validated planned campaign graph. Planned nodes are not playable content, and neither the full campaign nor AAA-quality target is claimed complete."
+  "truthfulness": "Phase 2 has one implemented mission and one validated mission contract. Relay Echo remains planned and non-playable until its runtime, content, replay, performance, accessibility, and campaign-transition gates are implemented and verified. Neither the full campaign nor AAA-quality target is claimed complete."
 }
