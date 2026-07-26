@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
 import os
 from dataclasses import dataclass
@@ -81,7 +82,7 @@ class TransactionalJsonStore:
             "payload": payload,
         }
         expected = hashlib.sha256(self._canonical_bytes(body)).hexdigest()
-        if not hashlib.compare_digest(digest, expected):
+        if not hmac.compare_digest(digest, expected):
             raise CheckpointError(f"{source} checkpoint checksum mismatch")
         return CheckpointLoadResult(payload, generation, source)
 
