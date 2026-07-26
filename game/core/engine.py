@@ -113,9 +113,7 @@ class Engine:
             self.presentation.draw(self.screen)
 
             if self.settings.get("show_fps"):
-                fps_txt = self.font_sm.render(
-                    f"{int(self.clock.get_fps())}", True, (180, 180, 180)
-                )
+                fps_txt = self.font_sm.render(f"{int(self.clock.get_fps())}", True, (180, 180, 180))
                 self.screen.blit(fps_txt, (SCREEN_WIDTH - 40, 8))
 
             pygame.display.flip()
