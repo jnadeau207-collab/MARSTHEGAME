@@ -58,9 +58,11 @@ jobs:
           game/data/ip_tracks.py
           game/data/phase1_slice.py
           game/data/relay_echo.py
+          game/data/relay_echo_candidate.py
           game/entities/mars_sentinel.py
           game/scenes/campaign.py
           game/scenes/credits.py
+          game/scenes/relay_echo.py
           game/scenes/title.py
           game/scenes/vertical_slice.py
           tools
@@ -74,6 +76,7 @@ jobs:
           game/data/ip_tracks.py
           game/data/phase1_slice.py
           game/data/relay_echo.py
+          game/data/relay_echo_candidate.py
       - name: Formatting core runtime
         run: >-
           ruff format --check
@@ -97,6 +100,7 @@ jobs:
           game/entities/mars_sentinel.py
           game/scenes/campaign.py
           game/scenes/credits.py
+          game/scenes/relay_echo.py
           game/scenes/title.py
           game/scenes/vertical_slice.py
       - name: Formatting replay, audit, and benchmark tools
@@ -119,6 +123,10 @@ jobs:
         run: >-
           python -m tools.relay_echo_runtime_audit
           --json-out build/relay-echo-runtime.json
+      - name: Audit Relay Echo playable candidate
+        run: >-
+          python -m tools.relay_echo_candidate_audit
+          --json-out build/relay-echo-candidate.json
 
   phase-artifacts:
     name: Classic Mode, Phase 1, and Phase 2 evidence
@@ -135,6 +143,8 @@ jobs:
         run: python -m tools.classic_mode_replay --json-out build/classic-mode-replay.json
       - name: Replay the complete Phase 1 slice
         run: python -m tools.phase1_slice_replay --json-out build/phase1-slice-replay.json
+      - name: Replay the complete Relay Echo candidate
+        run: python -m tools.relay_echo_replay --json-out build/relay-echo-replay.json
       - name: Capture performance evidence
         run: >-
           python -m tools.performance_baseline
@@ -157,6 +167,10 @@ jobs:
         run: >-
           python -m tools.relay_echo_runtime_audit
           --json-out build/relay-echo-runtime.json
+      - name: Audit Relay Echo playable candidate
+        run: >-
+          python -m tools.relay_echo_candidate_audit
+          --json-out build/relay-echo-candidate.json
       - name: Upload Phase evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -165,12 +179,14 @@ jobs:
           path: |
             build/classic-mode-replay.json
             build/phase1-slice-replay.json
+            build/relay-echo-replay.json
             build/performance-baseline.json
             build/phase0-organization.json
             build/phase0-audit.json
             build/phase1-quality.json
             build/phase2-campaign.json
             build/relay-echo-runtime.json
+            build/relay-echo-candidate.json
           if-no-files-found: warn
 
   performance-regression:
