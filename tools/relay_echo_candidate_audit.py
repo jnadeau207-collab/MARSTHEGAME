@@ -21,6 +21,7 @@ ROOT = Path(__file__).resolve().parents[1]
 _REQUIRED_FILES = {
     "game/data/relay_echo_candidate.py",
     "game/scenes/relay_echo.py",
+    "game/scenes/relay_echo_accessible.py",
     "tools/relay_echo_candidate_audit.py",
     "tools/relay_echo_replay.py",
     "tests/test_relay_echo_candidate.py",
@@ -44,23 +45,34 @@ def audit_relay_candidate(manifest: dict[str, Any]) -> dict[str, Any]:
             }
         )
 
+    tranche = manifest.get("current_tranche")
+    candidate_verification = manifest.get("relay_echo_playable_candidate_verification")
+    candidate_verification_valid = (
+        candidate_verification in {"pending", "passed"}
+        if tranche == "relay_echo_playable_candidate"
+        else candidate_verification == "passed"
+    )
     record(
         "manifest_truth",
         manifest.get("phase") == "Phase 2"
         and manifest.get("status") == "in_progress"
-        and manifest.get("current_tranche") == "relay_echo_playable_candidate"
+        and tranche
+        in {
+            "relay_echo_playable_candidate",
+            "relay_echo_accessibility_parity",
+        }
         and manifest.get("relay_echo_contract_verification") == "passed"
         and manifest.get("relay_echo_runtime_state_verification") == "passed"
-        and manifest.get("relay_echo_playable_candidate_verification") in {"pending", "passed"}
+        and candidate_verification_valid
         and manifest.get("implemented_missions") == ["ares_reach"]
         and manifest.get("contracted_missions") == [RELAY_ECHO_MISSION_ID]
         and manifest.get("full_campaign_claim") == "not_achieved"
         and manifest.get("aaa_claim") == "target_not_achieved",
         {
-            "current_tranche": manifest.get("current_tranche"),
+            "current_tranche": tranche,
             "contract_verification": manifest.get("relay_echo_contract_verification"),
             "runtime_verification": manifest.get("relay_echo_runtime_state_verification"),
-            "candidate_verification": manifest.get("relay_echo_playable_candidate_verification"),
+            "candidate_verification": candidate_verification,
             "implemented_missions": manifest.get("implemented_missions"),
         },
     )
@@ -85,6 +97,7 @@ def audit_relay_candidate(manifest: dict[str, Any]) -> dict[str, Any]:
         and mission["entrypoint"] is None
         and RELAY_ECHO_MISSION_ID not in CAMPAIGN_GRAPH.playable_mission_ids(("ares_reach",))
         and "RelayEchoScene" not in engine_source
+        and "AccessibleRelayEchoScene" not in engine_source
         and "relay_echo_playable_candidate" not in engine_source
         and "PLAYABLE_CANDIDATE" not in campaign_scene_source,
         {
@@ -92,6 +105,7 @@ def audit_relay_candidate(manifest: dict[str, Any]) -> dict[str, Any]:
             "entrypoint": mission["entrypoint"],
             "playable_after_ares": CAMPAIGN_GRAPH.playable_mission_ids(("ares_reach",)),
             "engine_imports_candidate": "RelayEchoScene" in engine_source,
+            "engine_imports_accessible_candidate": "AccessibleRelayEchoScene" in engine_source,
         },
     )
 
@@ -110,7 +124,8 @@ def audit_relay_candidate(manifest: dict[str, Any]) -> dict[str, Any]:
         and carried.get("external_playtests_run") == 0
         and carried.get("authored_final_assets_complete") is False
         and carried.get("packaged_build_soak_complete") is False
-        and carried.get("keyboard_gamepad_completion_parity") is False,
+        and carried.get("keyboard_gamepad_completion_parity") is False
+        and carried.get("accessibility_path_verified") is False,
         carried,
     )
 
@@ -123,9 +138,9 @@ def audit_relay_candidate(manifest: dict[str, Any]) -> dict[str, Any]:
         "checks": checks,
         "failures": failures,
         "truthfulness_note": (
-            "Relay Echo has a complete playable candidate and deterministic replay target, "
-            "but remains planned and unavailable through campaign routing. Candidate "
-            "completion is not campaign completion or AAA evidence."
+            "Relay Echo has a verified complete playable candidate and deterministic replay, "
+            "but remains planned and unavailable through campaign routing. Accessibility and "
+            "input parity evidence do not promote the campaign node."
         ),
     }
 
