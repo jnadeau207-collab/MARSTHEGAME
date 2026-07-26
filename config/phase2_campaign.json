@@ -9,7 +9,7 @@
   "current_tranche": "relay_echo_runtime_state",
   "relay_echo_contract_verification": "passed",
   "relay_echo_runtime_state_verification": "pending",
-  "verification_run": null,
+  "verification_run": "requested",
   "implemented_missions": [
     "ares_reach"
   ],
