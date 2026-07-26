@@ -155,20 +155,23 @@ def validate_relay_echo_candidate(
             _point_x(interactions.get("alignment_terminal")),
             interactions.get("extraction_x"),
         ]
-        if (
-            not all(isinstance(value, int) and not isinstance(value, bool) for value in ordered_x)
-            or ordered_x != sorted(ordered_x)
-        ):
+        if not all(
+            isinstance(value, int) and not isinstance(value, bool) for value in ordered_x
+        ) or ordered_x != sorted(ordered_x):
             errors.append("candidate interactions must advance left to right")
         if _point_x(interactions.get("interaction_radius")) is None:
             errors.append("candidate interaction radius is invalid")
-        if not isinstance(interactions.get("overload_frames"), int) or isinstance(
-            interactions.get("overload_frames"), bool
-        ) or interactions.get("overload_frames", 0) < 30:
+        if (
+            not isinstance(interactions.get("overload_frames"), int)
+            or isinstance(interactions.get("overload_frames"), bool)
+            or interactions.get("overload_frames", 0) < 30
+        ):
             errors.append("candidate overload timing is invalid")
-        if not isinstance(interactions.get("completion_frames"), int) or isinstance(
-            interactions.get("completion_frames"), bool
-        ) or interactions.get("completion_frames", 0) < 60:
+        if (
+            not isinstance(interactions.get("completion_frames"), int)
+            or isinstance(interactions.get("completion_frames"), bool)
+            or interactions.get("completion_frames", 0) < 60
+        ):
             errors.append("candidate completion timing is invalid")
 
     collectibles = data.get("collectibles")
@@ -187,8 +190,7 @@ def validate_relay_echo_candidate(
         not isinstance(guardian_range, (tuple, list))
         or len(guardian_range) != 2
         or not all(
-            isinstance(value, int) and not isinstance(value, bool)
-            for value in guardian_range
+            isinstance(value, int) and not isinstance(value, bool) for value in guardian_range
         )
         or guardian_range[0] >= guardian_range[1]
     ):

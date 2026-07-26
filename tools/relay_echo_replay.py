@@ -231,9 +231,7 @@ class ReferenceDriver:
             "save_generation": self.engine.save.generation,
             "transition": list(self.engine.transitions),
             "audio_events": [entry["event"] for entry in self.engine.audio.event_log],
-            "presentation_events": [
-                entry["name"] for entry in self.engine.presentation.event_log
-            ],
+            "presentation_events": [entry["name"] for entry in self.engine.presentation.event_log],
         }
 
 
@@ -246,8 +244,7 @@ def run_replay() -> dict[str, Any]:
         pygame.quit()
     if first != second:
         raise AssertionError(
-            "Relay Echo candidate replay is nondeterministic:\n"
-            f"first={first}\nsecond={second}"
+            f"Relay Echo candidate replay is nondeterministic:\nfirst={first}\nsecond={second}"
         )
     return {
         "schema_version": 1,

@@ -51,8 +51,7 @@ def audit_relay_candidate(manifest: dict[str, Any]) -> dict[str, Any]:
         and manifest.get("current_tranche") == "relay_echo_playable_candidate"
         and manifest.get("relay_echo_contract_verification") == "passed"
         and manifest.get("relay_echo_runtime_state_verification") == "passed"
-        and manifest.get("relay_echo_playable_candidate_verification")
-        in {"pending", "passed"}
+        and manifest.get("relay_echo_playable_candidate_verification") in {"pending", "passed"}
         and manifest.get("implemented_missions") == ["ares_reach"]
         and manifest.get("contracted_missions") == [RELAY_ECHO_MISSION_ID]
         and manifest.get("full_campaign_claim") == "not_achieved"
@@ -61,9 +60,7 @@ def audit_relay_candidate(manifest: dict[str, Any]) -> dict[str, Any]:
             "current_tranche": manifest.get("current_tranche"),
             "contract_verification": manifest.get("relay_echo_contract_verification"),
             "runtime_verification": manifest.get("relay_echo_runtime_state_verification"),
-            "candidate_verification": manifest.get(
-                "relay_echo_playable_candidate_verification"
-            ),
+            "candidate_verification": manifest.get("relay_echo_playable_candidate_verification"),
             "implemented_missions": manifest.get("implemented_missions"),
         },
     )
@@ -86,8 +83,7 @@ def audit_relay_candidate(manifest: dict[str, Any]) -> dict[str, Any]:
         "candidate_not_promoted",
         mission["status"] == MISSION_STATUS_PLANNED
         and mission["entrypoint"] is None
-        and RELAY_ECHO_MISSION_ID
-        not in CAMPAIGN_GRAPH.playable_mission_ids(("ares_reach",))
+        and RELAY_ECHO_MISSION_ID not in CAMPAIGN_GRAPH.playable_mission_ids(("ares_reach",))
         and "RelayEchoScene" not in engine_source
         and "relay_echo_playable_candidate" not in engine_source
         and "PLAYABLE_CANDIDATE" not in campaign_scene_source,
