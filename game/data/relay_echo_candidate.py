@@ -79,10 +79,22 @@ def relay_echo_candidate() -> dict[str, Any]:
     return deepcopy(RELAY_ECHO_CANDIDATE)
 
 
+def _point_x(value: Any) -> int | None:
+    if (
+        isinstance(value, (tuple, list))
+        and len(value) == 2
+        and all(isinstance(item, int) and not isinstance(item, bool) for item in value)
+    ):
+        return value[0]
+    return None
+
+
 def validate_relay_echo_candidate(
     data: dict[str, Any] = RELAY_ECHO_CANDIDATE,
 ) -> list[str]:
     errors: list[str] = []
+    if not isinstance(data, dict):
+        return ["Relay Echo candidate must be an object"]
     if data.get("schema_version") != RELAY_ECHO_CANDIDATE_SCHEMA_VERSION:
         errors.append("unsupported Relay Echo candidate schema")
     if data.get("mission_id") != RELAY_ECHO_MISSION_ID:
@@ -91,9 +103,9 @@ def validate_relay_echo_candidate(
         errors.append("candidate may not claim campaign promotion")
     width = data.get("width")
     height = data.get("height")
-    if not isinstance(width, int) or width < 4_000:
+    if isinstance(width, bool) or not isinstance(width, int) or width < 4_000:
         errors.append("candidate width is insufficient for the authored path")
-    if not isinstance(height, int) or height < 720:
+    if isinstance(height, bool) or not isinstance(height, int) or height < 720:
         errors.append("candidate height is invalid")
 
     contract_objectives = tuple(item["id"] for item in RELAY_ECHO_CONTRACT["objectives"])
@@ -113,12 +125,7 @@ def validate_relay_echo_candidate(
         if not isinstance(checkpoint, dict):
             errors.append("candidate checkpoint entries must be objects")
             continue
-        position = checkpoint.get("position")
-        if (
-            not isinstance(position, (tuple, list))
-            or len(position) != 2
-            or not all(isinstance(value, int) for value in position)
-        ):
+        if _point_x(checkpoint.get("position")) is None:
             errors.append(f"checkpoint {checkpoint.get('id')} has an invalid position")
 
     solids = data.get("solids")
@@ -143,32 +150,46 @@ def validate_relay_echo_candidate(
             errors.append(f"candidate interactions are incomplete: {missing}")
         ordered_x = [
             interactions.get("reach_x"),
-            interactions.get("triangulation_terminal", (None,))[0],
-            interactions.get("breach_terminal", (None,))[0],
-            interactions.get("alignment_terminal", (None,))[0],
+            _point_x(interactions.get("triangulation_terminal")),
+            _point_x(interactions.get("breach_terminal")),
+            _point_x(interactions.get("alignment_terminal")),
             interactions.get("extraction_x"),
         ]
-        if not all(isinstance(value, int) for value in ordered_x) or ordered_x != sorted(
-            ordered_x
+        if (
+            not all(isinstance(value, int) and not isinstance(value, bool) for value in ordered_x)
+            or ordered_x != sorted(ordered_x)
         ):
             errors.append("candidate interactions must advance left to right")
-        if not isinstance(interactions.get("overload_frames"), int) or interactions.get(
-            "overload_frames", 0
-        ) < 30:
+        if _point_x(interactions.get("interaction_radius")) is None:
+            errors.append("candidate interaction radius is invalid")
+        if not isinstance(interactions.get("overload_frames"), int) or isinstance(
+            interactions.get("overload_frames"), bool
+        ) or interactions.get("overload_frames", 0) < 30:
             errors.append("candidate overload timing is invalid")
-        if not isinstance(interactions.get("completion_frames"), int) or interactions.get(
-            "completion_frames", 0
-        ) < 60:
+        if not isinstance(interactions.get("completion_frames"), int) or isinstance(
+            interactions.get("completion_frames"), bool
+        ) or interactions.get("completion_frames", 0) < 60:
             errors.append("candidate completion timing is invalid")
 
-    parts = [item for item in data.get("collectibles", ()) if item[0] == "part"]
+    collectibles = data.get("collectibles")
+    if not isinstance(collectibles, (tuple, list)):
+        errors.append("candidate collectibles must be a sequence")
+        collectibles = ()
+    parts = [
+        item
+        for item in collectibles
+        if isinstance(item, (tuple, list)) and len(item) == 3 and item[0] == "part"
+    ]
     if len(parts) != 3:
         errors.append("candidate must contain exactly three signal fragments")
     guardian_range = data.get("guardian_range")
     if (
         not isinstance(guardian_range, (tuple, list))
         or len(guardian_range) != 2
-        or not all(isinstance(value, int) for value in guardian_range)
+        or not all(
+            isinstance(value, int) and not isinstance(value, bool)
+            for value in guardian_range
+        )
         or guardian_range[0] >= guardian_range[1]
     ):
         errors.append("candidate guardian range is invalid")
