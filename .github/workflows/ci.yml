@@ -71,7 +71,7 @@ jobs:
         run: ruff format --check tests
       - name: Unit and Classic Mode regression tests
         run: python -m unittest discover -s tests -v
-      - name: Validate Phase 0 organization
+      - name: Validate founder + AI operating model
         run: >-
           python -m tools.validate_phase0_organization
           --json-out build/phase0-organization.json
@@ -99,7 +99,7 @@ jobs:
           --warmup-rounds 2
           --rounds 7
           --json-out build/performance-baseline.json
-      - name: Validate Phase 0 organization
+      - name: Validate founder + AI operating model
         run: >-
           python -m tools.validate_phase0_organization
           --json-out build/phase0-organization.json
