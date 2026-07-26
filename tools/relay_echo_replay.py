@@ -100,6 +100,12 @@ class ReferenceDriver:
         for _ in range(frames):
             self.step(actions)
 
+    def tap(self, action: str) -> None:
+        """Issue one edge-triggered action followed by an explicit release frame."""
+
+        self.step({action})
+        self.step()
+
     def place_player(self, x: float, y: float = 780.0) -> None:
         self.scene.player.x = float(x)
         self.scene.player.y = float(y)
@@ -155,7 +161,7 @@ class ReferenceDriver:
     def triangulate_source(self) -> None:
         terminal = RELAY_ECHO_CANDIDATE["interactions"]["triangulation_terminal"]
         self.place_player(*terminal)
-        self.step({"interact"})
+        self.tap("interact")
         state = self.engine.save.relay_echo
         if state["checkpoint_id"] != 3 or state["echo_source"] != "subsurface_array":
             raise AssertionError("echo source triangulation did not commit")
@@ -166,7 +172,7 @@ class ReferenceDriver:
             enemy.alive = False
         terminal = RELAY_ECHO_CANDIDATE["interactions"]["breach_terminal"]
         self.place_player(*terminal)
-        self.step({"interact"})
+        self.tap("interact")
         state = self.engine.save.relay_echo
         if state["checkpoint_id"] != 4 or not state["relay_core_open"]:
             raise AssertionError("relay-core breach did not commit")
@@ -175,7 +181,7 @@ class ReferenceDriver:
     def align_echo(self) -> None:
         terminal = RELAY_ECHO_CANDIDATE["interactions"]["alignment_terminal"]
         self.place_player(*terminal)
-        self.step({"interact"})
+        self.tap("interact")
         state = self.engine.save.relay_echo
         if state["checkpoint_id"] != 5 or state["echo_alignment"] != "redirect":
             raise AssertionError("echo alignment did not commit")
