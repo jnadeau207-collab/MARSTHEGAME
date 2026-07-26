@@ -71,9 +71,7 @@ class SaveData:
         return value
 
     @staticmethod
-    def _bounded_float(
-        value: Any, minimum: float, maximum: float, field: str
-    ) -> float:
+    def _bounded_float(value: Any, minimum: float, maximum: float, field: str) -> float:
         if isinstance(value, bool) or not isinstance(value, (int, float)):
             raise ValueError(f"{field} must be numeric")
         numeric = float(value)
@@ -105,11 +103,7 @@ class SaveData:
         for key in result:
             if key in value:
                 stat = value[key]
-                if (
-                    isinstance(stat, bool)
-                    or not isinstance(stat, int)
-                    or stat < 0
-                ):
+                if isinstance(stat, bool) or not isinstance(stat, int) or stat < 0:
                     raise ValueError(f"stat {key} must be a non-negative integer")
                 result[key] = stat
         return result
@@ -152,13 +146,8 @@ class SaveData:
     def _synchronize_phase1_campaign(
         phase1_slice: dict[str, Any], campaign: dict[str, Any]
     ) -> dict[str, Any]:
-        if (
-            phase1_slice["completed"]
-            and "ares_reach" not in campaign["completed_missions"]
-        ):
-            campaign, _transition = CAMPAIGN_GRAPH.complete_mission(
-                campaign, "ares_reach"
-            )
+        if phase1_slice["completed"] and "ares_reach" not in campaign["completed_missions"]:
+            campaign, _transition = CAMPAIGN_GRAPH.complete_mission(campaign, "ares_reach")
         return campaign
 
     def _validated_state(self, data: Any) -> dict[str, Any]:
@@ -259,20 +248,14 @@ class SaveData:
             if value is not None:
                 candidate[key] = value
         self.phase1_slice = self._validated_phase1_slice(candidate)
-        self.campaign = self._synchronize_phase1_campaign(
-            self.phase1_slice, self.campaign
-        )
+        self.campaign = self._synchronize_phase1_campaign(self.phase1_slice, self.campaign)
 
     def record_campaign_attempt(self, mission_id: str) -> dict[str, Any]:
-        self.campaign, transition = CAMPAIGN_GRAPH.record_attempt(
-            self.campaign, mission_id
-        )
+        self.campaign, transition = CAMPAIGN_GRAPH.record_attempt(self.campaign, mission_id)
         return transition.to_dict()
 
     def complete_campaign_mission(self, mission_id: str) -> dict[str, Any]:
-        self.campaign, transition = CAMPAIGN_GRAPH.complete_mission(
-            self.campaign, mission_id
-        )
+        self.campaign, transition = CAMPAIGN_GRAPH.complete_mission(self.campaign, mission_id)
         return transition.to_dict()
 
     def save(self) -> bool:

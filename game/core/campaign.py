@@ -66,23 +66,14 @@ def validate_campaign_catalog(
             errors.append(f"mission[{index}] must be an object")
             continue
         mission_id = mission.get("id")
-        if (
-            not isinstance(mission_id, str)
-            or not _MISSION_ID_PATTERN.fullmatch(mission_id)
-        ):
+        if not isinstance(mission_id, str) or not _MISSION_ID_PATTERN.fullmatch(mission_id):
             errors.append(f"mission[{index}] has an invalid stable id")
             continue
         ids.append(mission_id)
 
         sequence = mission.get("sequence")
-        if (
-            isinstance(sequence, bool)
-            or not isinstance(sequence, int)
-            or sequence < 1
-        ):
-            errors.append(
-                f"mission {mission_id} sequence must be a positive integer"
-            )
+        if isinstance(sequence, bool) or not isinstance(sequence, int) or sequence < 1:
+            errors.append(f"mission {mission_id} sequence must be a positive integer")
         else:
             sequences.append(sequence)
 
@@ -99,32 +90,22 @@ def validate_campaign_catalog(
             errors.append(f"mission {mission_id} has unknown status {status!r}")
         elif status == MISSION_STATUS_IMPLEMENTED:
             if not isinstance(entrypoint, str) or not entrypoint:
-                errors.append(
-                    f"implemented mission {mission_id} requires an entrypoint"
-                )
+                errors.append(f"implemented mission {mission_id} requires an entrypoint")
         elif status == MISSION_STATUS_PLANNED and entrypoint is not None:
-            errors.append(
-                f"planned mission {mission_id} may not claim a runtime entrypoint"
-            )
+            errors.append(f"planned mission {mission_id} may not claim a runtime entrypoint")
 
         prerequisites = mission.get("prerequisites")
         if not isinstance(prerequisites, (tuple, list)):
             errors.append(f"mission {mission_id} prerequisites must be a sequence")
         elif not all(isinstance(item, str) for item in prerequisites):
-            errors.append(
-                f"mission {mission_id} prerequisites must contain only mission ids"
-            )
+            errors.append(f"mission {mission_id} prerequisites must contain only mission ids")
         elif len(prerequisites) != len(set(prerequisites)):
             errors.append(f"mission {mission_id} has duplicate prerequisites")
 
-    duplicate_ids = sorted(
-        {mission_id for mission_id in ids if ids.count(mission_id) > 1}
-    )
+    duplicate_ids = sorted({mission_id for mission_id in ids if ids.count(mission_id) > 1})
     if duplicate_ids:
         errors.append(f"duplicate mission ids: {duplicate_ids}")
-    duplicate_sequences = sorted(
-        {value for value in sequences if sequences.count(value) > 1}
-    )
+    duplicate_sequences = sorted({value for value in sequences if sequences.count(value) > 1})
     if duplicate_sequences:
         errors.append(f"duplicate mission sequences: {duplicate_sequences}")
 
@@ -135,24 +116,17 @@ def validate_campaign_catalog(
     prerequisites_by_id: dict[str, tuple[str, ...]] = {}
     for mission in catalog:
         mission_id = mission.get("id") if isinstance(mission, dict) else None
-        prerequisites = (
-            mission.get("prerequisites") if isinstance(mission, dict) else None
-        )
-        if mission_id not in known_ids or not isinstance(
-            prerequisites, (tuple, list)
-        ):
+        prerequisites = mission.get("prerequisites") if isinstance(mission, dict) else None
+        if mission_id not in known_ids or not isinstance(prerequisites, (tuple, list)):
             continue
-        normalized = tuple(
-            item for item in prerequisites if isinstance(item, str)
-        )
+        normalized = tuple(item for item in prerequisites if isinstance(item, str))
         prerequisites_by_id[mission_id] = normalized
         for prerequisite in normalized:
             if prerequisite == mission_id:
                 errors.append(f"mission {mission_id} may not depend on itself")
             elif prerequisite not in known_ids:
                 errors.append(
-                    f"mission {mission_id} references missing prerequisite "
-                    f"{prerequisite}"
+                    f"mission {mission_id} references missing prerequisite {prerequisite}"
                 )
 
     visiting: set[str] = set()
@@ -209,18 +183,14 @@ class CampaignGraph:
         try:
             return deepcopy(self._missions[mission_id])
         except KeyError as exc:
-            raise CampaignStateError(
-                f"unknown campaign mission {mission_id!r}"
-            ) from exc
+            raise CampaignStateError(f"unknown campaign mission {mission_id!r}") from exc
 
     def unlocked_mission_ids(self, completed: Iterable[str]) -> tuple[str, ...]:
         completed_set = set(completed)
         return tuple(
             mission_id
             for mission_id in self._ordered_ids
-            if set(self._missions[mission_id]["prerequisites"]).issubset(
-                completed_set
-            )
+            if set(self._missions[mission_id]["prerequisites"]).issubset(completed_set)
         )
 
     def playable_mission_ids(self, completed: Iterable[str]) -> tuple[str, ...]:
@@ -229,8 +199,7 @@ class CampaignGraph:
             mission_id
             for mission_id in self._ordered_ids
             if mission_id in unlocked
-            and self._missions[mission_id]["status"]
-            == MISSION_STATUS_IMPLEMENTED
+            and self._missions[mission_id]["status"] == MISSION_STATUS_IMPLEMENTED
         )
 
     def default_state(self) -> dict[str, Any]:
@@ -249,25 +218,14 @@ class CampaignGraph:
             return self.default_state()
         if not isinstance(value, dict):
             raise CampaignStateError("campaign state must be an object")
-        if (
-            value.get("schema_version", CAMPAIGN_SCHEMA_VERSION)
-            != CAMPAIGN_SCHEMA_VERSION
-        ):
-            raise CampaignStateError(
-                "campaign state schema version is unsupported"
-            )
+        if value.get("schema_version", CAMPAIGN_SCHEMA_VERSION) != CAMPAIGN_SCHEMA_VERSION:
+            raise CampaignStateError("campaign state schema version is unsupported")
         if value.get("campaign_id", CAMPAIGN_ID) != CAMPAIGN_ID:
             raise CampaignStateError("campaign state belongs to another campaign")
 
         revision = value.get("revision", 0)
-        if (
-            isinstance(revision, bool)
-            or not isinstance(revision, int)
-            or revision < 0
-        ):
-            raise CampaignStateError(
-                "campaign revision must be a non-negative integer"
-            )
+        if isinstance(revision, bool) or not isinstance(revision, int) or revision < 0:
+            raise CampaignStateError("campaign revision must be a non-negative integer")
 
         completed_value = value.get("completed_missions", [])
         if not isinstance(completed_value, list) or not all(
@@ -276,18 +234,14 @@ class CampaignGraph:
             raise CampaignStateError("completed_missions must be a string list")
         if len(completed_value) != len(set(completed_value)):
             raise CampaignStateError("completed_missions contains duplicates")
-        unknown_completed = sorted(
-            set(completed_value).difference(self._missions)
-        )
+        unknown_completed = sorted(set(completed_value).difference(self._missions))
         if unknown_completed:
             raise CampaignStateError(
                 f"completed_missions contains unknown ids: {unknown_completed}"
             )
         completed_set = set(completed_value)
         completed = tuple(
-            mission_id
-            for mission_id in self._ordered_ids
-            if mission_id in completed_set
+            mission_id for mission_id in self._ordered_ids if mission_id in completed_set
         )
         completed_set = set(completed)
         for mission_id in completed:
@@ -295,8 +249,7 @@ class CampaignGraph:
             if not prerequisites.issubset(completed_set):
                 missing = sorted(prerequisites.difference(completed_set))
                 raise CampaignStateError(
-                    f"completed mission {mission_id} is missing prerequisites "
-                    f"{missing}"
+                    f"completed mission {mission_id} is missing prerequisites {missing}"
                 )
 
         unlocked = self.unlocked_mission_ids(completed)
@@ -306,9 +259,7 @@ class CampaignGraph:
         ):
             raise CampaignStateError("unlocked_missions must be a string list")
         if set(persisted_unlocked) != set(unlocked):
-            raise CampaignStateError(
-                "unlocked_missions does not match the campaign graph"
-            )
+            raise CampaignStateError("unlocked_missions does not match the campaign graph")
 
         attempts_value = value.get("attempts", {})
         if not isinstance(attempts_value, dict):
@@ -316,23 +267,13 @@ class CampaignGraph:
         attempts: dict[str, int] = {}
         for mission_id, count in attempts_value.items():
             if mission_id not in self._missions:
-                raise CampaignStateError(
-                    f"attempts contains unknown mission {mission_id!r}"
-                )
-            if (
-                isinstance(count, bool)
-                or not isinstance(count, int)
-                or count < 0
-            ):
-                raise CampaignStateError(
-                    f"attempt count for {mission_id} must be non-negative"
-                )
+                raise CampaignStateError(f"attempts contains unknown mission {mission_id!r}")
+            if isinstance(count, bool) or not isinstance(count, int) or count < 0:
+                raise CampaignStateError(f"attempt count for {mission_id} must be non-negative")
             if count:
                 attempts[mission_id] = count
 
-        current_mission = value.get(
-            "current_mission", self.start_mission_id
-        )
+        current_mission = value.get("current_mission", self.start_mission_id)
         if current_mission is not None:
             if current_mission not in self._missions:
                 raise CampaignStateError("current_mission is unknown")
@@ -353,36 +294,22 @@ class CampaignGraph:
         self, state: Any, mission_id: str
     ) -> tuple[dict[str, Any], CampaignTransition]:
         normalized = self.normalize_state(state)
-        if mission_id not in self.playable_mission_ids(
-            normalized["completed_missions"]
-        ):
-            raise CampaignStateError(
-                f"mission {mission_id!r} is not currently playable"
-            )
+        if mission_id not in self.playable_mission_ids(normalized["completed_missions"]):
+            raise CampaignStateError(f"mission {mission_id!r} is not currently playable")
         normalized["revision"] += 1
         normalized["current_mission"] = mission_id
-        normalized["attempts"][mission_id] = (
-            normalized["attempts"].get(mission_id, 0) + 1
-        )
-        return normalized, self._transition(
-            "attempt_started", mission_id, normalized
-        )
+        normalized["attempts"][mission_id] = normalized["attempts"].get(mission_id, 0) + 1
+        return normalized, self._transition("attempt_started", mission_id, normalized)
 
     def complete_mission(
         self, state: Any, mission_id: str
     ) -> tuple[dict[str, Any], CampaignTransition]:
         normalized = self.normalize_state(state)
-        if mission_id not in self.playable_mission_ids(
-            normalized["completed_missions"]
-        ):
-            raise CampaignStateError(
-                f"mission {mission_id!r} is not currently playable"
-            )
+        if mission_id not in self.playable_mission_ids(normalized["completed_missions"]):
+            raise CampaignStateError(f"mission {mission_id!r} is not currently playable")
         completed = set(normalized["completed_missions"])
         completed.add(mission_id)
-        normalized["completed_missions"] = [
-            item for item in self._ordered_ids if item in completed
-        ]
+        normalized["completed_missions"] = [item for item in self._ordered_ids if item in completed]
         normalized["unlocked_missions"] = list(
             self.unlocked_mission_ids(normalized["completed_missions"])
         )
@@ -396,9 +323,7 @@ class CampaignGraph:
             incomplete_unlocked[0] if incomplete_unlocked else mission_id
         )
         normalized = self.normalize_state(normalized)
-        return normalized, self._transition(
-            "mission_completed", mission_id, normalized
-        )
+        return normalized, self._transition("mission_completed", mission_id, normalized)
 
     def _transition(
         self,

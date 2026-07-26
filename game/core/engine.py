@@ -96,12 +96,8 @@ class Engine:
 
     def diagnostic_context(self) -> dict:
         scene = self.current()
-        recent_audio = [
-            entry["event"] for entry in list(self.audio.event_log)[-16:]
-        ]
-        recent_presentation = [
-            entry["name"] for entry in list(self.presentation.event_log)[-16:]
-        ]
+        recent_audio = [entry["event"] for entry in list(self.audio.event_log)[-16:]]
+        recent_presentation = [entry["name"] for entry in list(self.presentation.event_log)[-16:]]
         return {
             "scene": type(scene).__name__ if scene is not None else None,
             "chapter_id": getattr(scene, "chapter_id", None),
@@ -202,28 +198,20 @@ class Engine:
 
     def start_campaign_mission(self, mission_id: str) -> None:
         mission = CAMPAIGN_GRAPH.mission(mission_id)
-        playable = CAMPAIGN_GRAPH.playable_mission_ids(
-            self.save.campaign["completed_missions"]
-        )
+        playable = CAMPAIGN_GRAPH.playable_mission_ids(self.save.campaign["completed_missions"])
         if mission_id not in playable:
-            raise ValueError(
-                f"campaign mission {mission_id!r} is not currently playable"
-            )
+            raise ValueError(f"campaign mission {mission_id!r} is not currently playable")
         previous_campaign = deepcopy(self.save.campaign)
         self.save.record_campaign_attempt(mission_id)
         if not self.save.save():
             self.save.campaign = previous_campaign
-            raise RuntimeError(
-                f"could not persist campaign attempt: {self.save.last_error}"
-            )
+            raise RuntimeError(f"could not persist campaign attempt: {self.save.last_error}")
         if mission["entrypoint"] == "vertical_slice":
             self.replace(VerticalSliceScene(self))
             return
         self.save.campaign = previous_campaign
         self.save.save()
-        raise ValueError(
-            f"campaign mission {mission_id!r} has no supported entrypoint"
-        )
+        raise ValueError(f"campaign mission {mission_id!r} has no supported entrypoint")
 
     def go_campaign(self):
         self.replace(CampaignScene(self))
