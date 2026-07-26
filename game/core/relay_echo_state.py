@@ -68,11 +68,6 @@ class RelayEchoRuntime:
         self.objective_by_id = {
             item["id"]: deepcopy(item) for item in contract_copy["objectives"]
         }
-        self.checkpoint_by_objective = {
-            item["objective_id"]: deepcopy(item)
-            for item in contract_copy["checkpoints"]
-            if item["objective_id"] is not None
-        }
         self.failure_states = deepcopy(contract_copy["failure_states"])
 
     def default_state(self) -> dict[str, Any]:
@@ -180,16 +175,19 @@ class RelayEchoRuntime:
             raise RelayEchoStateError("failure_history length must equal failures")
         normalized_failures: list[dict[str, Any]] = []
         expected_insight = 0
+        last_failure_revision = 0
         for index, item in enumerate(failure_history, start=1):
+            if item.get("sequence") != index:
+                raise RelayEchoStateError("failure_history sequence must be contiguous")
             failure_id = item.get("failure_id")
             if failure_id not in self.failure_states:
-                raise RelayEchoStateError(f"failure_history contains unknown failure {failure_id!r}")
+                raise RelayEchoStateError(
+                    f"failure_history contains unknown failure {failure_id!r}"
+                )
             objective_id = item.get("objective_id")
             if objective_id not in self.objectives:
                 raise RelayEchoStateError("failure_history contains an unknown objective")
             objective_index = self.objectives.index(objective_id)
-            if objective_index < len(completed):
-                raise RelayEchoStateError("failure_history cannot target a completed objective")
             objective = self.objective_by_id[objective_id]
             if failure_id not in objective["failure_modes"]:
                 raise RelayEchoStateError(
@@ -198,16 +196,34 @@ class RelayEchoRuntime:
             history_checkpoint = self._non_negative_int(
                 item.get("checkpoint_id"), "failure_history.checkpoint_id"
             )
+            if history_checkpoint != objective_index:
+                raise RelayEchoStateError(
+                    "failure_history checkpoint must identify the objective start"
+                )
             if history_checkpoint > checkpoint_id:
-                raise RelayEchoStateError("failure_history checkpoint exceeds committed progress")
+                raise RelayEchoStateError(
+                    "failure_history checkpoint exceeds committed progress"
+                )
             history_revision = self._non_negative_int(
                 item.get("revision"), "failure_history.revision"
             )
+            expected_history_revision = attempts + history_checkpoint + index
+            if history_revision != expected_history_revision:
+                raise RelayEchoStateError(
+                    "failure_history revision does not match transaction order"
+                )
             if history_revision > revision:
-                raise RelayEchoStateError("failure_history revision exceeds current revision")
+                raise RelayEchoStateError(
+                    "failure_history revision exceeds current revision"
+                )
+            if history_revision <= last_failure_revision:
+                raise RelayEchoStateError("failure_history revisions must increase")
+            last_failure_revision = history_revision
             recovery = item.get("recovery")
             if recovery != self.failure_states[failure_id]["recovery"]:
-                raise RelayEchoStateError("failure_history recovery does not match the contract")
+                raise RelayEchoStateError(
+                    "failure_history recovery does not match the contract"
+                )
             expected_insight += self.failure_states[failure_id]["insight_delta"]
             normalized_failures.append(
                 {
@@ -225,7 +241,9 @@ class RelayEchoRuntime:
             "relay_echo.telemetry_insight",
         )
         if telemetry_insight != expected_insight:
-            raise RelayEchoStateError("telemetry_insight must be derived from failure history")
+            raise RelayEchoStateError(
+                "telemetry_insight must be derived from failure history"
+            )
 
         signal_fragments = self._non_negative_int(
             value.get("signal_fragments", 0), "relay_echo.signal_fragments"
@@ -242,32 +260,44 @@ class RelayEchoRuntime:
         alignment_complete = "align_the_echo" in completed
         if fragments_complete:
             if signal_fragments < 3:
-                raise RelayEchoStateError("completed signal recovery requires three fragments")
+                raise RelayEchoStateError(
+                    "completed signal recovery requires three fragments"
+                )
         elif signal_fragments != 0:
-            raise RelayEchoStateError("signal fragments may persist only after objective commit")
+            raise RelayEchoStateError(
+                "signal fragments may persist only after objective commit"
+            )
         if source_complete:
             echo_source = self._stable_value(echo_source, "relay_echo.echo_source")
         elif echo_source is not None:
-            raise RelayEchoStateError("echo_source may persist only after objective commit")
+            raise RelayEchoStateError(
+                "echo_source may persist only after objective commit"
+            )
         if relay_core_open is not breach_complete:
-            raise RelayEchoStateError("relay_core_open must match breach objective completion")
+            raise RelayEchoStateError(
+                "relay_core_open must match breach objective completion"
+            )
         if alignment_complete:
             echo_alignment = self._stable_value(
                 echo_alignment, "relay_echo.echo_alignment"
             )
         elif echo_alignment is not None:
-            raise RelayEchoStateError("echo_alignment may persist only after objective commit")
+            raise RelayEchoStateError(
+                "echo_alignment may persist only after objective commit"
+            )
 
         expected_revision = attempts + len(completed) + failures
         if revision != expected_revision:
             raise RelayEchoStateError(
                 "revision must equal attempts plus objective and failure transactions"
             )
-        if (attempts == 0 and (completed or failures)) or attempts > revision:
+        if attempts == 0 and (completed or failures):
             raise RelayEchoStateError("objective or failure progress requires an attempt")
         active = attempts > 0 and not completion_eligible
         if value.get("active", active) is not active:
-            raise RelayEchoStateError("active must be derived from attempts and completion")
+            raise RelayEchoStateError(
+                "active must be derived from attempts and completion"
+            )
 
         return {
             "schema_version": RELAY_ECHO_RUNTIME_SCHEMA_VERSION,
@@ -294,8 +324,14 @@ class RelayEchoRuntime:
         self, state: Any
     ) -> tuple[dict[str, Any], RelayEchoTransition]:
         normalized = self.normalize_state(state)
+        if normalized["active"]:
+            raise RelayEchoStateError(
+                "an active Relay Echo attempt cannot begin again"
+            )
         if normalized["completion_eligible"]:
-            raise RelayEchoStateError("completed Relay Echo state cannot begin another attempt")
+            raise RelayEchoStateError(
+                "completed Relay Echo state cannot begin another attempt"
+            )
         normalized["attempts"] += 1
         normalized["revision"] += 1
         normalized["active"] = True
@@ -310,7 +346,9 @@ class RelayEchoRuntime:
     ) -> tuple[dict[str, Any], RelayEchoTransition]:
         normalized = self.normalize_state(state)
         if not normalized["active"]:
-            raise RelayEchoStateError("Relay Echo objective progress requires an active attempt")
+            raise RelayEchoStateError(
+                "Relay Echo objective progress requires an active attempt"
+            )
         if objective_id != normalized["current_objective"]:
             raise RelayEchoStateError(
                 f"objective {objective_id!r} is not the current Relay Echo objective"
@@ -345,7 +383,9 @@ class RelayEchoRuntime:
     ) -> tuple[dict[str, Any], RelayEchoTransition]:
         normalized = self.normalize_state(state)
         if not normalized["active"] or normalized["current_objective"] is None:
-            raise RelayEchoStateError("Relay Echo failure requires an active objective")
+            raise RelayEchoStateError(
+                "Relay Echo failure requires an active objective"
+            )
         objective_id = normalized["current_objective"]
         objective = self.objective_by_id[objective_id]
         if failure_id not in objective["failure_modes"]:
@@ -388,7 +428,9 @@ class RelayEchoRuntime:
                 evidence.get("signal_fragments"), "signal_fragments"
             )
             if fragments < 3:
-                raise RelayEchoStateError("signal recovery requires at least three fragments")
+                raise RelayEchoStateError(
+                    "signal recovery requires at least three fragments"
+                )
             state["signal_fragments"] = fragments
         elif objective_id == "triangulate_echo_source":
             allowed = {"echo_source"}
@@ -398,7 +440,9 @@ class RelayEchoRuntime:
         elif objective_id == "breach_relay_core":
             allowed = {"relay_core_open"}
             if evidence.get("relay_core_open") is not True:
-                raise RelayEchoStateError("relay breach requires relay_core_open evidence")
+                raise RelayEchoStateError(
+                    "relay breach requires relay_core_open evidence"
+                )
             state["relay_core_open"] = True
         elif objective_id == "align_the_echo":
             allowed = {"echo_alignment"}
