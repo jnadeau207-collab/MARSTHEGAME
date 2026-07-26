@@ -20,10 +20,10 @@ class TitleScene(Scene):
         self.subtitle = get_text("game.subtitle")
         self.tagline = get_text("title.tagline")
         self.options = [
-            ("slice", "Mars Landing — Phase 1"),
-            ("new", "New Odyssey"),
-            ("continue", "Continue"),
-            ("chapters", "Chapters"),
+            ("campaign", "Frontier Campaign"),
+            ("new", "New Classic Odyssey"),
+            ("continue", "Continue Classic Mode"),
+            ("chapters", "Classic Chapters"),
             ("settings", "Settings"),
             ("credits", "Credits"),
             ("quit", "Quit"),
@@ -85,8 +85,8 @@ class TitleScene(Scene):
 
     def _activate(self):
         option_id, _label = self.options[self.selected]
-        if option_id == "slice":
-            self.engine.go_vertical_slice()
+        if option_id == "campaign":
+            self.engine.go_campaign()
         elif option_id == "new":
             self.engine.save.reset()
             self.engine.save.save()
@@ -173,21 +173,21 @@ class TitleScene(Scene):
 
         start_y = 260
         panel_h = len(self.options) * 40 + 20
-        panel = pygame.Surface((320, panel_h), pygame.SRCALPHA)
+        panel = pygame.Surface((360, panel_h), pygame.SRCALPHA)
         panel.fill((0, 0, 0, 130))
-        pygame.draw.rect(panel, (0, 200, 255, 50), (0, 0, 320, panel_h), 1, border_radius=6)
-        surface.blit(panel, (SCREEN_WIDTH // 2 - 160, start_y - 10))
+        pygame.draw.rect(panel, (0, 200, 255, 50), (0, 0, 360, panel_h), 1, border_radius=6)
+        surface.blit(panel, (SCREEN_WIDTH // 2 - 180, start_y - 10))
 
         for index, (_option_id, label) in enumerate(self.options):
             y = start_y + index * 40
             if index == self.selected:
-                bar = pygame.Surface((300, 32), pygame.SRCALPHA)
+                bar = pygame.Surface((340, 32), pygame.SRCALPHA)
                 bar.fill((0, 180, 255, 40))
-                surface.blit(bar, (SCREEN_WIDTH // 2 - 150, y - 4))
+                surface.blit(bar, (SCREEN_WIDTH // 2 - 170, y - 4))
                 pygame.draw.rect(
                     surface,
                     Colors.ACCENT,
-                    (SCREEN_WIDTH // 2 - 150, y - 4, 3, 32),
+                    (SCREEN_WIDTH // 2 - 170, y - 4, 3, 32),
                 )
                 color = Colors.GOLD
                 prefix = "▸ "
@@ -195,7 +195,7 @@ class TitleScene(Scene):
                 color = (200, 205, 215)
                 prefix = "  "
             text = self.engine.font_md.render(f"{prefix}{label}", True, color)
-            surface.blit(text, (SCREEN_WIDTH // 2 - 125, y))
+            surface.blit(text, (SCREEN_WIDTH // 2 - 145, y))
 
         footer = self.engine.font_sm.render(
             "WASD / Arrows  ·  Enter / Space  ·  Gamepad supported",
