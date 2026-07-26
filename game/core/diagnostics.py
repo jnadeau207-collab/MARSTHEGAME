@@ -102,9 +102,9 @@ class CrashReporter:
             "exception": {
                 "type": type(exc).__name__,
                 "message": str(exc)[:4096],
-                "traceback": "".join(
-                    traceback.format_exception(type(exc), exc, active_traceback)
-                )[-32_768:],
+                "traceback": "".join(traceback.format_exception(type(exc), exc, active_traceback))[
+                    -32_768:
+                ],
             },
             "runtime": {
                 "python": platform.python_version(),
