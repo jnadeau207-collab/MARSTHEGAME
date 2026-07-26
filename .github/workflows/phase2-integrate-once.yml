@@ -1,0 +1,132 @@
+name: Phase 2 integrate once
+
+on:
+  push:
+    branches: [agent/phase2-campaign-foundation]
+
+permissions:
+  contents: write
+
+env:
+  SDL_VIDEODRIVER: dummy
+  SDL_AUDIODRIVER: dummy
+  PYGAME_HIDE_SUPPORT_PROMPT: "1"
+
+jobs:
+  integrate:
+    if: ${{ !contains(github.event.head_commit.message, '[phase2-integrated]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/phase2-campaign-foundation
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt -r requirements-dev.txt
+      - name: Join Phase 1 completion to campaign progression
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          scene = Path('game/scenes/vertical_slice.py')
+          text = scene.read_text(encoding='utf-8')
+          old = '''            self.engine.save.update_phase1_slice(
+                checkpoint_id=self.current_checkpoint,
+                failures=self.failure_count,
+                best_phase="complete",
+                completed=True,
+                resource_gate_open=self.resource_gate_open,
+            )
+            self.engine.save.save()
+'''
+          new = '''            self.engine.save.update_phase1_slice(
+                checkpoint_id=self.current_checkpoint,
+                failures=self.failure_count,
+                best_phase="complete",
+                completed=True,
+                resource_gate_open=self.resource_gate_open,
+            )
+            self.engine.save.complete_campaign_mission("ares_reach")
+            self.engine.save.save()
+'''
+          if old not in text:
+              raise SystemExit('Phase 1 completion anchor missing')
+          scene.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          replay = Path('tools/phase1_slice_replay.py')
+          text = replay.read_text(encoding='utf-8')
+          old = '''            "save": dict(self.engine.save.phase1_slice),
+            "save_generation": self.engine.save.generation,
+'''
+          new = '''            "save": dict(self.engine.save.phase1_slice),
+            "campaign": json.loads(json.dumps(self.engine.save.campaign, sort_keys=True)),
+            "save_generation": self.engine.save.generation,
+'''
+          if old not in text:
+              raise SystemExit('Phase 1 replay signature anchor missing')
+          replay.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          test = Path('tests/test_phase1_slice.py')
+          text = test.read_text(encoding='utf-8')
+          old = '''        self.assertTrue(reference["save"]["completed"])
+        self.assertEqual(reference["transition"], ["title"])
+'''
+          new = '''        self.assertTrue(reference["save"]["completed"])
+        self.assertEqual(reference["campaign"]["completed_missions"], ["ares_reach"])
+        self.assertIn("relay_echo", reference["campaign"]["unlocked_missions"])
+        self.assertEqual(reference["transition"], ["title"])
+'''
+          if old not in text:
+              raise SystemExit('Phase 1 test campaign anchor missing')
+          test.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          campaign = Path('game/core/campaign.py')
+          text = campaign.read_text(encoding='utf-8')
+          old = '''        if not isinstance(prerequisites, (tuple, list)):
+            errors.append(f"mission {mission_id} prerequisites must be a sequence")
+        elif len(prerequisites) != len(set(prerequisites)):
+            errors.append(f"mission {mission_id} has duplicate prerequisites")
+'''
+          new = '''        if not isinstance(prerequisites, (tuple, list)):
+            errors.append(f"mission {mission_id} prerequisites must be a sequence")
+        elif not all(isinstance(item, str) for item in prerequisites):
+            errors.append(f"mission {mission_id} prerequisites must contain only mission ids")
+        elif len(prerequisites) != len(set(prerequisites)):
+            errors.append(f"mission {mission_id} has duplicate prerequisites")
+'''
+          if old not in text:
+              raise SystemExit('Campaign prerequisite validation anchor missing')
+          campaign.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+      - name: Apply pinned formatting
+        run: >-
+          ruff format
+          game/core/campaign.py
+          game/core/engine.py
+          game/core/save.py
+          game/data/campaign.py
+          game/scenes/campaign.py
+          game/scenes/title.py
+          game/scenes/vertical_slice.py
+          tools/phase1_slice_replay.py
+          tools/phase2_campaign_audit.py
+          tests/test_campaign.py
+          tests/test_campaign_save.py
+          tests/test_phase1_slice.py
+          tests/test_phase2_campaign_audit.py
+      - name: Verify Phase 2 integration
+        run: |
+          ruff check game/core/campaign.py game/core/engine.py game/core/save.py game/data/campaign.py game/scenes/campaign.py game/scenes/title.py game/scenes/vertical_slice.py tools tests
+          python -m unittest tests.test_campaign tests.test_campaign_save tests.test_phase1_slice tests.test_phase2_campaign_audit -v
+          python -m tools.phase1_slice_replay --json-out build/phase1-slice-replay.json
+          python -m tools.phase2_campaign_audit --json-out build/phase2-campaign.json
+      - name: Commit clean integration
+        run: |
+          git rm .github/workflows/phase2-integrate-once.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add game tools tests
+          git commit -m "Integrate Phase 2 campaign progression [phase2-integrated]"
+          git push origin HEAD:agent/phase2-campaign-foundation
