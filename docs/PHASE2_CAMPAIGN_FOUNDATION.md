@@ -6,7 +6,8 @@
 - Status: in progress
 - Campaign: `frontier_campaign`
 - Implemented missions: `ares_reach`
-- Contracted but non-playable missions: `relay_echo`
+- Contracted missions: `relay_echo`
+- Playable candidates not promoted: `relay_echo`
 - Planned missions: `relay_echo`, `phobos_vector`, `frontier_burn`
 - Full-campaign claim: **not achieved**
 - AAA-quality claim: **target not achieved**
@@ -37,7 +38,7 @@ The title screen enters **Frontier Campaign**. The campaign navigator shows all 
 - `PLANNED` for unlocked but unimplemented nodes,
 - `LOCKED` when prerequisites are incomplete.
 
-Only implemented unlocked missions can launch. Completing `ares_reach` records campaign completion and unlocks `relay_echo`, but `relay_echo` remains non-playable until its entrypoint and content exist.
+Only implemented unlocked missions can launch. Completing `ares_reach` records campaign completion and unlocks `relay_echo`, but `relay_echo` remains non-playable through campaign routing until a separate promotion transaction is accepted.
 
 Classic Mode remains a separate protected eight-chapter path.
 
@@ -58,7 +59,7 @@ Old saves without campaign data migrate to the default `ares_reach` state. Corru
 
 ## Relay Echo contract tranche
 
-`relay_echo` now has an executable mission contract in `game/data/relay_echo.py`. The contract establishes:
+`relay_echo` has an executable mission contract in `game/data/relay_echo.py`. The contract establishes:
 
 - entry and exit state,
 - six ordered objectives and their dependency graph,
@@ -71,25 +72,61 @@ Old saves without campaign data migrate to the default `ares_reach` state. Corru
 - authored/procedural boundaries,
 - eight promotion gates.
 
-This does not make Relay Echo playable. The campaign catalog still records it as `planned`, its runtime entrypoint remains `None`, and fail-closed routing continues to reject launch. The contract exists to prevent runtime implementation from drifting or claiming completion without evidence.
+## Relay Echo transactional state tranche
+
+`game/core/relay_echo_state.py` and the existing transactional save envelope now provide:
+
+- derived objective and checkpoint progression,
+- explicit attempt and failure transactions,
+- contract-backed retained understanding,
+- corruption and forged-state rejection,
+- legacy migration,
+- campaign prerequisite enforcement,
+- completion eligibility that remains separate from campaign completion.
+
+## Relay Echo playable-candidate tranche
+
+The repository now contains a complete candidate scene and authored world contract:
+
+- all six objectives are playable in order,
+- checkpoints restore from transactional state,
+- player defeat and relay overload retain contract-defined insight,
+- uncommitted fragment pickups reset correctly,
+- the guardian breach and echo alignment commit explicit evidence,
+- extraction reaches completion eligibility and returns once to the campaign navigator,
+- `tools/relay_echo_replay.py` runs the complete path twice and compares exact evidence.
+
+The candidate is intentionally hidden. `game/core/engine.py` does not import or route to `RelayEchoScene`; the campaign catalog still records `relay_echo` as `planned` with no entrypoint. Candidate completion cannot complete the campaign node or unlock `phobos_vector`.
 
 ## Evidence
 
 - `game/data/campaign.py`
 - `game/data/relay_echo.py`
+- `game/data/relay_echo_candidate.py`
 - `game/core/campaign.py`
+- `game/core/relay_echo_state.py`
+- `game/core/save.py`
 - `game/scenes/campaign.py`
+- `game/scenes/relay_echo.py`
 - `config/phase2_campaign.json`
 - `tools/phase2_campaign_audit.py`
-- `tests/test_campaign.py`
-- `tests/test_campaign_save.py`
-- `tests/test_phase2_campaign_audit.py`
+- `tools/relay_echo_runtime_audit.py`
+- `tools/relay_echo_candidate_audit.py`
+- `tools/relay_echo_replay.py`
 - `tests/test_relay_echo_contract.py`
+- `tests/test_relay_echo_state.py`
+- `tests/test_relay_echo_save.py`
+- `tests/test_relay_echo_candidate.py`
+- `tests/test_relay_echo_candidate_audit.py`
 - `docs/RELAY_ECHO_MISSION_CONTRACT.md`
+- `docs/RELAY_ECHO_RUNTIME_STATE.md`
+- `docs/RELAY_ECHO_PLAYABLE_CANDIDATE.md`
 - `docs/decisions/0011-contract-missions-before-runtime.md`
+- `docs/decisions/0012-derived-transactional-mission-state.md`
+- `docs/decisions/0013-playable-candidate-before-promotion.md`
 
 ## What remains
 
-Relay Echo must remain non-playable until its runtime entrypoint, mission save state, objective and failure state machine, deterministic replay, accessibility path, measured performance evidence, authored content package, and campaign completion transaction all exist and pass.
+The candidate must pass the full repository matrix. Campaign promotion then remains a separate, narrow change covering engine routing, catalog status, mission-attempt entry, campaign completion, downstream unlock, and promotion-specific replay evidence.
 
-All unresolved direct-play, authored-asset, packaged-build, external-playtest, and AAA-quality evidence gates remain active.
+Founder direct play, final authored assets, packaged-build soak, keyboard/gamepad complete-path parity, accessibility-path verification, external playtests, and the AAA-quality target remain unresolved evidence gates.
