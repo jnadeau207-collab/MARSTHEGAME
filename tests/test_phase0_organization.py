@@ -7,7 +7,6 @@ from pathlib import Path
 
 from tools.validate_phase0_organization import validate_manifest
 
-
 MANIFEST_PATH = Path(__file__).resolve().parents[1] / "config" / "phase0_organization.json"
 
 
