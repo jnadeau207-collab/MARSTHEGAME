@@ -91,6 +91,19 @@ D3D12_RESOURCE_BARRIER TransitionBarrier(
     barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
     return barrier;
 }
+
+D3D12_RESOURCE_DESC BufferDescription(const std::uint64_t size)
+{
+    D3D12_RESOURCE_DESC description{};
+    description.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+    description.Width = size;
+    description.Height = 1;
+    description.DepthOrArraySize = 1;
+    description.MipLevels = 1;
+    description.SampleDesc.Count = 1;
+    description.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+    return description;
+}
 } // namespace
 
 D3D12Renderer::~D3D12Renderer()
@@ -108,6 +121,7 @@ void D3D12Renderer::Initialize(
     const HWND window,
     const std::uint32_t width,
     const std::uint32_t height,
+    const std::span<const assets::StaticMesh> meshes,
     const AdapterPreference adapter_preference,
     const bool enable_frame_capture)
 {
@@ -118,6 +132,10 @@ void D3D12Renderer::Initialize(
     if (window == nullptr || width == 0 || height == 0)
     {
         throw std::invalid_argument("D3D12Renderer requires a valid window and non-zero size");
+    }
+    if (meshes.empty() || meshes.size() > kMaxMeshes)
+    {
+        throw std::invalid_argument("D3D12Renderer requires a bounded non-empty mesh catalog");
     }
 
     width_ = width;
@@ -143,7 +161,7 @@ void D3D12Renderer::Initialize(
             CreateCaptureBuffer();
         }
         CreatePipeline();
-        CreateGeometry();
+        CreateGeometry(meshes);
         CreateSceneConstants();
         UpdateViewportAndScissor();
     }
@@ -168,6 +186,13 @@ void D3D12Renderer::Render(const RenderScene& scene)
     {
         throw std::invalid_argument("RenderScene exceeds the native instance limit");
     }
+    for (const RenderInstance& instance : scene.instances)
+    {
+        if (instance.mesh_index >= mesh_ranges_.size())
+        {
+            throw std::invalid_argument("RenderScene references an unavailable mesh");
+        }
+    }
 
     const auto started = std::chrono::steady_clock::now();
     const bool capture_this_frame = capture_requested_;
@@ -179,7 +204,7 @@ void D3D12Renderer::Render(const RenderScene& scene)
         "ID3D12GraphicsCommandList::Reset");
 
     UpdateSceneConstants(scene);
-    PopulateCommandList();
+    PopulateCommandList(scene);
     ThrowIfFailed(command_list_->Close(), "ID3D12GraphicsCommandList::Close");
 
     ID3D12CommandList* command_lists[] = {command_list_.Get()};
@@ -263,6 +288,7 @@ void D3D12Renderer::Shutdown()
     scene_constant_buffer_.Reset();
     index_buffer_.Reset();
     vertex_buffer_.Reset();
+    mesh_ranges_.clear();
     pipeline_state_.Reset();
     root_signature_.Reset();
     command_list_.Reset();
@@ -592,15 +618,7 @@ void D3D12Renderer::CreateCaptureBuffer()
     heap.CreationNodeMask = 1;
     heap.VisibleNodeMask = 1;
 
-    D3D12_RESOURCE_DESC description{};
-    description.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-    description.Width = capture_total_bytes_;
-    description.Height = 1;
-    description.DepthOrArraySize = 1;
-    description.MipLevels = 1;
-    description.SampleDesc.Count = 1;
-    description.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-
+    const D3D12_RESOURCE_DESC description = BufferDescription(capture_total_bytes_);
     ThrowIfFailed(
         device_->CreateCommittedResource(
             &heap,
@@ -715,90 +733,149 @@ void D3D12Renderer::CreatePipeline()
     NameObject(pipeline_state_.Get(), L"MARSTHEGAME Native Scene Pipeline");
 }
 
-void D3D12Renderer::CreateGeometry()
+void D3D12Renderer::CreateGeometry(const std::span<const assets::StaticMesh> meshes)
 {
-    constexpr std::array<Vertex, 24> vertices = {{
-        {{-1.0f, -1.0f, -1.0f}, {0.0f, 0.0f, -1.0f}, {1.0f, 1.0f, 1.0f}},
-        {{-1.0f, 1.0f, -1.0f}, {0.0f, 0.0f, -1.0f}, {1.0f, 1.0f, 1.0f}},
-        {{1.0f, 1.0f, -1.0f}, {0.0f, 0.0f, -1.0f}, {1.0f, 1.0f, 1.0f}},
-        {{1.0f, -1.0f, -1.0f}, {0.0f, 0.0f, -1.0f}, {1.0f, 1.0f, 1.0f}},
-        {{1.0f, -1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}},
-        {{1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}},
-        {{-1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}},
-        {{-1.0f, -1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}},
-        {{-1.0f, -1.0f, 1.0f}, {-1.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
-        {{-1.0f, 1.0f, 1.0f}, {-1.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
-        {{-1.0f, 1.0f, -1.0f}, {-1.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
-        {{-1.0f, -1.0f, -1.0f}, {-1.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
-        {{1.0f, -1.0f, -1.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
-        {{1.0f, 1.0f, -1.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
-        {{1.0f, 1.0f, 1.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
-        {{1.0f, -1.0f, 1.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
-        {{-1.0f, 1.0f, -1.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
-        {{-1.0f, 1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
-        {{1.0f, 1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
-        {{1.0f, 1.0f, -1.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
-        {{-1.0f, -1.0f, 1.0f}, {0.0f, -1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
-        {{-1.0f, -1.0f, -1.0f}, {0.0f, -1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
-        {{1.0f, -1.0f, -1.0f}, {0.0f, -1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
-        {{1.0f, -1.0f, 1.0f}, {0.0f, -1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
+    std::size_t total_vertices = 0;
+    std::size_t total_indices = 0;
+    mesh_ranges_.clear();
+    mesh_ranges_.reserve(meshes.size());
+
+    for (const assets::StaticMesh& mesh : meshes)
+    {
+        if (mesh.vertices.empty() || mesh.indices.empty())
+        {
+            throw std::invalid_argument("Renderer mesh catalog contains an empty mesh");
+        }
+        if (total_vertices > static_cast<std::size_t>((std::numeric_limits<std::int32_t>::max)())
+            - mesh.vertices.size()
+            || total_indices > static_cast<std::size_t>((std::numeric_limits<std::uint32_t>::max)())
+            - mesh.indices.size())
+        {
+            throw std::invalid_argument("Renderer mesh catalog exceeds indexed draw limits");
+        }
+        mesh_ranges_.push_back({
+            .index_count = static_cast<std::uint32_t>(mesh.indices.size()),
+            .start_index = static_cast<std::uint32_t>(total_indices),
+            .base_vertex = static_cast<std::int32_t>(total_vertices),
+        });
+        total_vertices += mesh.vertices.size();
+        total_indices += mesh.indices.size();
+    }
+
+    const std::size_t vertex_bytes = total_vertices * sizeof(assets::MeshVertex);
+    const std::size_t index_bytes = total_indices * sizeof(std::uint32_t);
+    if (vertex_bytes > (std::numeric_limits<UINT>::max)()
+        || index_bytes > (std::numeric_limits<UINT>::max)())
+    {
+        throw std::invalid_argument("Renderer mesh catalog exceeds D3D12 view-size limits");
+    }
+
+    std::vector<assets::MeshVertex> vertices;
+    std::vector<std::uint32_t> indices;
+    vertices.reserve(total_vertices);
+    indices.reserve(total_indices);
+    for (const assets::StaticMesh& mesh : meshes)
+    {
+        vertices.insert(vertices.end(), mesh.vertices.begin(), mesh.vertices.end());
+        indices.insert(indices.end(), mesh.indices.begin(), mesh.indices.end());
+    }
+
+    D3D12_HEAP_PROPERTIES default_heap{};
+    default_heap.Type = D3D12_HEAP_TYPE_DEFAULT;
+    default_heap.CreationNodeMask = 1;
+    default_heap.VisibleNodeMask = 1;
+
+    D3D12_HEAP_PROPERTIES upload_heap{};
+    upload_heap.Type = D3D12_HEAP_TYPE_UPLOAD;
+    upload_heap.CreationNodeMask = 1;
+    upload_heap.VisibleNodeMask = 1;
+
+    const D3D12_RESOURCE_DESC vertex_description = BufferDescription(vertex_bytes);
+    const D3D12_RESOURCE_DESC index_description = BufferDescription(index_bytes);
+    ThrowIfFailed(
+        device_->CreateCommittedResource(
+            &default_heap,
+            D3D12_HEAP_FLAG_NONE,
+            &vertex_description,
+            D3D12_RESOURCE_STATE_COPY_DEST,
+            nullptr,
+            IID_PPV_ARGS(&vertex_buffer_)),
+        "ID3D12Device::CreateCommittedResource(vertex default)");
+    ThrowIfFailed(
+        device_->CreateCommittedResource(
+            &default_heap,
+            D3D12_HEAP_FLAG_NONE,
+            &index_description,
+            D3D12_RESOURCE_STATE_COPY_DEST,
+            nullptr,
+            IID_PPV_ARGS(&index_buffer_)),
+        "ID3D12Device::CreateCommittedResource(index default)");
+    NameObject(vertex_buffer_.Get(), L"MARSTHEGAME Static Mesh Vertex Buffer");
+    NameObject(index_buffer_.Get(), L"MARSTHEGAME Static Mesh Index Buffer");
+
+    ComPtr<ID3D12Resource> vertex_upload;
+    ComPtr<ID3D12Resource> index_upload;
+    ThrowIfFailed(
+        device_->CreateCommittedResource(
+            &upload_heap,
+            D3D12_HEAP_FLAG_NONE,
+            &vertex_description,
+            D3D12_RESOURCE_STATE_GENERIC_READ,
+            nullptr,
+            IID_PPV_ARGS(&vertex_upload)),
+        "ID3D12Device::CreateCommittedResource(vertex upload)");
+    ThrowIfFailed(
+        device_->CreateCommittedResource(
+            &upload_heap,
+            D3D12_HEAP_FLAG_NONE,
+            &index_description,
+            D3D12_RESOURCE_STATE_GENERIC_READ,
+            nullptr,
+            IID_PPV_ARGS(&index_upload)),
+        "ID3D12Device::CreateCommittedResource(index upload)");
+    NameObject(vertex_upload.Get(), L"MARSTHEGAME Static Mesh Vertex Upload");
+    NameObject(index_upload.Get(), L"MARSTHEGAME Static Mesh Index Upload");
+
+    const D3D12_RANGE no_read{0, 0};
+    void* mapped = nullptr;
+    ThrowIfFailed(vertex_upload->Map(0, &no_read, &mapped), "ID3D12Resource::Map(vertex upload)");
+    std::memcpy(mapped, vertices.data(), vertex_bytes);
+    vertex_upload->Unmap(0, nullptr);
+    mapped = nullptr;
+    ThrowIfFailed(index_upload->Map(0, &no_read, &mapped), "ID3D12Resource::Map(index upload)");
+    std::memcpy(mapped, indices.data(), index_bytes);
+    index_upload->Unmap(0, nullptr);
+
+    ThrowIfFailed(
+        command_allocators_[frame_index_]->Reset(),
+        "ID3D12CommandAllocator::Reset(mesh upload)");
+    ThrowIfFailed(
+        command_list_->Reset(command_allocators_[frame_index_].Get(), nullptr),
+        "ID3D12GraphicsCommandList::Reset(mesh upload)");
+    command_list_->CopyBufferRegion(vertex_buffer_.Get(), 0, vertex_upload.Get(), 0, vertex_bytes);
+    command_list_->CopyBufferRegion(index_buffer_.Get(), 0, index_upload.Get(), 0, index_bytes);
+    const std::array<D3D12_RESOURCE_BARRIER, 2> barriers = {{
+        TransitionBarrier(
+            vertex_buffer_.Get(),
+            D3D12_RESOURCE_STATE_COPY_DEST,
+            D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER),
+        TransitionBarrier(
+            index_buffer_.Get(),
+            D3D12_RESOURCE_STATE_COPY_DEST,
+            D3D12_RESOURCE_STATE_INDEX_BUFFER),
     }};
-    constexpr std::array<std::uint16_t, 36> indices = {
-        0, 1, 2, 0, 2, 3,
-        4, 5, 6, 4, 6, 7,
-        8, 9, 10, 8, 10, 11,
-        12, 13, 14, 12, 14, 15,
-        16, 17, 18, 16, 18, 19,
-        20, 21, 22, 20, 22, 23,
-    };
+    command_list_->ResourceBarrier(static_cast<UINT>(barriers.size()), barriers.data());
+    ThrowIfFailed(command_list_->Close(), "ID3D12GraphicsCommandList::Close(mesh upload)");
+    ID3D12CommandList* command_lists[] = {command_list_.Get()};
+    command_queue_->ExecuteCommandLists(1, command_lists);
+    WaitForGpu();
 
-    const auto create_upload_buffer = [this](
-                                          const void* source,
-                                          const std::size_t size,
-                                          ComPtr<ID3D12Resource>& resource,
-                                          const std::wstring_view name) {
-        D3D12_HEAP_PROPERTIES heap{};
-        heap.Type = D3D12_HEAP_TYPE_UPLOAD;
-        heap.CreationNodeMask = 1;
-        heap.VisibleNodeMask = 1;
-
-        D3D12_RESOURCE_DESC description{};
-        description.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-        description.Width = static_cast<UINT64>(size);
-        description.Height = 1;
-        description.DepthOrArraySize = 1;
-        description.MipLevels = 1;
-        description.SampleDesc.Count = 1;
-        description.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-
-        ThrowIfFailed(
-            device_->CreateCommittedResource(
-                &heap,
-                D3D12_HEAP_FLAG_NONE,
-                &description,
-                D3D12_RESOURCE_STATE_GENERIC_READ,
-                nullptr,
-                IID_PPV_ARGS(&resource)),
-            "ID3D12Device::CreateCommittedResource(upload)");
-        NameObject(resource.Get(), name);
-
-        void* mapped = nullptr;
-        const D3D12_RANGE read_range{0, 0};
-        ThrowIfFailed(resource->Map(0, &read_range, &mapped), "ID3D12Resource::Map");
-        std::memcpy(mapped, source, size);
-        resource->Unmap(0, nullptr);
-    };
-
-    create_upload_buffer(vertices.data(), sizeof(vertices), vertex_buffer_, L"MARSTHEGAME Cube Vertices");
     vertex_buffer_view_.BufferLocation = vertex_buffer_->GetGPUVirtualAddress();
-    vertex_buffer_view_.StrideInBytes = static_cast<UINT>(sizeof(Vertex));
-    vertex_buffer_view_.SizeInBytes = static_cast<UINT>(sizeof(vertices));
-
-    create_upload_buffer(indices.data(), sizeof(indices), index_buffer_, L"MARSTHEGAME Cube Indices");
+    vertex_buffer_view_.StrideInBytes = static_cast<UINT>(sizeof(assets::MeshVertex));
+    vertex_buffer_view_.SizeInBytes = static_cast<UINT>(vertex_bytes);
     index_buffer_view_.BufferLocation = index_buffer_->GetGPUVirtualAddress();
-    index_buffer_view_.SizeInBytes = static_cast<UINT>(sizeof(indices));
-    index_buffer_view_.Format = DXGI_FORMAT_R16_UINT;
-    index_count_ = static_cast<std::uint32_t>(indices.size());
+    index_buffer_view_.SizeInBytes = static_cast<UINT>(index_bytes);
+    index_buffer_view_.Format = DXGI_FORMAT_R32_UINT;
 }
 
 void D3D12Renderer::CreateSceneConstants()
@@ -808,15 +885,8 @@ void D3D12Renderer::CreateSceneConstants()
     heap.CreationNodeMask = 1;
     heap.VisibleNodeMask = 1;
 
-    D3D12_RESOURCE_DESC description{};
-    description.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-    description.Width = sizeof(SceneConstants) * kMaxInstances * kFrameCount;
-    description.Height = 1;
-    description.DepthOrArraySize = 1;
-    description.MipLevels = 1;
-    description.SampleDesc.Count = 1;
-    description.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-
+    const D3D12_RESOURCE_DESC description =
+        BufferDescription(sizeof(SceneConstants) * kMaxInstances * kFrameCount);
     ThrowIfFailed(
         device_->CreateCommittedResource(
             &heap,
@@ -879,7 +949,7 @@ void D3D12Renderer::UpdateSceneConstants(const RenderScene& scene)
     }
 }
 
-void D3D12Renderer::PopulateCommandList()
+void D3D12Renderer::PopulateCommandList(const RenderScene& scene)
 {
     const D3D12_RESOURCE_BARRIER to_render_target = TransitionBarrier(
         render_targets_[frame_index_].Get(),
@@ -914,7 +984,13 @@ void D3D12Renderer::PopulateCommandList()
         command_list_->SetGraphicsRootConstantBufferView(
             0,
             base_address + constant_index * sizeof(SceneConstants));
-        command_list_->DrawIndexedInstanced(index_count_, 1, 0, 0, 0);
+        const MeshRange& mesh = mesh_ranges_[scene.instances[index].mesh_index];
+        command_list_->DrawIndexedInstanced(
+            mesh.index_count,
+            1,
+            mesh.start_index,
+            mesh.base_vertex,
+            0);
     }
 
     if (capture_requested_)
