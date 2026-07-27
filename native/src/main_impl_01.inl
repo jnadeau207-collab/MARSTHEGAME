@@ -173,6 +173,17 @@ int RunWarpSmokeTest(const HINSTANCE instance)
 
     const mars::assets::SceneDefinition scene = mars::assets::LoadCookedScene(ScenePath());
     mars::game::GameState game(scene);
+
+    // Capture a deterministic reveal-state frame rather than the first third-second under
+    // the landing canopy. This remains renderer evidence, not aesthetic approval.
+    mars::game::GameSnapshot reveal = game.Snapshot();
+    reveal.player_position = {-1.35f, reveal.player_position.y, -0.80f};
+    reveal.player_velocity = {};
+    reveal.elapsed_seconds = 8.0f;
+    reveal.mission_state = mars::game::MissionState::Traverse;
+    reveal.checkpoint_reached = false;
+    game.Restore(reveal);
+
     mars::game::InputState forward{};
     forward.move_z = 1.0f;
     forward.sprint = true;
