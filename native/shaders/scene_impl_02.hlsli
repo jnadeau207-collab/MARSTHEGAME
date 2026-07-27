@@ -37,6 +37,32 @@ float3 SampleResolved(float2 uv)
     return SampleHistory(uv, postParameters.w).rgb;
 }
 
+float3 EvaluateProceduralSky(float2 uv, float aspect)
+{
+    const float2 ndc = float2(uv.x * 2.0f - 1.0f, 1.0f - uv.y * 2.0f);
+    const float3 forward = normalize(cross(cameraRight.xyz, cameraUp.xyz));
+    const float3 ray = normalize(
+        forward
+        + cameraRight.xyz * ndc.x * aspect * 0.5543f
+        + cameraUp.xyz * ndc.y * 0.5543f);
+    const float height = saturate(ray.y * 0.5f + 0.5f);
+    const float horizonBand = exp(-abs(ray.y) * 7.5f);
+    const float3 zenith = skyZenithHistory.rgb * 1.8f + float3(0.008f, 0.012f, 0.028f);
+    const float3 horizon = horizonColorBloom.rgb * 2.4f + float3(0.12f, 0.028f, 0.012f);
+    float3 sky = lerp(horizon, zenith, pow(height, 0.72f));
+    sky += horizon * horizonBand * 0.35f;
+
+    const float3 sunDirection = normalize(-sunDirectionExposure.xyz);
+    const float sunAlignment = saturate(dot(ray, sunDirection));
+    const float sunDisc = pow(sunAlignment, 1800.0f) * 18.0f;
+    const float sunHalo = pow(sunAlignment, 28.0f) * 0.55f;
+    sky += sunColorIntensity.rgb * (sunDisc + sunHalo);
+
+    const float dustVariation = Hash11(floor(uv.x * 96.0f) + floor(uv.y * 54.0f) * 131.0f);
+    sky *= 0.985f + dustVariation * 0.03f;
+    return max(sky, 0.0f);
+}
+
 float4 FinalPS(FullscreenOutput input) : SV_TARGET
 {
     uint width = 0;
@@ -44,33 +70,42 @@ float4 FinalPS(FullscreenOutput input) : SV_TARGET
     sceneDepthTexture.GetDimensions(width, height);
     const float2 texel = 1.0f / float2(width, height);
     const float depth = sceneDepthTexture.SampleLevel(linearClampSampler, input.uv, 0.0f);
+    const bool skyPixel = depth >= 0.99999f;
     const float viewDepth = LinearizeDepth(depth);
-    const float focusBlur = saturate(abs(viewDepth - focusParameters.x) / focusParameters.y);
+    const float focusBlur = skyPixel ? 0.0f : saturate(abs(viewDepth - focusParameters.x) / focusParameters.y);
 
-    float3 color = SampleResolved(input.uv);
-    const float2 motionVector = cameraMotionJitter.xy * postParameters.x;
-    [unroll]
-    for (int sampleIndex = -2; sampleIndex <= 2; ++sampleIndex)
+    float3 color = skyPixel
+        ? EvaluateProceduralSky(input.uv, float(width) / float(height))
+        : SampleResolved(input.uv);
+    if (!skyPixel)
     {
-        color += SampleResolved(input.uv + motionVector * (float(sampleIndex) * 0.25f));
+        const float2 motionVector = cameraMotionJitter.xy * postParameters.x;
+        [unroll]
+        for (int sampleIndex = -2; sampleIndex <= 2; ++sampleIndex)
+        {
+            color += SampleResolved(input.uv + motionVector * (float(sampleIndex) * 0.25f));
+        }
+        color /= 6.0f;
     }
-    color /= 6.0f;
 
-    float3 bloom = 0.0f;
     const float2 bloomOffsets[8] = {
         float2(1.0f, 0.0f), float2(-1.0f, 0.0f),
         float2(0.0f, 1.0f), float2(0.0f, -1.0f),
         float2(0.707f, 0.707f), float2(-0.707f, 0.707f),
         float2(0.707f, -0.707f), float2(-0.707f, -0.707f)
     };
-    [unroll]
-    for (uint bloomIndex = 0; bloomIndex < 8; ++bloomIndex)
+    if (!skyPixel)
     {
-        const float3 sampleColor = SampleResolved(input.uv + bloomOffsets[bloomIndex] * texel * 4.0f);
-        const float luminance = dot(sampleColor, float3(0.2126f, 0.7152f, 0.0722f));
-        bloom += sampleColor * saturate(luminance - horizonColorBloom.w);
+        float3 bloom = 0.0f;
+        [unroll]
+        for (uint bloomIndex = 0; bloomIndex < 8; ++bloomIndex)
+        {
+            const float3 sampleColor = SampleResolved(input.uv + bloomOffsets[bloomIndex] * texel * 4.0f);
+            const float luminance = dot(sampleColor, float3(0.2126f, 0.7152f, 0.0722f));
+            bloom += sampleColor * saturate(luminance - horizonColorBloom.w);
+        }
+        color += bloom * 0.095f;
     }
-    color += bloom * 0.075f;
 
     if (focusBlur > 0.02f)
     {
@@ -78,15 +113,19 @@ float4 FinalPS(FullscreenOutput input) : SV_TARGET
         [unroll]
         for (uint blurIndex = 0; blurIndex < 8; ++blurIndex)
         {
-            defocused += SampleResolved(input.uv + bloomOffsets[blurIndex] * texel * (2.0f + focusBlur * 7.0f));
+            defocused += SampleResolved(input.uv + bloomOffsets[blurIndex] * texel * (1.5f + focusBlur * 5.0f));
         }
-        color = lerp(color, defocused / 8.0f, focusBlur * 0.72f);
+        color = lerp(color, defocused / 8.0f, focusBlur * 0.52f);
     }
 
     color = AcesToneMap(color * sunDirectionExposure.w);
     const float2 centered = input.uv * 2.0f - 1.0f;
     const float vignette = saturate(1.0f - dot(centered, centered) * postParameters.y);
-    const float grain = (Hash11(input.position.x + input.position.y * 4096.0f + cameraPositionTime.w * 73.0f) - 0.5f) * 0.012f;
-    color = pow(saturate(color * lerp(0.78f, 1.0f, vignette) + grain), 1.0f / 2.2f);
+    const float displayLuminance = dot(color, float3(0.2126f, 0.7152f, 0.0722f));
+    const float grainSeed = dot(floor(input.position.xy), float2(12.9898f, 78.233f))
+        + floor(cameraPositionTime.w * 24.0f) * 19.19f;
+    const float grain = (frac(sin(grainSeed) * 43758.5453f) - 0.5f)
+        * 0.0035f * saturate(displayLuminance * 4.0f);
+    color = pow(saturate(color * lerp(0.84f, 1.0f, vignette) + grain), 1.0f / 2.2f);
     return float4(color, 1.0f);
 }
