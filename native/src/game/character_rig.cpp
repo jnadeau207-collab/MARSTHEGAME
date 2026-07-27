@@ -1,5 +1,7 @@
 #include "game/character_rig.h"
 
+#include "renderer/generated_materials.h"
+
 #include <algorithm>
 #include <bit>
 #include <cmath>
@@ -12,13 +14,24 @@ constexpr std::uint64_t kFnvOffsetBasis = 1'469'598'103'934'665'603ULL;
 constexpr std::uint64_t kFnvPrime = 1'099'511'628'211ULL;
 constexpr std::uint32_t kRoundedBoxMesh = 0U;
 constexpr std::uint32_t kRoundedColumnMesh = 2U;
+constexpr std::uint32_t kFabricMaterial = static_cast<std::uint32_t>(
+    renderer::GeneratedMaterialSlot::SuitFabric);
+constexpr std::uint32_t kAbrasionMaterial = static_cast<std::uint32_t>(
+    renderer::GeneratedMaterialSlot::SuitAbrasion);
+constexpr std::uint32_t kShellMaterial = static_cast<std::uint32_t>(
+    renderer::GeneratedMaterialSlot::SuitShell);
+constexpr std::uint32_t kMechanismMaterial = static_cast<std::uint32_t>(
+    renderer::GeneratedMaterialSlot::SuitMechanism);
+constexpr std::uint32_t kVisorMaterial = static_cast<std::uint32_t>(
+    renderer::GeneratedMaterialSlot::Visor);
 
 CharacterPartPose MakePart(
     const RigVector3 offset,
     const RigVector3 rotation,
     const RigVector3 scale,
     const RigColor tint,
-    const std::uint32_t mesh_slot) noexcept
+    const std::uint32_t mesh_slot,
+    const std::uint32_t material_slot) noexcept
 {
     return {
         .offset = offset,
@@ -26,6 +39,7 @@ CharacterPartPose MakePart(
         .scale = scale,
         .tint = tint,
         .mesh_slot = mesh_slot,
+        .material_slot = material_slot,
     };
 }
 
@@ -102,15 +116,15 @@ CharacterPose EvaluateCharacterPose(
     const float left_knee_bend = (std::max)(0.0f, gait) * 0.28f * movement_weight;
     const float right_knee_bend = (std::max)(0.0f, -gait) * 0.28f * movement_weight;
 
-    const RigColor suit_fabric{0.42f, 0.405f, 0.37f, 1.0f};
-    const RigColor abrasion_fabric{0.285f, 0.295f, 0.29f, 1.0f};
-    const RigColor hard_shell{0.58f, 0.51f, 0.34f, 1.0f};
-    const RigColor mechanisms{0.085f, 0.095f, 0.10f, 1.0f};
-    const RigColor helmet{0.48f, 0.49f, 0.47f, 1.0f};
-    const RigColor pack{0.095f, 0.105f, 0.11f, 1.0f};
+    const RigColor suit_fabric{0.78f, 0.75f, 0.66f, 1.0f};
+    const RigColor abrasion_fabric{0.43f, 0.44f, 0.42f, 1.0f};
+    const RigColor hard_shell{0.72f, 0.62f, 0.37f, 1.0f};
+    const RigColor mechanisms{0.23f, 0.25f, 0.26f, 1.0f};
+    const RigColor helmet{0.70f, 0.71f, 0.67f, 1.0f};
+    const RigColor pack{0.26f, 0.28f, 0.29f, 1.0f};
     const RigColor visor = mission_complete
-        ? RigColor{0.045f, 0.19f, 0.155f, 1.18f}
-        : RigColor{0.022f, 0.060f, 0.078f, 1.02f};
+        ? RigColor{0.07f, 0.28f, 0.22f, 1.12f}
+        : RigColor{0.055f, 0.12f, 0.15f, 1.0f};
 
     CharacterPose pose{};
     pose.gait_phase = phase;
@@ -122,44 +136,51 @@ CharacterPose EvaluateCharacterPose(
         {0.014f * std::sin(phase * 0.5f), 0.0f, stride * 0.025f},
         {0.29f, 0.34f, 0.19f},
         suit_fabric,
-        kRoundedBoxMesh));
+        kRoundedBoxMesh,
+        kFabricMaterial));
     SetPart(pose, CharacterPart::ChestPlate, MakePart(
         {0.0f, torso_y + 0.075f, 0.175f},
         {0.0f, 0.0f, stride * 0.018f},
         {0.30f, 0.19f, 0.095f},
         hard_shell,
-        kRoundedBoxMesh));
+        kRoundedBoxMesh,
+        kShellMaterial));
     SetPart(pose, CharacterPart::Head, MakePart(
         {0.0f, 1.97f + body_bob + completion_lift, 0.0f},
         {0.0f, std::sin(safe_time * 0.38f) * 0.045f, 0.0f},
         {0.20f, 0.17f, 0.20f},
         helmet,
-        kRoundedColumnMesh));
+        kRoundedColumnMesh,
+        kShellMaterial));
     SetPart(pose, CharacterPart::HelmetRing, MakePart(
         {0.0f, 1.80f + body_bob + completion_lift, 0.0f},
         {},
         {0.225f, 0.055f, 0.225f},
         mechanisms,
-        kRoundedColumnMesh));
+        kRoundedColumnMesh,
+        kMechanismMaterial));
     SetPart(pose, CharacterPart::Pelvis, MakePart(
         {0.0f, 1.025f + body_bob * 0.45f + completion_lift, 0.0f},
         {0.0f, 0.0f, -stride * 0.020f},
         {0.245f, 0.15f, 0.18f},
         abrasion_fabric,
-        kRoundedBoxMesh));
+        kRoundedBoxMesh,
+        kAbrasionMaterial));
 
     SetPart(pose, CharacterPart::LeftShoulder, MakePart(
         {-0.405f, 1.58f + body_bob + completion_lift, 0.015f},
         {0.0f, 0.0f, -0.12f},
         {0.13f, 0.12f, 0.16f},
         hard_shell,
-        kRoundedBoxMesh));
+        kRoundedBoxMesh,
+        kShellMaterial));
     SetPart(pose, CharacterPart::RightShoulder, MakePart(
         {0.405f, 1.58f + body_bob + completion_lift, 0.015f},
         {0.0f, 0.0f, 0.12f},
         {0.13f, 0.12f, 0.16f},
         hard_shell,
-        kRoundedBoxMesh));
+        kRoundedBoxMesh,
+        kShellMaterial));
 
     constexpr float upper_arm_length = 0.34f;
     constexpr float forearm_length = 0.32f;
@@ -177,25 +198,29 @@ CharacterPose EvaluateCharacterPose(
         {left_arm_angle, 0.0f, -0.025f},
         {0.098f, upper_arm_length * 0.5f, 0.10f},
         suit_fabric,
-        kRoundedColumnMesh));
+        kRoundedColumnMesh,
+        kFabricMaterial));
     SetPart(pose, CharacterPart::LeftForearm, MakePart(
         SegmentCenter(left_elbow, left_forearm_angle, forearm_length),
         {left_forearm_angle, 0.0f, -0.015f},
         {0.088f, forearm_length * 0.5f, 0.092f},
         abrasion_fabric,
-        kRoundedColumnMesh));
+        kRoundedColumnMesh,
+        kAbrasionMaterial));
     SetPart(pose, CharacterPart::RightUpperArm, MakePart(
         SegmentCenter(right_shoulder, right_arm_angle, upper_arm_length),
         {right_arm_angle, 0.0f, 0.025f},
         {0.098f, upper_arm_length * 0.5f, 0.10f},
         suit_fabric,
-        kRoundedColumnMesh));
+        kRoundedColumnMesh,
+        kFabricMaterial));
     SetPart(pose, CharacterPart::RightForearm, MakePart(
         SegmentCenter(right_elbow, right_forearm_angle, forearm_length),
         {right_forearm_angle, 0.0f, 0.015f},
         {0.088f, forearm_length * 0.5f, 0.092f},
         abrasion_fabric,
-        kRoundedColumnMesh));
+        kRoundedColumnMesh,
+        kAbrasionMaterial));
 
     constexpr float thigh_length = 0.39f;
     constexpr float shin_length = 0.41f;
@@ -215,25 +240,29 @@ CharacterPose EvaluateCharacterPose(
         {left_thigh_angle, 0.0f, 0.0f},
         {0.12f, thigh_length * 0.5f, 0.13f},
         suit_fabric,
-        kRoundedColumnMesh));
+        kRoundedColumnMesh,
+        kFabricMaterial));
     SetPart(pose, CharacterPart::LeftShin, MakePart(
         SegmentCenter(left_knee, left_shin_angle, shin_length),
         {left_shin_angle, 0.0f, 0.0f},
         {0.105f, shin_length * 0.5f, 0.115f},
         abrasion_fabric,
-        kRoundedColumnMesh));
+        kRoundedColumnMesh,
+        kAbrasionMaterial));
     SetPart(pose, CharacterPart::RightThigh, MakePart(
         SegmentCenter(right_hip, right_thigh_angle, thigh_length),
         {right_thigh_angle, 0.0f, 0.0f},
         {0.12f, thigh_length * 0.5f, 0.13f},
         suit_fabric,
-        kRoundedColumnMesh));
+        kRoundedColumnMesh,
+        kFabricMaterial));
     SetPart(pose, CharacterPart::RightShin, MakePart(
         SegmentCenter(right_knee, right_shin_angle, shin_length),
         {right_shin_angle, 0.0f, 0.0f},
         {0.105f, shin_length * 0.5f, 0.115f},
         abrasion_fabric,
-        kRoundedColumnMesh));
+        kRoundedColumnMesh,
+        kAbrasionMaterial));
 
     const float left_foot_lift = (std::max)(0.0f, gait) * 0.055f * movement_weight;
     const float right_foot_lift = (std::max)(0.0f, -gait) * 0.055f * movement_weight;
@@ -242,38 +271,44 @@ CharacterPose EvaluateCharacterPose(
         {left_thigh_angle * 0.16f, 0.0f, 0.0f},
         {0.135f, 0.105f, 0.22f},
         mechanisms,
-        kRoundedBoxMesh));
+        kRoundedBoxMesh,
+        kMechanismMaterial));
     SetPart(pose, CharacterPart::RightBoot, MakePart(
         {right_ankle.x, 0.13f + right_foot_lift + completion_lift, right_ankle.z + 0.115f},
         {right_thigh_angle * 0.16f, 0.0f, 0.0f},
         {0.135f, 0.105f, 0.22f},
         mechanisms,
-        kRoundedBoxMesh));
+        kRoundedBoxMesh,
+        kMechanismMaterial));
 
     SetPart(pose, CharacterPart::Backpack, MakePart(
         {0.0f, 1.40f + body_bob + completion_lift, -0.27f},
         {},
         {0.23f, 0.30f, 0.105f},
         pack,
-        kRoundedBoxMesh));
+        kRoundedBoxMesh,
+        kMechanismMaterial));
     SetPart(pose, CharacterPart::PackCanisterLeft, MakePart(
         {-0.165f, 1.40f + body_bob + completion_lift, -0.39f},
         {},
         {0.055f, 0.20f, 0.055f},
         mechanisms,
-        kRoundedColumnMesh));
+        kRoundedColumnMesh,
+        kMechanismMaterial));
     SetPart(pose, CharacterPart::PackCanisterRight, MakePart(
         {0.165f, 1.40f + body_bob + completion_lift, -0.39f},
         {},
         {0.055f, 0.20f, 0.055f},
         mechanisms,
-        kRoundedColumnMesh));
+        kRoundedColumnMesh,
+        kMechanismMaterial));
     SetPart(pose, CharacterPart::Visor, MakePart(
         {0.0f, 1.98f + body_bob + completion_lift, 0.205f},
         {},
         {0.158f, 0.074f, 0.037f},
         visor,
-        kRoundedBoxMesh));
+        kRoundedBoxMesh,
+        kVisorMaterial));
     return pose;
 }
 
@@ -300,7 +335,8 @@ bool ValidateCharacterPose(const CharacterPose& pose) noexcept
             }
         }
         if (part.scale.x <= 0.0f || part.scale.y <= 0.0f || part.scale.z <= 0.0f
-            || part.mesh_slot > 3U)
+            || part.mesh_slot > 3U
+            || part.material_slot >= renderer::kGeneratedMaterialCount)
         {
             return false;
         }
@@ -329,6 +365,8 @@ std::uint64_t HashCharacterPose(const CharacterPose& pose) noexcept
         HashFloat(hash, part.tint.b);
         HashFloat(hash, part.tint.a);
         hash ^= part.mesh_slot;
+        hash *= kFnvPrime;
+        hash ^= part.material_slot;
         hash *= kFnvPrime;
     }
     return hash;
