@@ -119,30 +119,30 @@ ParticleOutput ParticleVS(uint vertexId : SV_VertexID)
     const float seed = float(particleIndex) + 1.0f;
     const float life = frac(cameraPositionTime.w * (0.055f + Hash11(seed) * 0.035f) + Hash11(seed * 2.7f));
     const float angle = Hash11(seed * 4.1f) * 6.2831853f + cameraPositionTime.w * 0.09f;
-    const float radius = sqrt(Hash11(seed * 7.3f)) * (2.0f + 6.0f * life);
+    const float radius = sqrt(Hash11(seed * 7.3f)) * (1.4f + 4.2f * life);
     const float3 center = particleEmitterCount.xyz + float3(
         cos(angle) * radius,
-        0.18f + life * (2.6f + Hash11(seed * 11.0f) * 3.2f),
+        0.12f + life * (1.4f + Hash11(seed * 11.0f) * 1.6f),
         sin(angle) * radius);
     const float2 corners[3] = {
         float2(-0.75f, -0.55f),
         float2(0.75f, -0.55f),
         float2(0.0f, 0.90f)
     };
-    const float size = lerp(0.045f, 0.20f, Hash11(seed * 13.0f)) * (0.45f + life * 0.55f);
+    const float size = lerp(0.035f, 0.13f, Hash11(seed * 13.0f)) * (0.55f + life * 0.45f);
     const float2 local = corners[cornerIndex];
     const float3 worldPosition = center + cameraRight.xyz * local.x * size + cameraUp.xyz * local.y * size;
     output.position = mul(float4(worldPosition, 1.0f), viewProjection);
     output.local = local;
-    const float alpha = saturate(sin(life * PI)) * (0.18f + 0.24f * Hash11(seed * 17.0f));
-    output.color = float4(1.0f, 0.26f + Hash11(seed) * 0.15f, 0.065f, alpha / sqrt(count / 384.0f));
+    const float alpha = saturate(sin(life * PI)) * (0.08f + 0.13f * Hash11(seed * 17.0f));
+    output.color = float4(0.92f, 0.24f + Hash11(seed) * 0.12f, 0.055f, alpha / sqrt(count / 256.0f));
     return output;
 }
 
 float4 ParticlePS(ParticleOutput input) : SV_TARGET
 {
     const float falloff = saturate(1.0f - dot(input.local, input.local));
-    return float4(input.color.rgb * input.color.a * falloff * 3.0f, input.color.a * falloff);
+    return float4(input.color.rgb * input.color.a * falloff * 1.7f, input.color.a * falloff);
 }
 
 struct FullscreenOutput
