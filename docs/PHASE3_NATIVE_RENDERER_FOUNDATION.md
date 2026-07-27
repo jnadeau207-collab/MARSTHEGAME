@@ -58,12 +58,12 @@ The packaging self-test proves that the executable and compiled DXIL payload wer
 
 ## Verified CI boundary
 
-At exact head `85ebd4d28a504988818e00d052fc2be445ecc649`:
+At exact implementation head `85ebd4d28a504988818e00d052fc2be445ecc649`:
 
 - native renderer run `30230916130` passed strict MSVC `/W4 /WX`, DXC, packaging, validation-enabled WARP, resize, presentation, GPU readback, and artifact upload,
 - compatibility run `30230916160` passed Python 3.11/3.12 quality, the complete test suite, all protected replays and audits, and the same-runner performance guard.
 
-A later README-only commit does not change this native implementation evidence; its exact-head verification remains required before the tranche advances.
+Subsequent documentation-only commits do not alter that renderer implementation. The latest branch head must still remain green before the tranche advances.
 
 ## Live founder-PC verification
 
