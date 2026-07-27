@@ -131,6 +131,22 @@ float4 FinalPS(FullscreenOutput input) : SV_TARGET
         + floor(cameraPositionTime.w * 24.0f) * 19.19f;
     const float grain = (frac(sin(grainSeed) * 43758.5453f) - 0.5f)
         * 0.0035f * saturate(displayLuminance * 4.0f);
-    color = pow(saturate(color * cinematicVignette + grain), 1.0f / 2.2f);
+    color = saturate(color * cinematicVignette + grain);
+
+    const float2 subtitleMinimum = float2(0.18f, 0.82f);
+    const float2 subtitleMaximum = float2(0.82f, 0.94f);
+    if (all(input.uv >= subtitleMinimum) && all(input.uv <= subtitleMaximum))
+    {
+        const float2 subtitleUv = (input.uv - subtitleMinimum) / (subtitleMaximum - subtitleMinimum);
+        const float subtitleLayer = fogColorDensity.g > 0.10f ? 1.0f : 0.0f;
+        const float4 subtitle = subtitleTexture.SampleLevel(
+            linearClampSampler,
+            float3(subtitleUv, subtitleLayer),
+            0.0f);
+        const float3 subtitleLinear = pow(max(subtitle.rgb, 0.0f), 2.2f);
+        color = lerp(color, subtitleLinear, subtitle.a);
+    }
+
+    color = pow(saturate(color), 1.0f / 2.2f);
     return float4(color, 1.0f);
 }
