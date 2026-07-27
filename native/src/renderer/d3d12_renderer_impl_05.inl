@@ -177,12 +177,12 @@ void D3D12Renderer::UpdateConstants(const RenderScene& scene)
     active_history_write_index_ = 1U - history_read_index_;
 
     const XMFLOAT3 cinematic_eye_values{
-        scene.camera_eye.x,
+        scene.camera_eye.x - 2.6f,
         scene.camera_eye.y - 2.15f,
         scene.camera_eye.z + 3.0f,
     };
     const XMFLOAT3 cinematic_target_values{
-        scene.camera_target.x,
+        scene.camera_target.x + 0.45f,
         scene.camera_target.y + 0.15f,
         scene.camera_target.z + 1.1f,
     };
