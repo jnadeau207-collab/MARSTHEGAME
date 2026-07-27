@@ -139,6 +139,7 @@ add_custom_target(
 
 set(MARS_GAME_SOURCES
   ${MARS_SCENE_ASSET_SOURCES}
+  ${MARS_MESH_ASSET_SOURCES}
   src/game/collision.cpp
   src/game/collision.h
   src/game/game_state.cpp
@@ -209,7 +210,10 @@ target_compile_definitions(
     NOMINMAX
 )
 mars_strict_warnings(mars_native_game_tests)
-add_test(NAME native_game_state COMMAND mars_native_game_tests "${COOKED_SCENE}")
+add_test(
+  NAME native_game_state
+  COMMAND mars_native_game_tests "${COOKED_SCENE}" "${COOKED_BEACON_MESH}"
+)
 
 add_executable(
   mars_native_input_tests
