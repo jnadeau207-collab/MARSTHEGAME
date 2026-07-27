@@ -133,9 +133,7 @@ def audit_phase3_renderer(manifest: dict[str, Any]) -> dict[str, Any]:
     )
 
     plan = (ROOT / "AUTHORITATIVE_PRODUCTION_PLAN.md").read_text(encoding="utf-8")
-    decision = (ROOT / "docs/decisions/0016-windows-native-renderer.md").read_text(
-        encoding="utf-8"
-    )
+    decision = (ROOT / "docs/decisions/0016-windows-native-renderer.md").read_text(encoding="utf-8")
     record(
         "architecture_decision_explicit",
         "C++23" in plan
