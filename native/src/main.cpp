@@ -4,6 +4,8 @@
 #include <Windows.h>
 
 #include <array>
+#include <cstdint>
+#include <cwchar>
 #include <filesystem>
 #include <stdexcept>
 #include <string>
@@ -22,11 +24,11 @@ std::filesystem::path ExecutableDirectory()
     return std::filesystem::path(std::wstring_view(path.data(), length)).parent_path();
 }
 
-bool IsSelfTestRequested()
+bool HasArgument(const std::wstring_view argument)
 {
     const wchar_t* command_line = GetCommandLineW();
     return command_line != nullptr
-        && std::wstring_view(command_line).find(L"--self-test") != std::wstring_view::npos;
+        && std::wstring_view(command_line).find(argument) != std::wstring_view::npos;
 }
 
 int RunSelfTest()
@@ -37,6 +39,67 @@ int RunSelfTest()
     const bool pixel_shader_exists =
         std::filesystem::is_regular_file(shader_directory / L"triangle.ps.dxil");
     return vertex_shader_exists && pixel_shader_exists ? 0 : 2;
+}
+
+void LogFrameStatistics(const mars::renderer::FrameStatistics statistics)
+{
+    std::array<wchar_t, 256> message{};
+    const int written = swprintf_s(
+        message.data(),
+        message.size(),
+        L"MARSTHEGAME native frames=%llu last_cpu_ms=%.3f max_cpu_ms=%.3f\n",
+        static_cast<unsigned long long>(statistics.presented_frames),
+        statistics.last_cpu_frame_ms,
+        statistics.max_cpu_frame_ms);
+    if (written > 0)
+    {
+        OutputDebugStringW(message.data());
+    }
+}
+
+int RunWarpSmokeTest(const HINSTANCE instance)
+{
+    mars::platform::Win32Window window;
+    window.Create(instance, 640, 360, L"MARSTHEGAME WARP Smoke Test", false);
+
+    mars::renderer::D3D12Renderer renderer;
+    renderer.Initialize(
+        window.Handle(),
+        window.Width(),
+        window.Height(),
+        mars::renderer::AdapterPreference::Warp);
+    window.SetResizeCallback(
+        [&renderer](const std::uint32_t width, const std::uint32_t height) {
+            renderer.Resize(width, height);
+        });
+
+    for (std::uint32_t frame = 0; frame < 3; ++frame)
+    {
+        if (!window.PumpMessages())
+        {
+            throw std::runtime_error("WARP smoke window closed before the first render sequence");
+        }
+        renderer.Render();
+    }
+
+    renderer.Resize(800, 450);
+    for (std::uint32_t frame = 0; frame < 3; ++frame)
+    {
+        if (!window.PumpMessages())
+        {
+            throw std::runtime_error("WARP smoke window closed before the resize render sequence");
+        }
+        renderer.Render();
+    }
+
+    const mars::renderer::FrameStatistics statistics = renderer.Statistics();
+    LogFrameStatistics(statistics);
+    renderer.Shutdown();
+    if (statistics.presented_frames != 6 || statistics.max_cpu_frame_ms <= 0.0)
+    {
+        return 3;
+    }
+    return 0;
 }
 
 std::wstring ToWide(const std::string_view text)
@@ -70,11 +133,17 @@ std::wstring ToWide(const std::string_view text)
 
 int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int)
 {
+    const bool self_test = HasArgument(L"--self-test");
+    const bool warp_smoke_test = HasArgument(L"--warp-smoke-test");
     try
     {
-        if (IsSelfTestRequested())
+        if (self_test)
         {
             return RunSelfTest();
+        }
+        if (warp_smoke_test)
+        {
+            return RunWarpSmokeTest(instance);
         }
 
         mars::platform::Win32Window window;
@@ -90,6 +159,10 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int)
         while (window.PumpMessages())
         {
             renderer.Render();
+            if (renderer.PresentedFrameCount() % 120 == 0)
+            {
+                LogFrameStatistics(renderer.Statistics());
+            }
         }
         renderer.Shutdown();
         return 0;
@@ -98,7 +171,10 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int)
     {
         const std::wstring message = ToWide(error.what());
         OutputDebugStringW(message.c_str());
-        MessageBoxW(nullptr, message.c_str(), L"MARSTHEGAME native failure", MB_OK | MB_ICONERROR);
+        if (!self_test && !warp_smoke_test)
+        {
+            MessageBoxW(nullptr, message.c_str(), L"MARSTHEGAME native failure", MB_OK | MB_ICONERROR);
+        }
         return 1;
     }
 }
