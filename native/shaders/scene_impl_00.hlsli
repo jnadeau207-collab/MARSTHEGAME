@@ -61,6 +61,7 @@ struct ScenePixelInput
     float4 currentClip : TEXCOORD1;
     float4 previousClip : TEXCOORD2;
     float4 lightClip : TEXCOORD3;
+    float emissive : TEXCOORD4;
 };
 
 float4 ShadowVS(VertexInput input) : SV_POSITION
@@ -80,6 +81,7 @@ ScenePixelInput SceneVS(VertexInput input)
     output.currentClip = output.position;
     output.previousClip = mul(localPosition, previousWorldViewProjection);
     output.lightClip = mul(localPosition, worldLightViewProjection);
+    output.emissive = max(tint.a - 1.0f, 0.0f);
     return output;
 }
 
