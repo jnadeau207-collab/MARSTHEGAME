@@ -2,12 +2,12 @@
 
 #include <array>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
-#include <cstring>
 #include <fstream>
 #include <stdexcept>
 #include <system_error>
-#include <vector>
+#include <type_traits>
 
 namespace mars::game
 {
@@ -43,6 +43,8 @@ struct SaveEnvelope
 
 static_assert(std::is_trivially_copyable_v<SavePayload>);
 static_assert(std::is_trivially_copyable_v<SaveEnvelope>);
+static_assert(sizeof(SavePayload) == 40);
+static_assert(sizeof(SaveEnvelope) == 64);
 
 std::uint64_t Checksum(const SavePayload& payload) noexcept
 {
