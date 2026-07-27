@@ -1,28 +1,3 @@
-TextureCube<float4> environmentTexture : register(t8);
-
-float3 SampleGeneratedEnvironment(float3 direction)
-{
-    return environmentTexture.SampleLevel(linearClampSampler, normalize(direction), 0.0f).rgb;
-}
-
-float SampleShadow(float4 lightClip)
-{
-    const float3 projected = lightClip.xyz / max(lightClip.w, 0.0001f);
-    const float2 uv = float2(projected.x * 0.5f + 0.5f, -projected.y * 0.5f + 0.5f);
-    if (uv.x <= 0.0f || uv.x >= 1.0f || uv.y <= 0.0f || uv.y >= 1.0f || projected.z <= 0.0f || projected.z >= 1.0f)
-    {
-        return 1.0f;
-    }
-    uint shadowWidth = 0;
-    uint shadowHeight = 0;
-    shadowTexture.GetDimensions(shadowWidth, shadowHeight);
-    const float2 texel = 1.0f / float2(shadowWidth, shadowHeight);
-    float visibility = 0.0f;
-    [unroll]
-    for (int y = -1; y <= 1; ++y)
-    {
-        [unroll]
-        for (int x = -1; x <= 1; ++x)
         {
             visibility += shadowTexture.SampleCmpLevelZero(
                 shadowSampler,
@@ -31,6 +6,11 @@ float SampleShadow(float4 lightClip)
         }
     }
     return visibility / 9.0f;
+}
+
+float3 SampleGeneratedEnvironment(float3 direction)
+{
+    return environmentTexture.SampleLevel(linearClampSampler, normalize(direction), 0.0f).rgb;
 }
 
 float3 EvaluateLight(
