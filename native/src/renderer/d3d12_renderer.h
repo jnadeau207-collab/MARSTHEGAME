@@ -1,5 +1,7 @@
 #pragma once
 
+#include "renderer/render_scene.h"
+
 #include <Windows.h>
 #include <DirectXMath.h>
 #include <d3d12.h>
@@ -39,6 +41,7 @@ class D3D12Renderer final
 {
 public:
     static constexpr std::uint32_t kFrameCount = 2;
+    static constexpr std::uint32_t kMaxInstances = 64;
 
     D3D12Renderer() = default;
     D3D12Renderer(const D3D12Renderer&) = delete;
@@ -51,7 +54,7 @@ public:
         std::uint32_t height,
         AdapterPreference adapter_preference = AdapterPreference::Hardware,
         bool enable_frame_capture = false);
-    void Render();
+    void Render(const RenderScene& scene);
     void Resize(std::uint32_t width, std::uint32_t height);
     void Shutdown();
     void RequestFrameCapture();
@@ -74,7 +77,8 @@ private:
         DirectX::XMFLOAT4X4 world{};
         DirectX::XMFLOAT4X4 world_view_projection{};
         DirectX::XMFLOAT4 light_direction{};
-        std::array<float, 28> padding{};
+        DirectX::XMFLOAT4 tint{};
+        std::array<float, 24> padding{};
     };
 
     static_assert(sizeof(SceneConstants) == 256);
@@ -89,7 +93,7 @@ private:
     void CreatePipeline();
     void CreateGeometry();
     void CreateSceneConstants();
-    void UpdateSceneConstants();
+    void UpdateSceneConstants(const RenderScene& scene);
     void PopulateCommandList();
     void MoveToNextFrame();
     void WaitForGpu();
@@ -129,6 +133,7 @@ private:
     D3D12_PLACED_SUBRESOURCE_FOOTPRINT capture_footprint_{};
     D3D12_VIEWPORT viewport_{};
     D3D12_RECT scissor_rect_{};
+    std::array<float, 4> clear_color_{0.018f, 0.022f, 0.035f, 1.0f};
     std::byte* mapped_scene_constants_ = nullptr;
     HANDLE fence_event_ = nullptr;
     std::array<std::uint64_t, kFrameCount> fence_values_{};
@@ -140,6 +145,7 @@ private:
     std::uint32_t width_ = 0;
     std::uint32_t height_ = 0;
     std::uint32_t index_count_ = 0;
+    std::uint32_t instance_count_ = 0;
     std::uint64_t presented_frames_ = 0;
     double last_cpu_frame_ms_ = 0.0;
     double max_cpu_frame_ms_ = 0.0;
