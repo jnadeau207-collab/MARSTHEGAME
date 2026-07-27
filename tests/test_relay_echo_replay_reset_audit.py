@@ -25,13 +25,20 @@ class RelayEchoReplayResetAuditTests(unittest.TestCase):
             self.replay_report if replay is None else replay,
         )
 
+    def pending_manifest(self) -> dict:
+        manifest = copy.deepcopy(self.manifest)
+        manifest["relay_echo_completed_mission_replay_verification"] = "pending"
+        manifest["verification_run"] = "requested"
+        manifest["carried_release_gates"]["completed_mission_replay_verified"] = False
+        return manifest
+
     def test_committed_subtranche_and_replay_pass(self) -> None:
         report = self.audit(self.manifest)
         self.assertEqual(report["status"], "pass")
         self.assertEqual(report["subtranche"], "relay_echo_completed_mission_replay")
 
     def test_replay_gate_cannot_be_claimed_before_verification(self) -> None:
-        manifest = copy.deepcopy(self.manifest)
+        manifest = self.pending_manifest()
         manifest["carried_release_gates"]["completed_mission_replay_verified"] = True
         report = self.audit(manifest)
         self.assertEqual(report["status"], "fail")
@@ -39,8 +46,6 @@ class RelayEchoReplayResetAuditTests(unittest.TestCase):
 
     def test_verified_replay_requires_numeric_run(self) -> None:
         manifest = copy.deepcopy(self.manifest)
-        manifest["relay_echo_completed_mission_replay_verification"] = "passed"
-        manifest["carried_release_gates"]["completed_mission_replay_verified"] = True
         manifest["verification_run"] = "requested"
         report = self.audit(manifest)
         self.assertEqual(report["status"], "fail")
