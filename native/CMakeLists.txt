@@ -81,6 +81,11 @@ set(MARS_PROCEDURAL_CONTENT_SOURCES
   src/renderer/procedural_geometry.h
 )
 
+set(MARS_GENERATED_MATERIAL_SOURCES
+  src/renderer/generated_materials.cpp
+  src/renderer/generated_materials.h
+)
+
 set(MARS_SCENE_ASSET_SOURCES
   src/assets/scene_asset.cpp
   src/assets/scene_asset.h
@@ -137,6 +142,10 @@ add_executable(
   src/platform/win32_window.h
   src/renderer/d3d12_renderer.cpp
   src/renderer/d3d12_renderer.h
+  src/renderer/fence_retirement.h
+  src/renderer/gpu_upload.cpp
+  src/renderer/gpu_upload.h
+  ${MARS_GENERATED_MATERIAL_SOURCES}
   ${MARS_GAME_SOURCES}
   ${MARS_INPUT_SOURCES}
 )
@@ -231,6 +240,36 @@ target_compile_definitions(
 )
 mars_strict_warnings(mars_procedural_content_tests)
 add_test(NAME procedural_content_generation COMMAND mars_procedural_content_tests)
+
+add_executable(
+  mars_generated_material_tests
+  tests/generated_material_tests.cpp
+  ${MARS_GENERATED_MATERIAL_SOURCES}
+)
+target_include_directories(mars_generated_material_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
+target_compile_definitions(
+  mars_generated_material_tests
+  PRIVATE
+    WIN32_LEAN_AND_MEAN
+    NOMINMAX
+)
+mars_strict_warnings(mars_generated_material_tests)
+add_test(NAME generated_material_content COMMAND mars_generated_material_tests)
+
+add_executable(
+  mars_fence_retirement_tests
+  tests/fence_retirement_tests.cpp
+  src/renderer/fence_retirement.h
+)
+target_include_directories(mars_fence_retirement_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
+target_compile_definitions(
+  mars_fence_retirement_tests
+  PRIVATE
+    WIN32_LEAN_AND_MEAN
+    NOMINMAX
+)
+mars_strict_warnings(mars_fence_retirement_tests)
+add_test(NAME gpu_fence_resource_retirement COMMAND mars_fence_retirement_tests)
 
 add_custom_command(
   TARGET mars_native
