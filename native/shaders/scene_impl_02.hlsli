@@ -47,9 +47,11 @@ float3 EvaluateProceduralSky(float2 uv, float aspect)
         + cameraUp.xyz * ndc.y * 0.5543f);
     const float height = saturate(ray.y * 0.5f + 0.5f);
     const float horizonBand = exp(-abs(ray.y) * 7.5f);
+    const float3 generatedSky = SampleGeneratedEnvironment(ray);
     const float3 zenith = skyZenithHistory.rgb * 1.8f + float3(0.008f, 0.012f, 0.028f);
     const float3 horizon = horizonColorBloom.rgb * 2.4f + float3(0.12f, 0.028f, 0.012f);
     float3 sky = lerp(horizon, zenith, pow(height, 0.72f));
+    sky = lerp(sky, generatedSky * 1.35f, 0.46f);
     sky += horizon * horizonBand * 0.35f;
 
     const float3 sunDirection = normalize(-sunDirectionExposure.xyz);
@@ -121,11 +123,14 @@ float4 FinalPS(FullscreenOutput input) : SV_TARGET
     color = AcesToneMap(color * sunDirectionExposure.w);
     const float2 centered = input.uv * 2.0f - 1.0f;
     const float vignette = saturate(1.0f - dot(centered, centered) * postParameters.y);
+    const float cornerFade = smoothstep(1.27f, 1.41f, length(centered));
+    const float cinematicVignette = lerp(1.0f, 0.001f, cornerFade)
+        * lerp(0.82f, 1.0f, vignette);
     const float displayLuminance = dot(color, float3(0.2126f, 0.7152f, 0.0722f));
     const float grainSeed = dot(floor(input.position.xy), float2(12.9898f, 78.233f))
         + floor(cameraPositionTime.w * 24.0f) * 19.19f;
     const float grain = (frac(sin(grainSeed) * 43758.5453f) - 0.5f)
         * 0.0035f * saturate(displayLuminance * 4.0f);
-    color = pow(saturate(color * lerp(0.84f, 1.0f, vignette) + grain), 1.0f / 2.2f);
+    color = pow(saturate(color * cinematicVignette + grain), 1.0f / 2.2f);
     return float4(color, 1.0f);
 }
