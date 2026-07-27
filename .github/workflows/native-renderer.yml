@@ -32,20 +32,26 @@ jobs:
           "DXC_EXECUTABLE=$($dxc.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
       - name: Configure validation-enabled native game
         shell: pwsh
-        run: >-
-          cmake
-          -S native
-          -B build/native
-          -G Ninja
-          -DCMAKE_BUILD_TYPE=RelWithDebInfo
-          -DMARS_ENABLE_D3D12_VALIDATION=ON
-          -DDXC_EXECUTABLE="$env:DXC_EXECUTABLE"
+        run: |
+          New-Item -ItemType Directory -Force -Path build | Out-Null
+          cmake -S native -B build/native -G Ninja `
+            -DCMAKE_BUILD_TYPE=RelWithDebInfo `
+            -DMARS_ENABLE_D3D12_VALIDATION=ON `
+            -DDXC_EXECUTABLE="$env:DXC_EXECUTABLE" 2>&1 |
+            Tee-Object -FilePath build/native-configure.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Build native game, cooker, scene package, and shaders
         shell: pwsh
-        run: cmake --build build/native --parallel
+        run: |
+          cmake --build build/native --parallel 2>&1 |
+            Tee-Object -FilePath build/native-build.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Run deterministic native gameplay and asset tests
         shell: pwsh
-        run: ctest --test-dir build/native --output-on-failure
+        run: |
+          ctest --test-dir build/native --output-on-failure 2>&1 |
+            Tee-Object -FilePath build/native-tests.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Verify packaged shader and scene payloads
         shell: pwsh
         run: |
@@ -57,14 +63,16 @@ jobs:
         run: |
           .\build\native\mars_native.exe --warp-smoke-test
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Upload native game and asset evidence
+      - name: Upload native game and diagnostic evidence
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: mars-native-game-${{ github.sha }}
           path: |
+            build/*.log
             build/native/mars_native.exe
             build/native/mars_native_game_tests.exe
             build/native/mars_scene_cooker.exe
             build/native/shaders/*.dxil
             build/native/assets/scenes/*.bin
-          if-no-files-found: error
+          if-no-files-found: warn
