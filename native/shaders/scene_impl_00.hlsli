@@ -39,6 +39,7 @@ Texture2D<float4> hdrTexture : register(t4);
 Texture2D<float4> historyTexture0 : register(t5);
 Texture2D<float4> historyTexture1 : register(t6);
 Texture2D<float> sceneDepthTexture : register(t7);
+TextureCube<float4> environmentTexture : register(t8);
 SamplerState materialSampler : register(s0);
 SamplerComparisonState shadowSampler : register(s1);
 SamplerState linearClampSampler : register(s2);
@@ -179,4 +180,4 @@ float SampleShadow(float4 lightClip)
     for (int y = -1; y <= 1; ++y)
     {
         [unroll]
-        for (int x = -1; x <= 1; ++x)
+    for (int x = -1; x <= 1; ++x)
