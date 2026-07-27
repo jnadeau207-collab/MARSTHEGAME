@@ -135,9 +135,9 @@ void D3D12Renderer::CreatePipelines()
     particle_description.BlendState = OpaqueBlendDescription();
     particle_description.BlendState.RenderTarget[0].BlendEnable = TRUE;
     particle_description.BlendState.RenderTarget[0].SrcBlend = D3D12_BLEND_ONE;
-    particle_description.BlendState.RenderTarget[0].DestBlend = D3D12_BLEND_ONE;
+    particle_description.BlendState.RenderTarget[0].DestBlend = D3D12_BLEND_INV_SRC_ALPHA;
     particle_description.BlendState.RenderTarget[0].SrcBlendAlpha = D3D12_BLEND_ONE;
-    particle_description.BlendState.RenderTarget[0].DestBlendAlpha = D3D12_BLEND_ONE;
+    particle_description.BlendState.RenderTarget[0].DestBlendAlpha = D3D12_BLEND_INV_SRC_ALPHA;
     particle_description.SampleMask = (std::numeric_limits<UINT>::max)();
     particle_description.RasterizerState = RasterizerDescription();
     particle_description.DepthStencilState = DepthDescription(true, false);
@@ -183,9 +183,14 @@ void D3D12Renderer::CreateStaticResources()
 {
     const ProceduralMeshCatalog mesh_catalog = GenerateProceduralMeshCatalog();
     const GeneratedMaterialCatalog material_catalog = GenerateMaterialCatalog();
+    const GeneratedEnvironmentCube environment = GenerateAresReachEnvironmentCube();
     if (!ValidateMaterialCatalog(material_catalog))
     {
         throw std::runtime_error("Generated material catalog failed validation");
+    }
+    if (!ValidateEnvironmentCube(environment))
+    {
+        throw std::runtime_error("Generated environment IBL cube failed validation");
     }
     static_assert(kProceduralMeshCount == kGeneratedMaterialCount);
     static_assert(kGeneratedMaterialCount == static_cast<std::size_t>(MeshKind::Count));
