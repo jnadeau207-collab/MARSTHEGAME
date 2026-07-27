@@ -84,6 +84,11 @@
         {
             throw std::invalid_argument("RenderScene contains an invalid generated mesh kind");
         }
+        const std::size_t material_index = static_cast<std::size_t>(instance.material_slot);
+        if (material_index >= materials_.size())
+        {
+            throw std::invalid_argument("RenderScene contains an invalid generated material slot");
+        }
         instance_meshes_[destination_index] = instance.mesh;
         const XMMATRIX world =
             XMMatrixScaling(instance.scale.x, instance.scale.y, instance.scale.z)
@@ -93,7 +98,7 @@
                 instance.rotation_radians.z)
             * XMMatrixTranslation(instance.position.x, instance.position.y, instance.position.z);
         const XMMATRIX inverse_transpose = XMMatrixTranspose(XMMatrixInverse(nullptr, world));
-        const GeneratedMaterial& material = materials_[mesh_index];
+        const GeneratedMaterial& material = materials_[material_index];
         ObjectConstants object{};
         XMStoreFloat4x4(&object.world, world);
         XMStoreFloat4x4(&object.world_inverse_transpose, inverse_transpose);
