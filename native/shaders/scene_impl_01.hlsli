@@ -124,13 +124,13 @@ ParticleOutput ParticleVS(uint vertexId : SV_VertexID)
         cos(angle) * radius,
         0.18f + life * (2.6f + Hash11(seed * 11.0f) * 3.2f),
         sin(angle) * radius);
-    const float2 triangle[3] = {
+    const float2 corners[3] = {
         float2(-0.75f, -0.55f),
         float2(0.75f, -0.55f),
         float2(0.0f, 0.90f)
     };
     const float size = lerp(0.045f, 0.20f, Hash11(seed * 13.0f)) * (0.45f + life * 0.55f);
-    const float2 local = triangle[cornerIndex];
+    const float2 local = corners[cornerIndex];
     const float3 worldPosition = center + cameraRight.xyz * local.x * size + cameraUp.xyz * local.y * size;
     output.position = mul(float4(worldPosition, 1.0f), viewProjection);
     output.local = local;
