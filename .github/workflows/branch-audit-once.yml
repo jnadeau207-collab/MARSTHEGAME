@@ -1,0 +1,39 @@
+name: One-Time Branch Audit
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/branch-audit-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  verify-single-branch:
+    name: Verify main is the only branch
+    runs-on: ubuntu-latest
+    steps:
+      - name: Audit live remote refs and record success
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mapfile -t branches < <(
+            gh api --paginate "repos/${GITHUB_REPOSITORY}/branches?per_page=100" --jq '.[].name'
+          )
+
+          if [[ "${#branches[@]}" -ne 1 || "${branches[0]}" != "main" ]]; then
+            echo "Branch cleanup verification failed. Remaining branches:"
+            printf '%s\n' "${branches[@]}"
+            exit 1
+          fi
+
+          marker="Verified by GitHub Actions: main is the only remote branch.\nAudit source commit: ${GITHUB_SHA}\n"
+          encoded="$(printf '%b' "$marker" | base64 -w0)"
+          gh api --method PUT "repos/${GITHUB_REPOSITORY}/contents/.github/branch-cleanup-verified.txt" \
+            -f message='Record successful branch cleanup audit' \
+            -f content="$encoded" \
+            -f branch='main'
