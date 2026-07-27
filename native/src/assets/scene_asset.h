@@ -18,6 +18,17 @@ enum SceneEntityFlag : std::uint32_t
     SceneEntityPlayer = 1U << 2U,
     SceneEntityCheckpoint = 1U << 3U,
     SceneEntityObjective = 1U << 4U,
+    SceneEntityMeshRock = 1U << 5U,
+    SceneEntityMeshColumn = 1U << 6U,
+    SceneEntityMeshTerrain = 1U << 7U,
+};
+
+enum class SceneMeshKind : std::uint32_t
+{
+    Cube = 0,
+    MarsRock = 1,
+    BeaconColumn = 2,
+    TerrainPatch = 3,
 };
 
 struct SceneEntity
@@ -39,6 +50,7 @@ struct SceneDefinition
 };
 
 [[nodiscard]] bool HasFlag(const SceneEntity& entity, SceneEntityFlag flag) noexcept;
+[[nodiscard]] SceneMeshKind MeshKindForEntity(const SceneEntity& entity) noexcept;
 [[nodiscard]] SceneDefinition ParseSceneSource(std::string_view source);
 void WriteCookedScene(const std::filesystem::path& path, const SceneDefinition& scene);
 [[nodiscard]] SceneDefinition LoadCookedScene(const std::filesystem::path& path);

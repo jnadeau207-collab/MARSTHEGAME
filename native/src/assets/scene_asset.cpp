@@ -15,6 +15,7 @@
 #include <system_error>
 #include <type_traits>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 namespace mars::assets
@@ -24,8 +25,10 @@ namespace
 constexpr std::array<char, 8> kMagic = {'M', 'A', 'R', 'S', 'C', 'N', '1', '\0'};
 constexpr std::uint32_t kCookedVersion = 1;
 constexpr std::uint32_t kMaximumEntities = 512;
+constexpr std::uint32_t kMeshFlags = SceneEntityMeshRock | SceneEntityMeshColumn
+    | SceneEntityMeshTerrain;
 constexpr std::uint32_t kKnownFlags = SceneEntityRender | SceneEntityCollider
-    | SceneEntityPlayer | SceneEntityCheckpoint | SceneEntityObjective;
+    | SceneEntityPlayer | SceneEntityCheckpoint | SceneEntityObjective | kMeshFlags;
 constexpr std::uint64_t kFnvOffsetBasis = 1'469'598'103'934'665'603ULL;
 constexpr std::uint64_t kFnvPrime = 1'099'511'628'211ULL;
 
@@ -96,6 +99,43 @@ bool ValidIdentifier(const std::string_view id) noexcept
         });
 }
 
+std::uint32_t FlagForToken(const std::string_view token)
+{
+    if (token == "render")
+    {
+        return SceneEntityRender;
+    }
+    if (token == "collider")
+    {
+        return SceneEntityCollider;
+    }
+    if (token == "player")
+    {
+        return SceneEntityPlayer;
+    }
+    if (token == "checkpoint")
+    {
+        return SceneEntityCheckpoint;
+    }
+    if (token == "objective")
+    {
+        return SceneEntityObjective;
+    }
+    if (token == "mesh_rock")
+    {
+        return SceneEntityMeshRock;
+    }
+    if (token == "mesh_column")
+    {
+        return SceneEntityMeshColumn;
+    }
+    if (token == "mesh_terrain")
+    {
+        return SceneEntityMeshTerrain;
+    }
+    throw std::runtime_error("Unknown scene entity flag: " + std::string(token));
+}
+
 std::uint32_t ParseFlags(const std::string_view text)
 {
     if (text == "none")
@@ -111,31 +151,7 @@ std::uint32_t ParseFlags(const std::string_view text)
         const std::string_view token = text.substr(
             start,
             separator == std::string_view::npos ? text.size() - start : separator - start);
-        std::uint32_t flag = SceneEntityNone;
-        if (token == "render")
-        {
-            flag = SceneEntityRender;
-        }
-        else if (token == "collider")
-        {
-            flag = SceneEntityCollider;
-        }
-        else if (token == "player")
-        {
-            flag = SceneEntityPlayer;
-        }
-        else if (token == "checkpoint")
-        {
-            flag = SceneEntityCheckpoint;
-        }
-        else if (token == "objective")
-        {
-            flag = SceneEntityObjective;
-        }
-        else
-        {
-            throw std::runtime_error("Unknown scene entity flag: " + std::string(token));
-        }
+        const std::uint32_t flag = FlagForToken(token);
         if ((flags & flag) != 0U)
         {
             throw std::runtime_error("Duplicate scene entity flag: " + std::string(token));
@@ -174,6 +190,15 @@ void ValidateDefinition(const SceneDefinition& scene)
         if ((entity.flags & ~kKnownFlags) != 0U)
         {
             throw std::runtime_error("Scene contains unknown entity flags");
+        }
+        const std::uint32_t mesh_flags = entity.flags & kMeshFlags;
+        if (mesh_flags != 0U && (mesh_flags & (mesh_flags - 1U)) != 0U)
+        {
+            throw std::runtime_error("Scene entity selects multiple generated mesh kinds");
+        }
+        if (mesh_flags != 0U && (entity.flags & SceneEntityRender) == 0U)
+        {
+            throw std::runtime_error("Generated mesh selection requires a renderable entity");
         }
         if (!Finite(entity.position) || !Finite(entity.scale) || !Finite(entity.tint))
         {
@@ -237,6 +262,23 @@ SceneEntity FromCooked(const CookedEntity& record)
 bool HasFlag(const SceneEntity& entity, const SceneEntityFlag flag) noexcept
 {
     return (entity.flags & static_cast<std::uint32_t>(flag)) != 0U;
+}
+
+SceneMeshKind MeshKindForEntity(const SceneEntity& entity) noexcept
+{
+    if (HasFlag(entity, SceneEntityMeshTerrain))
+    {
+        return SceneMeshKind::TerrainPatch;
+    }
+    if (HasFlag(entity, SceneEntityMeshRock))
+    {
+        return SceneMeshKind::MarsRock;
+    }
+    if (HasFlag(entity, SceneEntityMeshColumn))
+    {
+        return SceneMeshKind::BeaconColumn;
+    }
+    return SceneMeshKind::Cube;
 }
 
 SceneDefinition ParseSceneSource(const std::string_view source)

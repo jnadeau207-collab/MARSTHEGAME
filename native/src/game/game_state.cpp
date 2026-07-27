@@ -33,6 +33,22 @@ bool Finite(const DirectX::XMFLOAT3 value) noexcept
 {
     return std::isfinite(value.x) && std::isfinite(value.y) && std::isfinite(value.z);
 }
+
+renderer::MeshKind ToRenderMeshKind(const assets::SceneMeshKind mesh)
+{
+    switch (mesh)
+    {
+    case assets::SceneMeshKind::Cube:
+        return renderer::MeshKind::Cube;
+    case assets::SceneMeshKind::MarsRock:
+        return renderer::MeshKind::MarsRock;
+    case assets::SceneMeshKind::BeaconColumn:
+        return renderer::MeshKind::BeaconColumn;
+    case assets::SceneMeshKind::TerrainPatch:
+        return renderer::MeshKind::TerrainPatch;
+    }
+    throw std::invalid_argument("Scene contains an unsupported generated mesh kind");
+}
 } // namespace
 
 GameState::GameState(const assets::SceneDefinition& scene)
@@ -64,6 +80,7 @@ void GameState::InitializeScene(const assets::SceneDefinition& scene)
                 .position = entity.position,
                 .scale = entity.scale,
                 .tint = entity.tint,
+                .mesh = ToRenderMeshKind(assets::MeshKindForEntity(entity)),
             });
         }
         if (assets::HasFlag(entity, assets::SceneEntityCollider))
