@@ -1,3 +1,4 @@
+#include "assets/mesh_asset.h"
 #include "assets/scene_asset.h"
 #include "game/game_state.h"
 #include "game/save_state.h"
@@ -18,6 +19,7 @@
 #include <string>
 #include <string_view>
 #include <system_error>
+#include <vector>
 
 namespace
 {
@@ -50,6 +52,22 @@ std::filesystem::path ExecutableDirectory()
 std::filesystem::path ScenePath()
 {
     return ExecutableDirectory() / L"assets" / L"scenes" / L"ares_reach.marscene.bin";
+}
+
+std::filesystem::path BeaconMeshPath()
+{
+    return ExecutableDirectory() / L"assets" / L"meshes" / L"beacon.marsmesh.bin";
+}
+
+std::vector<mars::assets::StaticMesh> LoadMeshCatalog()
+{
+    std::vector<mars::assets::StaticMesh> meshes;
+    meshes.reserve(2);
+    meshes.push_back(mars::assets::MakeCubeMesh());
+    meshes.push_back(mars::assets::LoadCookedMesh(BeaconMeshPath()));
+    static_cast<void>(mars::assets::FindMeshIndex(meshes, "cube"));
+    static_cast<void>(mars::assets::FindMeshIndex(meshes, "beacon"));
+    return meshes;
 }
 
 std::filesystem::path SavePath()
@@ -166,7 +184,13 @@ int RunSelfTest()
         return 2;
     }
     const mars::assets::SceneDefinition scene = mars::assets::LoadCookedScene(ScenePath());
-    return scene.entities.size() == 18 ? 0 : 5;
+    const std::vector<mars::assets::StaticMesh> meshes = LoadMeshCatalog();
+    if (scene.entities.size() != 18 || meshes.size() != 2)
+    {
+        return 5;
+    }
+    const std::size_t beacon_index = mars::assets::FindMeshIndex(meshes, "beacon");
+    return meshes[beacon_index].indices.size() == 24 ? 0 : 6;
 }
 
 void LogFrameStatistics(const mars::renderer::FrameStatistics statistics)
@@ -207,11 +231,13 @@ int RunWarpSmokeTest(const HINSTANCE instance)
     mars::platform::Win32Window window;
     window.Create(instance, 640, 360, L"MARSTHEGAME Native WARP Test", false);
 
+    const std::vector<mars::assets::StaticMesh> meshes = LoadMeshCatalog();
     mars::renderer::D3D12Renderer renderer;
     renderer.Initialize(
         window.Handle(),
         window.Width(),
         window.Height(),
+        meshes,
         mars::renderer::AdapterPreference::Warp,
         true);
     window.SetResizeCallback(
@@ -220,7 +246,7 @@ int RunWarpSmokeTest(const HINSTANCE instance)
         });
 
     const mars::assets::SceneDefinition scene = mars::assets::LoadCookedScene(ScenePath());
-    mars::game::GameState game(scene);
+    mars::game::GameState game(scene, meshes);
     mars::game::InputState forward{};
     forward.move_z = 1.0f;
     for (std::uint32_t frame = 0; frame < 4; ++frame)
@@ -309,8 +335,9 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int)
             900,
             L"MARSTHEGAME — Reach the beacon — keyboard or controller");
 
+        const std::vector<mars::assets::StaticMesh> meshes = LoadMeshCatalog();
         mars::renderer::D3D12Renderer renderer;
-        renderer.Initialize(window.Handle(), window.Width(), window.Height());
+        renderer.Initialize(window.Handle(), window.Width(), window.Height(), meshes);
         window.SetResizeCallback(
             [&renderer](const std::uint32_t width, const std::uint32_t height) {
                 renderer.Resize(width, height);
@@ -318,7 +345,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int)
 
         const mars::assets::SceneDefinition scene = mars::assets::LoadCookedScene(ScenePath());
         const std::filesystem::path save_path = SavePath();
-        mars::game::GameState game(scene);
+        mars::game::GameState game(scene, meshes);
         LoadGame(game, save_path, true);
         const mars::platform::NativeInput native_input;
 
