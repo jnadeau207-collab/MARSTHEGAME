@@ -1,38 +1,24 @@
 #include "game/game_state.h"
 
-#include "game/collision.h"
-
 #include <algorithm>
-#include <array>
 #include <cmath>
+#include <span>
 #include <stdexcept>
 
 namespace mars::game
 {
 namespace
 {
-constexpr DirectX::XMFLOAT3 kLandingPosition{0.0f, 0.0f, -8.0f};
-constexpr DirectX::XMFLOAT3 kCheckpointPosition{0.0f, 0.0f, 5.0f};
-constexpr DirectX::XMFLOAT3 kObjectivePosition{0.0f, 0.0f, 18.0f};
 constexpr float kObjectiveRadius = 1.6f;
 constexpr float kPlayerRadius = 0.42f;
 constexpr float kWalkSpeed = 5.0f;
 constexpr float kSprintSpeed = 8.0f;
 constexpr float kAcceleration = 18.0f;
 constexpr float kDamping = 10.0f;
-
-constexpr std::array<CollisionBox, 10> kCollisionBoxes = {{
-    {-12.0f, -10.8f, -11.0f, 21.0f},
-    {10.8f, 12.0f, -11.0f, 21.0f},
-    {-7.4f, -4.6f, -2.8f, 0.8f},
-    {5.0f, 8.6f, 1.8f, 4.2f},
-    {-5.5f, -3.5f, 8.0f, 10.0f},
-    {3.8f, 6.2f, 10.4f, 13.6f},
-    {-9.0f, -6.0f, 14.9f, 17.1f},
-    {6.3f, 8.7f, 16.8f, 19.2f},
-    {-3.48f, -2.92f, 4.72f, 5.28f},
-    {2.92f, 3.48f, 4.72f, 5.28f},
-}};
+constexpr float kMinimumX = -10.5f;
+constexpr float kMaximumX = 10.5f;
+constexpr float kMinimumZ = -10.0f;
+constexpr float kMaximumZ = 20.0f;
 
 float Approach(const float current, const float target, const float max_delta)
 {
@@ -43,28 +29,93 @@ float Approach(const float current, const float target, const float max_delta)
     return (std::max)(current - max_delta, target);
 }
 
-renderer::RenderInstance Instance(
-    const DirectX::XMFLOAT3 position,
-    const DirectX::XMFLOAT3 scale,
-    const DirectX::XMFLOAT4 tint)
-{
-    return {.position = position, .scale = scale, .tint = tint};
-}
-
 bool Finite(const DirectX::XMFLOAT3 value) noexcept
 {
     return std::isfinite(value.x) && std::isfinite(value.y) && std::isfinite(value.z);
 }
 } // namespace
 
-GameState::GameState()
+GameState::GameState(const assets::SceneDefinition& scene)
 {
+    InitializeScene(scene);
     Reset();
+}
+
+void GameState::InitializeScene(const assets::SceneDefinition& scene)
+{
+    if (scene.schema_version != assets::SceneDefinition::kSchemaVersion || scene.entities.empty())
+    {
+        throw std::invalid_argument("GameState requires a valid cooked scene definition");
+    }
+
+    base_instances_.clear();
+    collision_boxes_.clear();
+    player_instance_index_ = kInvalidIndex;
+    checkpoint_instance_index_ = kInvalidIndex;
+    objective_instance_index_ = kInvalidIndex;
+
+    for (const assets::SceneEntity& entity : scene.entities)
+    {
+        std::size_t render_index = kInvalidIndex;
+        if (assets::HasFlag(entity, assets::SceneEntityRender))
+        {
+            render_index = base_instances_.size();
+            base_instances_.push_back({
+                .position = entity.position,
+                .scale = entity.scale,
+                .tint = entity.tint,
+            });
+        }
+        if (assets::HasFlag(entity, assets::SceneEntityCollider))
+        {
+            collision_boxes_.push_back({
+                .min_x = entity.position.x - entity.scale.x,
+                .max_x = entity.position.x + entity.scale.x,
+                .min_z = entity.position.z - entity.scale.z,
+                .max_z = entity.position.z + entity.scale.z,
+            });
+        }
+        if (assets::HasFlag(entity, assets::SceneEntityPlayer))
+        {
+            if (render_index == kInvalidIndex || player_instance_index_ != kInvalidIndex)
+            {
+                throw std::invalid_argument("Scene requires one renderable player entity");
+            }
+            landing_position_ = entity.position;
+            player_instance_index_ = render_index;
+        }
+        if (assets::HasFlag(entity, assets::SceneEntityCheckpoint))
+        {
+            if (render_index == kInvalidIndex || checkpoint_instance_index_ != kInvalidIndex)
+            {
+                throw std::invalid_argument("Scene requires one renderable checkpoint entity");
+            }
+            checkpoint_position_ = entity.position;
+            checkpoint_instance_index_ = render_index;
+        }
+        if (assets::HasFlag(entity, assets::SceneEntityObjective))
+        {
+            if (render_index == kInvalidIndex || objective_instance_index_ != kInvalidIndex)
+            {
+                throw std::invalid_argument("Scene requires one renderable objective entity");
+            }
+            objective_position_ = entity.position;
+            objective_instance_index_ = render_index;
+        }
+    }
+
+    if (player_instance_index_ == kInvalidIndex || checkpoint_instance_index_ == kInvalidIndex
+        || objective_instance_index_ == kInvalidIndex || collision_boxes_.empty())
+    {
+        throw std::invalid_argument("Scene is missing required gameplay entities or collision");
+    }
+    checkpoint_position_.y = landing_position_.y;
+    instances_ = base_instances_;
 }
 
 void GameState::Reset()
 {
-    player_position_ = kLandingPosition;
+    player_position_ = landing_position_;
     player_velocity_ = {};
     accumulator_seconds_ = 0.0f;
     elapsed_seconds_ = 0.0f;
@@ -82,7 +133,7 @@ void GameState::RestoreCheckpoint()
         Reset();
         return;
     }
-    player_position_ = kCheckpointPosition;
+    player_position_ = checkpoint_position_;
     player_velocity_ = {};
     accumulator_seconds_ = 0.0f;
     mission_state_ = MissionState::Traverse;
@@ -100,10 +151,26 @@ void GameState::Restore(const GameSnapshot& snapshot)
     {
         throw std::invalid_argument("Native game snapshot contains invalid values");
     }
-    if (snapshot.player_position.x < -10.5f || snapshot.player_position.x > 10.5f
-        || snapshot.player_position.z < -10.0f || snapshot.player_position.z > 20.0f)
+    if (snapshot.mission_state != MissionState::Traverse
+        && snapshot.mission_state != MissionState::Complete)
+    {
+        throw std::invalid_argument("Native game snapshot contains an invalid mission state");
+    }
+    if (snapshot.player_position.x < kMinimumX || snapshot.player_position.x > kMaximumX
+        || snapshot.player_position.z < kMinimumZ || snapshot.player_position.z > kMaximumZ)
     {
         throw std::invalid_argument("Native game snapshot is outside mission bounds");
+    }
+    for (const CollisionBox& box : collision_boxes_)
+    {
+        if (CircleIntersectsBox(
+                snapshot.player_position.x,
+                snapshot.player_position.z,
+                kPlayerRadius,
+                box))
+        {
+            throw std::invalid_argument("Native game snapshot intersects scene collision");
+        }
     }
 
     player_position_ = snapshot.player_position;
@@ -192,7 +259,7 @@ renderer::RenderScene GameState::Scene() const noexcept
         .camera_eye = eye,
         .camera_target = target,
         .clear_color = clear,
-        .instances = instances_,
+        .instances = std::span<const renderer::RenderInstance>(instances_),
     };
 }
 
@@ -232,9 +299,13 @@ void GameState::IntegrateFixedStep(const InputState& input)
         player_velocity_.x * kFixedStepSeconds,
         player_velocity_.z * kFixedStepSeconds,
     };
-    DirectX::XMFLOAT2 resolved = ResolvePlanarMovement(before, desired, kPlayerRadius, kCollisionBoxes);
-    resolved.x = (std::clamp)(resolved.x, -10.5f, 10.5f);
-    resolved.y = (std::clamp)(resolved.y, -10.0f, 20.0f);
+    DirectX::XMFLOAT2 resolved = ResolvePlanarMovement(
+        before,
+        desired,
+        kPlayerRadius,
+        std::span<const CollisionBox>(collision_boxes_));
+    resolved.x = (std::clamp)(resolved.x, kMinimumX, kMaximumX);
+    resolved.y = (std::clamp)(resolved.y, kMinimumZ, kMaximumZ);
     if (resolved.x == before.x && desired.x != 0.0f)
     {
         player_velocity_.x = 0.0f;
@@ -246,13 +317,13 @@ void GameState::IntegrateFixedStep(const InputState& input)
     player_position_.x = resolved.x;
     player_position_.z = resolved.y;
 
-    if (!checkpoint_reached_ && player_position_.z >= kCheckpointPosition.z)
+    if (!checkpoint_reached_ && player_position_.z >= checkpoint_position_.z)
     {
         checkpoint_reached_ = true;
     }
 
-    const float objective_dx = player_position_.x - kObjectivePosition.x;
-    const float objective_dz = player_position_.z - kObjectivePosition.z;
+    const float objective_dx = player_position_.x - objective_position_.x;
+    const float objective_dz = player_position_.z - objective_position_.z;
     if (objective_dx * objective_dx + objective_dz * objective_dz <= kObjectiveRadius * kObjectiveRadius)
     {
         mission_state_ = MissionState::Complete;
@@ -261,41 +332,23 @@ void GameState::IntegrateFixedStep(const InputState& input)
 
 void GameState::RebuildScene()
 {
-    const DirectX::XMFLOAT4 mars_ground{0.34f, 0.12f, 0.055f, 1.0f};
-    const DirectX::XMFLOAT4 basalt{0.12f, 0.095f, 0.085f, 1.0f};
-    const DirectX::XMFLOAT4 structure{0.30f, 0.34f, 0.38f, 1.0f};
-    const DirectX::XMFLOAT4 player_tint{0.12f, 0.62f, 0.78f, 1.0f};
-    const float pulse = 1.0f + std::sin(elapsed_seconds_ * 4.0f) * 0.12f;
-    const DirectX::XMFLOAT4 beacon_tint = mission_state_ == MissionState::Complete
-        ? DirectX::XMFLOAT4{0.18f, 0.95f, 0.48f, 1.0f}
-        : DirectX::XMFLOAT4{1.0f, 0.62f, 0.08f, 1.0f};
+    instances_ = base_instances_;
+    instances_[player_instance_index_].position = player_position_;
 
-    instances_[0] = Instance({0.0f, -1.25f, 5.0f}, {12.0f, 0.75f, 16.0f}, mars_ground);
-    instances_[1] = Instance({0.0f, -0.55f, -8.0f}, {3.5f, 0.18f, 3.5f}, structure);
-    instances_[2] = Instance({-11.4f, 1.5f, 5.0f}, {0.6f, 2.7f, 16.0f}, basalt);
-    instances_[3] = Instance({11.4f, 1.5f, 5.0f}, {0.6f, 2.7f, 16.0f}, basalt);
-    instances_[4] = Instance({-6.0f, 0.0f, -1.0f}, {1.4f, 1.2f, 1.8f}, basalt);
-    instances_[5] = Instance({6.8f, 0.2f, 3.0f}, {1.8f, 1.4f, 1.2f}, basalt);
-    instances_[6] = Instance({-4.5f, 0.1f, 9.0f}, {1.0f, 1.3f, 1.0f}, basalt);
-    instances_[7] = Instance({5.0f, 0.0f, 12.0f}, {1.2f, 1.1f, 1.6f}, basalt);
-    instances_[8] = Instance({-7.5f, 0.3f, 16.0f}, {1.5f, 1.5f, 1.1f}, basalt);
-    instances_[9] = Instance({7.5f, 0.2f, 18.0f}, {1.2f, 1.4f, 1.2f}, basalt);
-    instances_[10] = Instance({-3.2f, 0.1f, 5.0f}, {0.28f, 1.6f, 0.28f}, structure);
-    instances_[11] = Instance({3.2f, 0.1f, 5.0f}, {0.28f, 1.6f, 0.28f}, structure);
-    instances_[12] = Instance({0.0f, 1.8f, 5.0f}, {3.5f, 0.22f, 0.22f}, structure);
-    instances_[13] = Instance({-2.4f, 0.0f, 14.5f}, {0.25f, 1.2f, 0.25f}, structure);
-    instances_[14] = Instance({2.4f, 0.0f, 14.5f}, {0.25f, 1.2f, 0.25f}, structure);
-    instances_[15] = Instance(
-        {kObjectivePosition.x, 1.0f, kObjectivePosition.z},
-        {0.38f * pulse, 2.0f * pulse, 0.38f * pulse},
-        beacon_tint);
-    instances_[16] = Instance(
-        {player_position_.x, player_position_.y, player_position_.z},
-        {0.45f, 0.72f, 0.45f},
-        player_tint);
-    const DirectX::XMFLOAT4 checkpoint_tint = checkpoint_reached_
+    const float pulse = 1.0f + std::sin(elapsed_seconds_ * 4.0f) * 0.12f;
+    renderer::RenderInstance& objective = instances_[objective_instance_index_];
+    const renderer::RenderInstance& base_objective = base_instances_[objective_instance_index_];
+    objective.scale = {
+        base_objective.scale.x * pulse,
+        base_objective.scale.y * pulse,
+        base_objective.scale.z * pulse,
+    };
+    objective.tint = mission_state_ == MissionState::Complete
+        ? DirectX::XMFLOAT4{0.18f, 0.95f, 0.48f, 1.0f}
+        : base_objective.tint;
+
+    instances_[checkpoint_instance_index_].tint = checkpoint_reached_
         ? DirectX::XMFLOAT4{0.20f, 0.78f, 0.44f, 1.0f}
-        : structure;
-    instances_[17] = Instance({0.0f, -0.35f, 5.0f}, {1.8f, 0.12f, 1.8f}, checkpoint_tint);
+        : base_instances_[checkpoint_instance_index_].tint;
 }
 } // namespace mars::game
