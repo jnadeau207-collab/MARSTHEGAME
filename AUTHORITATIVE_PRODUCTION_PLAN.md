@@ -139,14 +139,21 @@ The code-authored content and renderer path now contain:
 - validated 32-bit vertex/index atlas construction,
 - cooked-scene mesh identity for cube, rock, column, and terrain geometry,
 - per-instance D3D12 draw-range selection,
+- deterministic project-generated base-color, tangent-space normal, and packed roughness, metallic, mask, and occlusion texture-array layers aligned to the canonical mesh slots,
+- deterministic material parameters, aggregate material hashing, and fail-closed material-catalog validation,
+- world-space triplanar generated-material sampling without an external texture or UV-authoring dependency,
+- a shader-visible material SRV heap and static anisotropic sampler,
+- default-heap residency for immutable vertex, index, and texture resources,
+- a dedicated upload command path with explicit copy transitions, upload-fence synchronization, monotonic fence retirement, and staging-resource lifetime tracking,
+- a persistently mapped upload heap reserved for per-frame CPU-written scene constants rather than immutable content,
+- startup verification and diagnostics proving completed staging batches are retired before first render,
 - an Ares Reach composition containing generated terrain, six rocks, six radial elements, and five explicit hard-surface cube elements,
-- strict topology, seed-divergence, density, elevation, cooked-scene, aggregate-manifest, corruption-rejection, runtime-composition, DXIL-package, D3D12 validation, resize, and GPU-readback evidence.
+- strict topology, seed-divergence, density, elevation, cooked-scene, aggregate-manifest, generated-material determinism, material-corruption rejection, fence-retirement ordering, runtime-composition, DXIL-package, D3D12 validation, resize, and GPU-readback evidence,
+- exact Windows verification by Native Game CI run #253 on the project-generated-material and default-heap-residency implementation head.
 
 ### Remaining Phase 4 systems
 
-- project-owned texture, normal, roughness, mask, and material generation,
-- default-heap GPU upload, staging, synchronization, and resource lifetime tracking,
-- mesh, texture, material, sampler, and shader-variant management,
+- scalable mesh, texture, material, sampler, descriptor, mip, streaming, and shader-variant management,
 - physically based metallic/roughness material path,
 - project-owned skeletal hierarchy, skinning, clips, blending, root-motion policy, and animation state machines,
 - combat, interaction, campaign progression, settings, and accessibility completion,
