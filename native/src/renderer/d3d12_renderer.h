@@ -140,10 +140,8 @@ private:
     void UpdateConstants(const RenderScene& scene);
     void PopulateCommandList();
     void DrawInstances();
-    void DrawFullscreen(
-        ID3D12PipelineState& pipeline,
-        D3D12_CPU_DESCRIPTOR_HANDLE target,
-        std::uint32_t descriptor_table_index);
+    void DrawParticles();
+    void DrawFullscreen(ID3D12PipelineState& pipeline, D3D12_CPU_DESCRIPTOR_HANDLE target);
     void MoveToNextFrame();
     void WaitForGpu();
     void CollectGpuTiming(std::uint32_t frame_index);
@@ -157,7 +155,7 @@ private:
     [[nodiscard]] std::filesystem::path ExecutableDirectory() const;
     [[nodiscard]] D3D12_CPU_DESCRIPTOR_HANDLE RtvHandle(std::uint32_t index) const noexcept;
     [[nodiscard]] D3D12_CPU_DESCRIPTOR_HANDLE DsvHandle(std::uint32_t index) const noexcept;
-    [[nodiscard]] D3D12_GPU_DESCRIPTOR_HANDLE SrvTableHandle(std::uint32_t table_index) const noexcept;
+    [[nodiscard]] D3D12_GPU_DESCRIPTOR_HANDLE SrvHeapStart() const noexcept;
     [[nodiscard]] static Microsoft::WRL::ComPtr<IDXGIAdapter1> ChooseAdapter(
         IDXGIFactory6& factory,
         AdapterPreference adapter_preference);
@@ -175,8 +173,7 @@ private:
     Microsoft::WRL::ComPtr<ID3D12Resource> depth_buffer_{};
     Microsoft::WRL::ComPtr<ID3D12Resource> shadow_map_{};
     Microsoft::WRL::ComPtr<ID3D12Resource> capture_buffer_{};
-    std::array<Microsoft::WRL::ComPtr<ID3D12CommandAllocator>, kFrameCount>
-        command_allocators_{};
+    std::array<Microsoft::WRL::ComPtr<ID3D12CommandAllocator>, kFrameCount> command_allocators_{};
     Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> command_list_{};
     Microsoft::WRL::ComPtr<ID3D12RootSignature> root_signature_{};
     Microsoft::WRL::ComPtr<ID3D12PipelineState> shadow_pipeline_{};
@@ -206,6 +203,7 @@ private:
     std::array<MeshRange, static_cast<std::size_t>(MeshKind::Count)> mesh_ranges_{};
     std::array<MeshKind, kMaxInstances> instance_meshes_{};
     std::array<GeneratedMaterial, kGeneratedMaterialCount> materials_{};
+    std::array<float, 4> clear_color_{0.018f, 0.022f, 0.035f, 1.0f};
     VisualSliceConfiguration visual_configuration_{};
     GpuUploadStatistics upload_statistics_{};
     FrameStatistics frame_statistics_{};
@@ -229,6 +227,7 @@ private:
     std::uint32_t height_ = 0;
     std::uint32_t instance_count_ = 0;
     std::uint32_t history_read_index_ = 0;
+    std::uint32_t active_history_write_index_ = 1;
     float current_exposure_ = 1.0f;
     float previous_scene_time_ = 0.0f;
     bool frame_capture_enabled_ = false;
