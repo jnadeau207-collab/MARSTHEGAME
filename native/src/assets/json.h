@@ -33,9 +33,12 @@ public:
     [[nodiscard]] Type GetType() const noexcept;
     [[nodiscard]] bool AsBoolean() const;
     [[nodiscard]] double AsNumber() const;
-    [[nodiscard]] const std::string& AsString() const;
-    [[nodiscard]] const Array& AsArray() const;
-    [[nodiscard]] const Object& AsObject() const;
+    [[nodiscard]] const std::string& AsString() const &;
+    [[nodiscard]] std::string AsString() &&;
+    [[nodiscard]] const Array& AsArray() const &;
+    [[nodiscard]] Array AsArray() &&;
+    [[nodiscard]] const Object& AsObject() const &;
+    [[nodiscard]] Object AsObject() &&;
 
 private:
     Type type_ = Type::Null;
