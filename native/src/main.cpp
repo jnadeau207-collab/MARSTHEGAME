@@ -1,20 +1,39 @@
 #include "game/game_state.h"
+#include "game/save_state.h"
 #include "platform/win32_window.h"
 #include "renderer/d3d12_renderer.h"
 
 #include <Windows.h>
+#include <ShlObj.h>
 
 #include <array>
 #include <chrono>
 #include <cstdint>
 #include <cwchar>
 #include <filesystem>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <system_error>
 
 namespace
 {
+class KeyLatch final
+{
+public:
+    [[nodiscard]] bool Pressed(const int virtual_key)
+    {
+        const bool down = (GetAsyncKeyState(virtual_key) & 0x8000) != 0;
+        const bool pressed = down && !was_down_;
+        was_down_ = down;
+        return pressed;
+    }
+
+private:
+    bool was_down_ = false;
+};
+
 std::filesystem::path ExecutableDirectory()
 {
     std::array<wchar_t, 32'768> path{};
@@ -24,6 +43,25 @@ std::filesystem::path ExecutableDirectory()
         throw std::runtime_error("GetModuleFileNameW failed");
     }
     return std::filesystem::path(std::wstring_view(path.data(), length)).parent_path();
+}
+
+std::filesystem::path SavePath()
+{
+    PWSTR known_folder = nullptr;
+    const HRESULT result = SHGetKnownFolderPath(
+        FOLDERID_LocalAppData,
+        KF_FLAG_CREATE,
+        nullptr,
+        &known_folder);
+    if (FAILED(result) || known_folder == nullptr)
+    {
+        throw std::runtime_error("SHGetKnownFolderPath(FOLDERID_LocalAppData) failed");
+    }
+
+    const std::filesystem::path directory =
+        std::filesystem::path(known_folder) / L"MARSTHEGAME";
+    CoTaskMemFree(known_folder);
+    return directory / L"ares_reach.save";
 }
 
 bool HasArgument(const std::wstring_view argument)
@@ -50,7 +88,79 @@ mars::game::InputState PollInput()
         .move_z = Axis(KeyDown('S') || KeyDown(VK_DOWN), KeyDown('W') || KeyDown(VK_UP)),
         .sprint = KeyDown(VK_LSHIFT) || KeyDown(VK_RSHIFT),
         .reset = KeyDown('R'),
+        .restore_checkpoint = KeyDown('C'),
     };
+}
+
+void LogText(const std::wstring_view text)
+{
+    const std::wstring owned(text);
+    OutputDebugStringW(owned.c_str());
+    OutputDebugStringW(L"\n");
+}
+
+void LogError(const std::string_view prefix, const std::exception& error)
+{
+    const std::string message = std::string(prefix) + ": " + error.what() + "\n";
+    OutputDebugStringA(message.c_str());
+}
+
+void QuarantineCorruptSave(const std::filesystem::path& save_path)
+{
+    if (!std::filesystem::exists(save_path))
+    {
+        return;
+    }
+    const std::filesystem::path corrupt_path = save_path.string() + ".corrupt";
+    std::error_code error;
+    std::filesystem::remove(corrupt_path, error);
+    error.clear();
+    std::filesystem::rename(save_path, corrupt_path, error);
+    if (error)
+    {
+        LogText(L"Failed to quarantine corrupt save; leaving it in place");
+    }
+    else
+    {
+        LogText(L"Corrupt save quarantined as ares_reach.save.corrupt");
+    }
+}
+
+bool LoadGame(
+    mars::game::GameState& game,
+    const std::filesystem::path& save_path,
+    const bool quarantine_on_failure)
+{
+    try
+    {
+        const std::optional<mars::game::GameSnapshot> snapshot =
+            mars::game::SaveRepository::Load(save_path);
+        if (!snapshot.has_value())
+        {
+            return false;
+        }
+        game.Restore(*snapshot);
+        LogText(L"Native save loaded");
+        return true;
+    }
+    catch (const std::exception& error)
+    {
+        LogError("Native save load failed", error);
+        if (quarantine_on_failure)
+        {
+            QuarantineCorruptSave(save_path);
+        }
+        return false;
+    }
+}
+
+void SaveGame(
+    const mars::game::GameState& game,
+    const std::filesystem::path& save_path,
+    const std::wstring_view reason)
+{
+    mars::game::SaveRepository::Write(save_path, game.Snapshot());
+    LogText(std::wstring(L"Native save committed: ") + std::wstring(reason));
 }
 
 int RunSelfTest()
@@ -196,7 +306,11 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int)
         }
 
         mars::platform::Win32Window window;
-        window.Create(instance, 1600, 900, L"MARSTHEGAME — Ares Reach Native Graybox");
+        window.Create(
+            instance,
+            1600,
+            900,
+            L"MARSTHEGAME — Reach the beacon — WASD, Shift, C, F5/F9");
 
         mars::renderer::D3D12Renderer renderer;
         renderer.Initialize(window.Handle(), window.Width(), window.Height());
@@ -205,9 +319,15 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int)
                 renderer.Resize(width, height);
             });
 
+        const std::filesystem::path save_path = SavePath();
         mars::game::GameState game;
+        LoadGame(game, save_path, true);
+
         auto previous = std::chrono::steady_clock::now();
         mars::game::MissionState displayed_state = game.Mission();
+        bool saved_checkpoint = game.CheckpointReached();
+        KeyLatch save_latch;
+        KeyLatch load_latch;
 
         while (window.PumpMessages())
         {
@@ -222,16 +342,43 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int)
                 std::chrono::duration<float>(now - previous).count();
             previous = now;
 
+            const mars::game::MissionState mission_before = game.Mission();
+            const bool checkpoint_before = game.CheckpointReached();
             game.Update(PollInput(), delta_seconds);
+
+            if (!checkpoint_before && game.CheckpointReached())
+            {
+                SaveGame(game, save_path, L"checkpoint reached");
+                saved_checkpoint = true;
+            }
+            if (mission_before != mars::game::MissionState::Complete
+                && game.Mission() == mars::game::MissionState::Complete)
+            {
+                SaveGame(game, save_path, L"mission complete");
+            }
+            if (save_latch.Pressed(VK_F5))
+            {
+                SaveGame(game, save_path, L"manual F5 save");
+            }
+            if (load_latch.Pressed(VK_F9))
+            {
+                LoadGame(game, save_path, false);
+                saved_checkpoint = game.CheckpointReached();
+            }
+
             renderer.Render(game.Scene());
 
             if (game.Mission() != displayed_state)
             {
                 displayed_state = game.Mission();
                 const wchar_t* title = displayed_state == mars::game::MissionState::Complete
-                    ? L"MARSTHEGAME — Ares Reach Complete — Press R to reset"
-                    : L"MARSTHEGAME — Reach the beacon — WASD / arrows, Shift sprint";
+                    ? L"MARSTHEGAME — Ares Reach Complete — R reset, F9 load"
+                    : L"MARSTHEGAME — Reach the beacon — WASD, Shift, C, F5/F9";
                 SetWindowTextW(window.Handle(), title);
+            }
+            if (saved_checkpoint && !game.CheckpointReached())
+            {
+                saved_checkpoint = false;
             }
             if (renderer.PresentedFrameCount() % 120 == 0)
             {
