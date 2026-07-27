@@ -9,7 +9,6 @@
 #include <cstring>
 #include <fstream>
 #include <iterator>
-#include <limits>
 #include <sstream>
 #include <stdexcept>
 #include <system_error>
@@ -21,8 +20,8 @@ namespace mars::assets
 {
 namespace
 {
-constexpr std::array<char, 8> kMagic = {'M', 'A', 'R', 'S', 'C', 'N', '1', '\0'};
-constexpr std::uint32_t kCookedVersion = 1;
+constexpr std::array<char, 8> kMagic = {'M', 'A', 'R', 'S', 'C', 'N', '2', '\0'};
+constexpr std::uint32_t kCookedVersion = 2;
 constexpr std::uint32_t kMaximumEntities = 512;
 constexpr std::uint32_t kKnownFlags = SceneEntityRender | SceneEntityCollider
     | SceneEntityPlayer | SceneEntityCheckpoint | SceneEntityObjective;
@@ -41,6 +40,7 @@ struct CookedHeader
 struct CookedEntity
 {
     std::array<char, 48> id{};
+    std::array<char, 48> mesh_id{};
     std::uint32_t flags = SceneEntityNone;
     float position[3]{};
     float scale[3]{};
@@ -50,7 +50,7 @@ struct CookedEntity
 static_assert(std::is_trivially_copyable_v<CookedHeader>);
 static_assert(std::is_trivially_copyable_v<CookedEntity>);
 static_assert(sizeof(CookedHeader) == 32);
-static_assert(sizeof(CookedEntity) == 92);
+static_assert(sizeof(CookedEntity) == 140);
 
 std::uint64_t HashBytes(const void* data, const std::size_t size) noexcept
 {
@@ -171,6 +171,10 @@ void ValidateDefinition(const SceneDefinition& scene)
         {
             throw std::runtime_error("Scene contains an invalid or duplicate entity id");
         }
+        if (!ValidIdentifier(entity.mesh_id))
+        {
+            throw std::runtime_error("Scene contains an invalid mesh id");
+        }
         if ((entity.flags & ~kKnownFlags) != 0U)
         {
             throw std::runtime_error("Scene contains unknown entity flags");
@@ -199,10 +203,26 @@ void ValidateDefinition(const SceneDefinition& scene)
     }
 }
 
+void CopyIdentifier(std::array<char, 48>& destination, const std::string& source)
+{
+    std::memcpy(destination.data(), source.data(), source.size());
+}
+
+std::string ReadIdentifier(const std::array<char, 48>& source, const char* label)
+{
+    const auto terminator = std::find(source.begin(), source.end(), '\0');
+    if (terminator == source.end() || terminator == source.begin())
+    {
+        throw std::runtime_error(std::string("Cooked scene contains an invalid ") + label);
+    }
+    return std::string(source.begin(), terminator);
+}
+
 CookedEntity ToCooked(const SceneEntity& entity)
 {
     CookedEntity record{};
-    std::memcpy(record.id.data(), entity.id.data(), entity.id.size());
+    CopyIdentifier(record.id, entity.id);
+    CopyIdentifier(record.mesh_id, entity.mesh_id);
     record.flags = entity.flags;
     record.position[0] = entity.position.x;
     record.position[1] = entity.position.y;
@@ -219,13 +239,9 @@ CookedEntity ToCooked(const SceneEntity& entity)
 
 SceneEntity FromCooked(const CookedEntity& record)
 {
-    const auto terminator = std::find(record.id.begin(), record.id.end(), '\0');
-    if (terminator == record.id.end() || terminator == record.id.begin())
-    {
-        throw std::runtime_error("Cooked scene contains an invalid entity id");
-    }
     return {
-        .id = std::string(record.id.begin(), terminator),
+        .id = ReadIdentifier(record.id, "entity id"),
+        .mesh_id = ReadIdentifier(record.mesh_id, "mesh id"),
         .flags = record.flags,
         .position = {record.position[0], record.position[1], record.position[2]},
         .scale = {record.scale[0], record.scale[1], record.scale[2]},
@@ -292,7 +308,7 @@ SceneDefinition ParseSceneSource(const std::string_view source)
         SceneEntity entity{};
         std::string flags;
         std::string trailing;
-        if (!(tokens >> entity.id >> flags
+        if (!(tokens >> entity.id >> flags >> entity.mesh_id
               >> entity.position.x >> entity.position.y >> entity.position.z
               >> entity.scale.x >> entity.scale.y >> entity.scale.z
               >> entity.tint.x >> entity.tint.y >> entity.tint.z >> entity.tint.w)
