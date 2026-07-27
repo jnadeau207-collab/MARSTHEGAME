@@ -291,48 +291,52 @@ DirectX::XMFLOAT3 GameState::PlayerPosition() const noexcept
 
 renderer::RenderScene GameState::Scene() const noexcept
 {
-    const float lateral_velocity = player_velocity_.x * 0.045f;
+    const float lateral_velocity = player_velocity_.x * 0.030f;
+    const float reveal_progress = (std::clamp)(
+        (player_position_.z - landing_position_.z) / 6.0f,
+        0.0f,
+        1.0f);
+    const float shoulder_offset = 0.98f - reveal_progress * 0.22f;
+    const float relay_bias = (objective_position_.x - player_position_.x) * 0.065f * reveal_progress;
     const DirectX::XMFLOAT3 eye{
-        player_position_.x - lateral_velocity,
-        player_position_.y + 5.8f,
-        player_position_.z - 10.5f,
+        player_position_.x + shoulder_offset - lateral_velocity,
+        player_position_.y + 2.72f,
+        player_position_.z - 5.65f,
     };
     const DirectX::XMFLOAT3 target{
-        player_position_.x + lateral_velocity * 0.35f,
-        player_position_.y + 1.15f,
-        player_position_.z + 3.4f,
+        player_position_.x + relay_bias + lateral_velocity * 0.30f,
+        player_position_.y + 1.20f,
+        player_position_.z + 4.65f,
     };
     const DirectX::XMFLOAT4 clear = mission_state_ == MissionState::Complete
-        ? DirectX::XMFLOAT4{0.016f, 0.050f, 0.040f, 1.0f}
-        : DirectX::XMFLOAT4{0.022f, 0.010f, 0.006f, 1.0f};
+        ? DirectX::XMFLOAT4{0.020f, 0.030f, 0.027f, 1.0f}
+        : DirectX::XMFLOAT4{0.028f, 0.020f, 0.016f, 1.0f};
     const std::array<renderer::PointLight, 4> lights = {{
         {
-            .position = {objective_position_.x, objective_position_.y + 2.5f, objective_position_.z},
-            .radius = 15.0f,
+            .position = {objective_position_.x, objective_position_.y + 0.75f, objective_position_.z},
+            .radius = mission_state_ == MissionState::Complete ? 7.0f : 4.8f,
             .color = mission_state_ == MissionState::Complete
-                ? DirectX::XMFLOAT3{0.18f, 1.0f, 0.52f}
-                : DirectX::XMFLOAT3{1.0f, 0.24f, 0.06f},
-            .intensity = 14.0f,
+                ? DirectX::XMFLOAT3{0.12f, 0.62f, 0.48f}
+                : DirectX::XMFLOAT3{0.08f, 0.30f, 0.50f},
+            .intensity = mission_state_ == MissionState::Complete ? 3.0f : 1.05f,
         },
         {
-            .position = {checkpoint_position_.x, checkpoint_position_.y + 1.8f, checkpoint_position_.z},
-            .radius = 9.0f,
-            .color = checkpoint_reached_
-                ? DirectX::XMFLOAT3{0.12f, 0.88f, 0.52f}
-                : DirectX::XMFLOAT3{0.12f, 0.42f, 1.0f},
-            .intensity = checkpoint_reached_ ? 7.5f : 4.0f,
+            .position = {checkpoint_position_.x, checkpoint_position_.y + 0.65f, checkpoint_position_.z},
+            .radius = 3.6f,
+            .color = {0.92f, 0.38f, 0.11f},
+            .intensity = checkpoint_reached_ ? 0.95f : 0.55f,
         },
         {
-            .position = {player_position_.x, player_position_.y + 1.7f, player_position_.z - 0.2f},
-            .radius = 4.5f,
-            .color = {0.22f, 0.58f, 1.0f},
-            .intensity = 2.8f,
+            .position = {player_position_.x, player_position_.y + 1.58f, player_position_.z - 0.28f},
+            .radius = 2.4f,
+            .color = {0.18f, 0.42f, 0.55f},
+            .intensity = 0.48f,
         },
         {
-            .position = {0.0f, 6.5f, 7.0f},
-            .radius = 19.0f,
-            .color = {1.0f, 0.32f, 0.12f},
-            .intensity = 3.2f,
+            .position = {-2.0f, 1.15f, 13.4f},
+            .radius = 5.4f,
+            .color = {0.94f, 0.36f, 0.10f},
+            .intensity = 1.35f,
         },
     }};
     return {
@@ -340,10 +344,10 @@ renderer::RenderScene GameState::Scene() const noexcept
         .camera_target = target,
         .clear_color = clear,
         .point_lights = lights,
-        .particle_emitter = {objective_position_.x, objective_position_.y + 1.0f, objective_position_.z},
+        .particle_emitter = {objective_position_.x, objective_position_.y + 0.45f, objective_position_.z},
         .elapsed_seconds = elapsed_seconds_,
         .player_velocity = player_velocity_,
-        .target_exposure = mission_state_ == MissionState::Complete ? 1.12f : 0.92f,
+        .target_exposure = mission_state_ == MissionState::Complete ? 1.04f : 0.98f,
         .mission_complete = mission_state_ == MissionState::Complete,
         .supplemental_character_instances = supplemental_character_instances_,
         .supplemental_character_count = static_cast<std::uint32_t>(supplemental_character_instances_.size()),
@@ -437,20 +441,14 @@ void GameState::RebuildScene()
             pose.parts[part_index]);
     }
 
-    const float pulse = 1.0f + std::sin(elapsed_seconds_ * 4.0f) * 0.12f;
     renderer::RenderInstance& objective = instances_[objective_instance_index_];
-    const renderer::RenderInstance& base_objective = base_instances_[objective_instance_index_];
-    objective.scale = {
-        base_objective.scale.x * pulse,
-        base_objective.scale.y * pulse,
-        base_objective.scale.z * pulse,
-    };
+    objective.scale = base_instances_[objective_instance_index_].scale;
     objective.tint = mission_state_ == MissionState::Complete
-        ? DirectX::XMFLOAT4{0.18f, 0.95f, 0.48f, 1.0f}
-        : base_objective.tint;
+        ? DirectX::XMFLOAT4{0.10f, 0.48f, 0.36f, 2.15f}
+        : base_instances_[objective_instance_index_].tint;
 
     instances_[checkpoint_instance_index_].tint = checkpoint_reached_
-        ? DirectX::XMFLOAT4{0.20f, 0.78f, 0.44f, 1.0f}
+        ? DirectX::XMFLOAT4{0.38f, 0.31f, 0.20f, 1.0f}
         : base_instances_[checkpoint_instance_index_].tint;
 }
 } // namespace mars::game
