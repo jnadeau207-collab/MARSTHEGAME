@@ -40,29 +40,31 @@ jobs:
           -DCMAKE_BUILD_TYPE=RelWithDebInfo
           -DMARS_ENABLE_D3D12_VALIDATION=ON
           -DDXC_EXECUTABLE="$env:DXC_EXECUTABLE"
-      - name: Build native game and shaders
+      - name: Build native game, cooker, scene package, and shaders
         shell: pwsh
         run: cmake --build build/native --parallel
-      - name: Run deterministic native gameplay tests
+      - name: Run deterministic native gameplay and asset tests
         shell: pwsh
         run: ctest --test-dir build/native --output-on-failure
-      - name: Verify packaged shader payload
+      - name: Verify packaged shader and scene payloads
         shell: pwsh
         run: |
           .\build\native\mars_native.exe --self-test
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Render native Ares Reach graybox under D3D12 validation
+      - name: Render cooked Ares Reach scene under D3D12 validation
         timeout-minutes: 2
         shell: pwsh
         run: |
           .\build\native\mars_native.exe --warp-smoke-test
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Upload native game evidence
+      - name: Upload native game and asset evidence
         uses: actions/upload-artifact@v4
         with:
           name: mars-native-game-${{ github.sha }}
           path: |
             build/native/mars_native.exe
             build/native/mars_native_game_tests.exe
+            build/native/mars_scene_cooker.exe
             build/native/shaders/*.dxil
+            build/native/assets/scenes/*.bin
           if-no-files-found: error
