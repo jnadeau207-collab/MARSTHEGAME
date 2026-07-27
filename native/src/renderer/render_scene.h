@@ -2,6 +2,7 @@
 
 #include <DirectXMath.h>
 
+#include <cstdint>
 #include <span>
 
 namespace mars::renderer
@@ -11,6 +12,7 @@ struct RenderInstance
     DirectX::XMFLOAT3 position{};
     DirectX::XMFLOAT3 scale{1.0f, 1.0f, 1.0f};
     DirectX::XMFLOAT4 tint{1.0f, 1.0f, 1.0f, 1.0f};
+    std::uint32_t mesh_index = 0;
 };
 
 struct RenderScene
