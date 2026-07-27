@@ -8,6 +8,8 @@
     return visibility / 9.0f;
 }
 
+Texture2DArray<float4> subtitleTexture : register(t9);
+
 float3 SampleGeneratedEnvironment(float3 direction)
 {
     return environmentTexture.SampleLevel(linearClampSampler, normalize(direction), 0.0f).rgb;
