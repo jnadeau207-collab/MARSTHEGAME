@@ -75,8 +75,14 @@ function(mars_strict_warnings target)
 endfunction()
 
 set(MARS_GAME_SOURCES
+  src/game/collision.cpp
+  src/game/collision.h
   src/game/game_state.cpp
   src/game/game_state.h
+  src/game/replay.cpp
+  src/game/replay.h
+  src/game/save_state.cpp
+  src/game/save_state.h
   src/renderer/render_scene.h
 )
 
@@ -113,15 +119,15 @@ target_link_libraries(
     d3d12
     dxgi
     dxguid
+    ole32
+    shell32
     user32
 )
 
 add_executable(
   mars_native_game_tests
   tests/game_state_tests.cpp
-  src/game/game_state.cpp
-  src/game/game_state.h
-  src/renderer/render_scene.h
+  ${MARS_GAME_SOURCES}
 )
 target_include_directories(mars_native_game_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
 target_compile_definitions(

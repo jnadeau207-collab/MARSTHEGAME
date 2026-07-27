@@ -1,18 +1,38 @@
 #include "game/game_state.h"
 
+#include "game/collision.h"
+
 #include <algorithm>
+#include <array>
 #include <cmath>
+#include <stdexcept>
 
 namespace mars::game
 {
 namespace
 {
+constexpr DirectX::XMFLOAT3 kLandingPosition{0.0f, 0.0f, -8.0f};
+constexpr DirectX::XMFLOAT3 kCheckpointPosition{0.0f, 0.0f, 5.0f};
 constexpr DirectX::XMFLOAT3 kObjectivePosition{0.0f, 0.0f, 18.0f};
 constexpr float kObjectiveRadius = 1.6f;
+constexpr float kPlayerRadius = 0.42f;
 constexpr float kWalkSpeed = 5.0f;
 constexpr float kSprintSpeed = 8.0f;
 constexpr float kAcceleration = 18.0f;
 constexpr float kDamping = 10.0f;
+
+constexpr std::array<CollisionBox, 10> kCollisionBoxes = {{
+    {-12.0f, -10.8f, -11.0f, 21.0f},
+    {10.8f, 12.0f, -11.0f, 21.0f},
+    {-7.4f, -4.6f, -2.8f, 0.8f},
+    {5.0f, 8.6f, 1.8f, 4.2f},
+    {-5.5f, -3.5f, 8.0f, 10.0f},
+    {3.8f, 6.2f, 10.4f, 13.6f},
+    {-9.0f, -6.0f, 14.9f, 17.1f},
+    {6.3f, 8.7f, 16.8f, 19.2f},
+    {-3.48f, -2.92f, 4.72f, 5.28f},
+    {2.92f, 3.48f, 4.72f, 5.28f},
+}};
 
 float Approach(const float current, const float target, const float max_delta)
 {
@@ -30,6 +50,11 @@ renderer::RenderInstance Instance(
 {
     return {.position = position, .scale = scale, .tint = tint};
 }
+
+bool Finite(const DirectX::XMFLOAT3 value) noexcept
+{
+    return std::isfinite(value.x) && std::isfinite(value.y) && std::isfinite(value.z);
+}
 } // namespace
 
 GameState::GameState()
@@ -39,12 +64,56 @@ GameState::GameState()
 
 void GameState::Reset()
 {
-    player_position_ = {0.0f, 0.0f, -8.0f};
+    player_position_ = kLandingPosition;
     player_velocity_ = {};
     accumulator_seconds_ = 0.0f;
     elapsed_seconds_ = 0.0f;
     reset_latched_ = false;
+    checkpoint_latched_ = false;
+    checkpoint_reached_ = false;
     mission_state_ = MissionState::Traverse;
+    RebuildScene();
+}
+
+void GameState::RestoreCheckpoint()
+{
+    if (!checkpoint_reached_)
+    {
+        Reset();
+        return;
+    }
+    player_position_ = kCheckpointPosition;
+    player_velocity_ = {};
+    accumulator_seconds_ = 0.0f;
+    mission_state_ = MissionState::Traverse;
+    RebuildScene();
+}
+
+void GameState::Restore(const GameSnapshot& snapshot)
+{
+    if (snapshot.schema_version != GameSnapshot::kSchemaVersion)
+    {
+        throw std::invalid_argument("Unsupported native game snapshot schema");
+    }
+    if (!Finite(snapshot.player_position) || !Finite(snapshot.player_velocity)
+        || !std::isfinite(snapshot.elapsed_seconds) || snapshot.elapsed_seconds < 0.0f)
+    {
+        throw std::invalid_argument("Native game snapshot contains invalid values");
+    }
+    if (snapshot.player_position.x < -10.5f || snapshot.player_position.x > 10.5f
+        || snapshot.player_position.z < -10.0f || snapshot.player_position.z > 20.0f)
+    {
+        throw std::invalid_argument("Native game snapshot is outside mission bounds");
+    }
+
+    player_position_ = snapshot.player_position;
+    player_velocity_ = snapshot.player_velocity;
+    elapsed_seconds_ = snapshot.elapsed_seconds;
+    mission_state_ = snapshot.mission_state;
+    checkpoint_reached_ = snapshot.checkpoint_reached;
+    accumulator_seconds_ = 0.0f;
+    reset_latched_ = false;
+    checkpoint_latched_ = false;
     RebuildScene();
 }
 
@@ -58,6 +127,14 @@ void GameState::Update(const InputState& input, const float delta_seconds)
     }
     reset_latched_ = input.reset;
 
+    if (input.restore_checkpoint && !checkpoint_latched_)
+    {
+        RestoreCheckpoint();
+        checkpoint_latched_ = true;
+        return;
+    }
+    checkpoint_latched_ = input.restore_checkpoint;
+
     const float bounded_delta = (std::clamp)(delta_seconds, 0.0f, 0.25f);
     accumulator_seconds_ += bounded_delta;
     while (accumulator_seconds_ >= kFixedStepSeconds)
@@ -69,9 +146,26 @@ void GameState::Update(const InputState& input, const float delta_seconds)
     RebuildScene();
 }
 
+GameSnapshot GameState::Snapshot() const noexcept
+{
+    return {
+        .schema_version = GameSnapshot::kSchemaVersion,
+        .player_position = player_position_,
+        .player_velocity = player_velocity_,
+        .elapsed_seconds = elapsed_seconds_,
+        .mission_state = mission_state_,
+        .checkpoint_reached = checkpoint_reached_,
+    };
+}
+
 MissionState GameState::Mission() const noexcept
 {
     return mission_state_;
+}
+
+bool GameState::CheckpointReached() const noexcept
+{
+    return checkpoint_reached_;
 }
 
 DirectX::XMFLOAT3 GameState::PlayerPosition() const noexcept
@@ -133,10 +227,29 @@ void GameState::IntegrateFixedStep(const InputState& input)
         target_z,
         acceleration * kFixedStepSeconds);
 
-    player_position_.x += player_velocity_.x * kFixedStepSeconds;
-    player_position_.z += player_velocity_.z * kFixedStepSeconds;
-    player_position_.x = (std::clamp)(player_position_.x, -10.5f, 10.5f);
-    player_position_.z = (std::clamp)(player_position_.z, -10.0f, 20.0f);
+    const DirectX::XMFLOAT2 before{player_position_.x, player_position_.z};
+    const DirectX::XMFLOAT2 desired{
+        player_velocity_.x * kFixedStepSeconds,
+        player_velocity_.z * kFixedStepSeconds,
+    };
+    DirectX::XMFLOAT2 resolved = ResolvePlanarMovement(before, desired, kPlayerRadius, kCollisionBoxes);
+    resolved.x = (std::clamp)(resolved.x, -10.5f, 10.5f);
+    resolved.y = (std::clamp)(resolved.y, -10.0f, 20.0f);
+    if (resolved.x == before.x && desired.x != 0.0f)
+    {
+        player_velocity_.x = 0.0f;
+    }
+    if (resolved.y == before.y && desired.y != 0.0f)
+    {
+        player_velocity_.z = 0.0f;
+    }
+    player_position_.x = resolved.x;
+    player_position_.z = resolved.y;
+
+    if (!checkpoint_reached_ && player_position_.z >= kCheckpointPosition.z)
+    {
+        checkpoint_reached_ = true;
+    }
 
     const float objective_dx = player_position_.x - kObjectivePosition.x;
     const float objective_dz = player_position_.z - kObjectivePosition.z;
@@ -180,6 +293,9 @@ void GameState::RebuildScene()
         {player_position_.x, player_position_.y, player_position_.z},
         {0.45f, 0.72f, 0.45f},
         player_tint);
-    instances_[17] = Instance({0.0f, -0.35f, 18.0f}, {2.0f, 0.12f, 2.0f}, structure);
+    const DirectX::XMFLOAT4 checkpoint_tint = checkpoint_reached_
+        ? DirectX::XMFLOAT4{0.20f, 0.78f, 0.44f, 1.0f}
+        : structure;
+    instances_[17] = Instance({0.0f, -0.35f, 5.0f}, {1.8f, 0.12f, 1.8f}, checkpoint_tint);
 }
 } // namespace mars::game
