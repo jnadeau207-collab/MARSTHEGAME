@@ -1,5 +1,7 @@
 #pragma once
 
+#include "renderer/generated_materials.h"
+#include "renderer/gpu_upload.h"
 #include "renderer/render_scene.h"
 
 #include <Windows.h>
@@ -63,6 +65,7 @@ public:
     [[nodiscard]] bool IsInitialized() const noexcept;
     [[nodiscard]] std::uint64_t PresentedFrameCount() const noexcept;
     [[nodiscard]] FrameStatistics Statistics() const noexcept;
+    [[nodiscard]] GpuUploadStatistics UploadStatistics() const noexcept;
 
 private:
     struct SceneConstants
@@ -71,7 +74,9 @@ private:
         DirectX::XMFLOAT4X4 world_view_projection{};
         DirectX::XMFLOAT4 light_direction{};
         DirectX::XMFLOAT4 tint{};
-        std::array<float, 24> padding{};
+        DirectX::XMFLOAT4 material_parameters{};
+        DirectX::XMFLOAT4 material_layer_mask{};
+        std::array<float, 16> padding{};
     };
 
     struct MeshRange
@@ -91,7 +96,7 @@ private:
     void CreateDepthBuffer();
     void CreateCaptureBuffer();
     void CreatePipeline();
-    void CreateGeometry();
+    void CreateStaticResources();
     void CreateSceneConstants();
     void UpdateSceneConstants(const RenderScene& scene);
     void PopulateCommandList();
@@ -114,6 +119,7 @@ private:
     Microsoft::WRL::ComPtr<IDXGISwapChain3> swap_chain_{};
     Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> rtv_heap_{};
     Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> dsv_heap_{};
+    Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> srv_heap_{};
     std::array<Microsoft::WRL::ComPtr<ID3D12Resource>, kFrameCount> render_targets_{};
     Microsoft::WRL::ComPtr<ID3D12Resource> depth_buffer_{};
     Microsoft::WRL::ComPtr<ID3D12Resource> capture_buffer_{};
@@ -124,8 +130,12 @@ private:
     Microsoft::WRL::ComPtr<ID3D12PipelineState> pipeline_state_{};
     Microsoft::WRL::ComPtr<ID3D12Resource> vertex_buffer_{};
     Microsoft::WRL::ComPtr<ID3D12Resource> index_buffer_{};
+    Microsoft::WRL::ComPtr<ID3D12Resource> base_color_texture_{};
+    Microsoft::WRL::ComPtr<ID3D12Resource> normal_texture_{};
+    Microsoft::WRL::ComPtr<ID3D12Resource> surface_texture_{};
     Microsoft::WRL::ComPtr<ID3D12Resource> scene_constant_buffer_{};
     Microsoft::WRL::ComPtr<ID3D12Fence> fence_{};
+    GpuUploadContext upload_context_{};
 
     D3D12_VERTEX_BUFFER_VIEW vertex_buffer_view_{};
     D3D12_INDEX_BUFFER_VIEW index_buffer_view_{};
@@ -135,7 +145,9 @@ private:
     D3D12_RECT scissor_rect_{};
     std::array<MeshRange, static_cast<std::size_t>(MeshKind::Count)> mesh_ranges_{};
     std::array<MeshKind, kMaxInstances> instance_meshes_{};
+    std::array<GeneratedMaterial, kGeneratedMaterialCount> materials_{};
     std::array<float, 4> clear_color_{0.018f, 0.022f, 0.035f, 1.0f};
+    GpuUploadStatistics upload_statistics_{};
     std::byte* mapped_scene_constants_ = nullptr;
     HANDLE fence_event_ = nullptr;
     std::array<std::uint64_t, kFrameCount> fence_values_{};
