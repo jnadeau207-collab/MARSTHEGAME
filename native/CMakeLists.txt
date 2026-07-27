@@ -119,6 +119,7 @@ target_link_libraries(
     d3d12
     dxgi
     dxguid
+    ole32
     shell32
     user32
 )
