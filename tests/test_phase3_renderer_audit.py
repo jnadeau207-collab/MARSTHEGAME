@@ -8,6 +8,14 @@ from pathlib import Path
 from tools.phase3_renderer_audit import audit_phase3_renderer
 
 MANIFEST_PATH = Path(__file__).resolve().parents[1] / "config" / "phase3_renderer.json"
+_CI_VERIFICATION_KEYS = (
+    "native_build_verification",
+    "native_runtime_self_test",
+    "warp_smoke_test",
+    "validation_clean_ci_runtime",
+    "ci_rendered_geometry_verification",
+    "gpu_pixel_readback_verification",
+)
 
 
 class Phase3RendererAuditTests(unittest.TestCase):
@@ -33,10 +41,36 @@ class Phase3RendererAuditTests(unittest.TestCase):
         self.assertEqual(report["status"], "fail")
         self.assertIn("visual_claim_fail_closed", report["failures"])
 
-    def test_gpu_runtime_evidence_cannot_be_fabricated(self) -> None:
+    def test_ci_evidence_must_advance_as_one_exact_head_set(self) -> None:
         manifest = copy.deepcopy(self.manifest)
-        manifest["validation_clean_runtime"] = "passed"
-        manifest["indexed_mesh_rendered"] = "passed"
+        manifest["native_build_verification"] = "passed"
+        report = audit_phase3_renderer(manifest)
+        self.assertEqual(report["status"], "fail")
+        self.assertIn("ci_verification_coherent", report["failures"])
+
+    def test_verified_ci_evidence_requires_numeric_run(self) -> None:
+        manifest = copy.deepcopy(self.manifest)
+        for key in _CI_VERIFICATION_KEYS:
+            manifest[key] = "passed"
+        manifest["verification_run"] = "requested"
+        report = audit_phase3_renderer(manifest)
+        self.assertEqual(report["status"], "fail")
+        self.assertIn("ci_verification_coherent", report["failures"])
+
+    def test_coherent_ci_evidence_does_not_claim_founder_approval(self) -> None:
+        manifest = copy.deepcopy(self.manifest)
+        for key in _CI_VERIFICATION_KEYS:
+            manifest[key] = "passed"
+        manifest["verification_run"] = "30230099057"
+        report = audit_phase3_renderer(manifest)
+        self.assertEqual(report["status"], "pass")
+        self.assertEqual(manifest["founder_hardware_validation"], "pending")
+        self.assertEqual(manifest["founder_visual_inspection"], "pending")
+
+    def test_founder_hardware_evidence_cannot_be_fabricated(self) -> None:
+        manifest = copy.deepcopy(self.manifest)
+        manifest["founder_hardware_validation"] = "passed"
+        manifest["founder_visual_inspection"] = "passed"
         report = audit_phase3_renderer(manifest)
         self.assertEqual(report["status"], "fail")
         self.assertIn("visual_claim_fail_closed", report["failures"])
