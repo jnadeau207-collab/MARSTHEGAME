@@ -1,5 +1,6 @@
 #include "game/game_state.h"
 #include "game/save_state.h"
+#include "platform/native_input.h"
 #include "platform/win32_window.h"
 #include "renderer/d3d12_renderer.h"
 
@@ -74,22 +75,6 @@ bool HasArgument(const std::wstring_view argument)
 bool KeyDown(const int virtual_key)
 {
     return (GetAsyncKeyState(virtual_key) & 0x8000) != 0;
-}
-
-float Axis(const bool negative, const bool positive)
-{
-    return static_cast<float>(positive) - static_cast<float>(negative);
-}
-
-mars::game::InputState PollInput()
-{
-    return {
-        .move_x = Axis(KeyDown('A') || KeyDown(VK_LEFT), KeyDown('D') || KeyDown(VK_RIGHT)),
-        .move_z = Axis(KeyDown('S') || KeyDown(VK_DOWN), KeyDown('W') || KeyDown(VK_UP)),
-        .sprint = KeyDown(VK_LSHIFT) || KeyDown(VK_RSHIFT),
-        .reset = KeyDown('R'),
-        .restore_checkpoint = KeyDown('C'),
-    };
 }
 
 void LogText(const std::wstring_view text)
@@ -310,7 +295,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int)
             instance,
             1600,
             900,
-            L"MARSTHEGAME — Reach the beacon — WASD, Shift, C, F5/F9");
+            L"MARSTHEGAME — Reach the beacon — keyboard or controller");
 
         mars::renderer::D3D12Renderer renderer;
         renderer.Initialize(window.Handle(), window.Width(), window.Height());
@@ -322,6 +307,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int)
         const std::filesystem::path save_path = SavePath();
         mars::game::GameState game;
         LoadGame(game, save_path, true);
+        const mars::platform::NativeInput native_input;
 
         auto previous = std::chrono::steady_clock::now();
         mars::game::MissionState displayed_state = game.Mission();
@@ -344,7 +330,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int)
 
             const mars::game::MissionState mission_before = game.Mission();
             const bool checkpoint_before = game.CheckpointReached();
-            game.Update(PollInput(), delta_seconds);
+            game.Update(native_input.Poll(), delta_seconds);
 
             if (!checkpoint_before && game.CheckpointReached())
             {
@@ -372,8 +358,8 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int)
             {
                 displayed_state = game.Mission();
                 const wchar_t* title = displayed_state == mars::game::MissionState::Complete
-                    ? L"MARSTHEGAME — Ares Reach Complete — R reset, F9 load"
-                    : L"MARSTHEGAME — Reach the beacon — WASD, Shift, C, F5/F9";
+                    ? L"MARSTHEGAME — Ares Reach Complete — R/Y reset"
+                    : L"MARSTHEGAME — WASD or left stick — Shift/LT sprint — C/X checkpoint";
                 SetWindowTextW(window.Handle(), title);
             }
             if (saved_checkpoint && !game.CheckpointReached())

@@ -86,6 +86,11 @@ set(MARS_GAME_SOURCES
   src/renderer/render_scene.h
 )
 
+set(MARS_INPUT_SOURCES
+  src/platform/native_input.cpp
+  src/platform/native_input.h
+)
+
 add_executable(
   mars_native
   WIN32
@@ -95,6 +100,7 @@ add_executable(
   src/renderer/d3d12_renderer.cpp
   src/renderer/d3d12_renderer.h
   ${MARS_GAME_SOURCES}
+  ${MARS_INPUT_SOURCES}
 )
 
 add_dependencies(mars_native mars_shaders)
@@ -122,6 +128,7 @@ target_link_libraries(
     ole32
     shell32
     user32
+    xinput9_1_0
 )
 
 add_executable(
@@ -138,6 +145,22 @@ target_compile_definitions(
 )
 mars_strict_warnings(mars_native_game_tests)
 add_test(NAME native_game_state COMMAND mars_native_game_tests)
+
+add_executable(
+  mars_native_input_tests
+  tests/input_tests.cpp
+  ${MARS_INPUT_SOURCES}
+)
+target_include_directories(mars_native_input_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
+target_compile_definitions(
+  mars_native_input_tests
+  PRIVATE
+    WIN32_LEAN_AND_MEAN
+    NOMINMAX
+)
+mars_strict_warnings(mars_native_input_tests)
+target_link_libraries(mars_native_input_tests PRIVATE user32 xinput9_1_0)
+add_test(NAME native_input_parity COMMAND mars_native_input_tests)
 
 add_custom_command(
   TARGET mars_native
