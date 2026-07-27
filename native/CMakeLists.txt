@@ -36,6 +36,19 @@ if(NOT DXC_EXECUTABLE)
   message(FATAL_ERROR "DXC was not found. Install a Windows SDK containing dxc.exe.")
 endif()
 
+function(mars_strict_warnings target)
+  target_compile_options(
+    ${target}
+    PRIVATE
+      /W4
+      /WX
+      /permissive-
+      /EHsc
+      /Zc:__cplusplus
+      /utf-8
+  )
+endfunction()
+
 set(SHADER_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/shaders/scene.hlsl")
 set(SHADER_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/shaders")
 set(VERTEX_SHADER "${SHADER_OUTPUT_DIR}/scene.vs.dxil")
@@ -61,20 +74,36 @@ add_custom_command(
 
 add_custom_target(mars_shaders DEPENDS "${VERTEX_SHADER}" "${PIXEL_SHADER}")
 
-function(mars_strict_warnings target)
-  target_compile_options(
-    ${target}
-    PRIVATE
-      /W4
-      /WX
-      /permissive-
-      /EHsc
-      /Zc:__cplusplus
-      /utf-8
-  )
-endfunction()
+set(MARS_SCENE_ASSET_SOURCES
+  src/assets/scene_asset.cpp
+  src/assets/scene_asset.h
+)
+
+add_executable(
+  mars_scene_cooker
+  tools/scene_cooker_main.cpp
+  ${MARS_SCENE_ASSET_SOURCES}
+)
+target_include_directories(mars_scene_cooker PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
+mars_strict_warnings(mars_scene_cooker)
+
+set(SOURCE_SCENE "${CMAKE_CURRENT_SOURCE_DIR}/assets/scenes/ares_reach.marscene")
+set(COOKED_SCENE_DIR "${CMAKE_CURRENT_BINARY_DIR}/assets/scenes")
+set(COOKED_SCENE "${COOKED_SCENE_DIR}/ares_reach.marscene.bin")
+
+add_custom_command(
+  OUTPUT "${COOKED_SCENE}"
+  COMMAND "${CMAKE_COMMAND}" -E make_directory "${COOKED_SCENE_DIR}"
+  COMMAND "$<TARGET_FILE:mars_scene_cooker>"
+          --input "${SOURCE_SCENE}"
+          --output "${COOKED_SCENE}"
+  DEPENDS mars_scene_cooker "${SOURCE_SCENE}"
+  VERBATIM
+)
+add_custom_target(mars_assets ALL DEPENDS "${COOKED_SCENE}")
 
 set(MARS_GAME_SOURCES
+  ${MARS_SCENE_ASSET_SOURCES}
   src/game/collision.cpp
   src/game/collision.h
   src/game/game_state.cpp
@@ -97,7 +126,7 @@ add_executable(
   ${MARS_GAME_SOURCES}
 )
 
-add_dependencies(mars_native mars_shaders)
+add_dependencies(mars_native mars_shaders mars_assets)
 target_include_directories(mars_native PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
 target_compile_definitions(
   mars_native
@@ -129,6 +158,7 @@ add_executable(
   tests/game_state_tests.cpp
   ${MARS_GAME_SOURCES}
 )
+add_dependencies(mars_native_game_tests mars_assets)
 target_include_directories(mars_native_game_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
 target_compile_definitions(
   mars_native_game_tests
@@ -137,7 +167,7 @@ target_compile_definitions(
     NOMINMAX
 )
 mars_strict_warnings(mars_native_game_tests)
-add_test(NAME native_game_state COMMAND mars_native_game_tests)
+add_test(NAME native_game_state COMMAND mars_native_game_tests "${COOKED_SCENE}")
 
 add_custom_command(
   TARGET mars_native
@@ -149,4 +179,8 @@ add_custom_command(
   COMMAND "${CMAKE_COMMAND}" -E copy_if_different
           "${PIXEL_SHADER}"
           "$<TARGET_FILE_DIR:mars_native>/shaders/scene.ps.dxil"
+  COMMAND "${CMAKE_COMMAND}" -E make_directory "$<TARGET_FILE_DIR:mars_native>/assets/scenes"
+  COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+          "${COOKED_SCENE}"
+          "$<TARGET_FILE_DIR:mars_native>/assets/scenes/ares_reach.marscene.bin"
 )
