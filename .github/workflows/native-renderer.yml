@@ -40,13 +40,13 @@ jobs:
             -DDXC_EXECUTABLE="$env:DXC_EXECUTABLE" 2>&1 |
             Tee-Object -FilePath build/native-configure.log
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Build native game, cooker, scene package, and shaders
+      - name: Build native game, scene and mesh cookers, asset packages, and shaders
         shell: pwsh
         run: |
           cmake --build build/native --parallel 2>&1 |
             Tee-Object -FilePath build/native-build.log
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Run deterministic native gameplay and asset tests
+      - name: Run native gameplay, input, procedural, scene, and glTF tests
         shell: pwsh
         run: |
           ctest --test-dir build/native --output-on-failure 2>&1 |
@@ -72,7 +72,13 @@ jobs:
             build/*.log
             build/native/mars_native.exe
             build/native/mars_native_game_tests.exe
+            build/native/mars_native_input_tests.exe
+            build/native/mars_scene_mesh_tests.exe
+            build/native/mars_procedural_content_tests.exe
+            build/native/mars_native_mesh_tests.exe
             build/native/mars_scene_cooker.exe
+            build/native/mars_mesh_cooker.exe
             build/native/shaders/*.dxil
             build/native/assets/scenes/*.bin
+            build/native/assets/meshes/*.bin
           if-no-files-found: warn
