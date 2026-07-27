@@ -11,7 +11,9 @@ The repository contains one game runtime:
 - **HLSL compiled with DXC** for shaders
 - **CMake + Ninja + MSVC** for builds
 
-The current executable is a native Ares Reach graybox. The player lands inside a Mars traversal arena, moves through terrain and structural obstacles, and completes the mission by reaching the objective beacon. The camera follows the player and the entire scene is rendered as independently transformed, depth-tested, directionally lit geometry.
+The current executable is a native Ares Reach graybox. The player lands inside a Mars traversal arena, navigates collidable terrain and structures, reaches a durable checkpoint, and completes the mission at the objective beacon. The camera follows the player and the scene is rendered as independently transformed, depth-tested, directionally lit geometry.
+
+Progress is stored in a versioned transactional native save under `%LOCALAPPDATA%\MARSTHEGAME`. Saves use checksums, temporary-file commit, backup rotation, corruption quarantine, and checkpoint restoration.
 
 This is real native gameplay infrastructure, not final art. The AAA-quality target has not yet been achieved.
 
@@ -21,6 +23,9 @@ This is real native gameplay infrastructure, not final art. The AAA-quality targ
 |---|---|
 | Move | WASD or arrow keys |
 | Sprint | Left or right Shift |
+| Restore checkpoint | C |
+| Save | F5 |
+| Load | F9 |
 | Reset mission | R |
 | Exit | Escape |
 
@@ -56,7 +61,7 @@ ctest --test-dir build/native --output-on-failure
 .\build\native\mars_native.exe --warp-smoke-test
 ```
 
-The WARP smoke test creates a validation-enabled Direct3D 12 software device, runs the native Ares Reach scene, resizes the swap chain, reads back the rendered frame, and rejects output without a substantial non-background pixel region.
+CTest proves deterministic movement, collision, checkpoint restoration, replay identity, transactional save round-trips, backup rotation, and checksum rejection. The WARP smoke test creates a validation-enabled Direct3D 12 software device, runs the native Ares Reach scene, resizes the swap chain, reads back the rendered frame, and rejects output without a substantial non-background pixel region.
 
 ## Production state
 
