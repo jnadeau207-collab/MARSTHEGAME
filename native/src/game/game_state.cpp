@@ -35,17 +35,25 @@ bool Finite(const DirectX::XMFLOAT3 value) noexcept
 }
 } // namespace
 
-GameState::GameState(const assets::SceneDefinition& scene)
+GameState::GameState(
+    const assets::SceneDefinition& scene,
+    const std::span<const assets::StaticMesh> meshes)
 {
-    InitializeScene(scene);
+    InitializeScene(scene, meshes);
     Reset();
 }
 
-void GameState::InitializeScene(const assets::SceneDefinition& scene)
+void GameState::InitializeScene(
+    const assets::SceneDefinition& scene,
+    const std::span<const assets::StaticMesh> meshes)
 {
     if (scene.schema_version != assets::SceneDefinition::kSchemaVersion || scene.entities.empty())
     {
         throw std::invalid_argument("GameState requires a valid cooked scene definition");
+    }
+    if (meshes.empty())
+    {
+        throw std::invalid_argument("GameState requires a non-empty mesh catalog");
     }
 
     base_instances_.clear();
@@ -59,11 +67,17 @@ void GameState::InitializeScene(const assets::SceneDefinition& scene)
         std::size_t render_index = kInvalidIndex;
         if (assets::HasFlag(entity, assets::SceneEntityRender))
         {
+            const std::size_t mesh_index = assets::FindMeshIndex(meshes, entity.mesh_id);
+            if (mesh_index > (std::numeric_limits<std::uint32_t>::max)())
+            {
+                throw std::invalid_argument("Scene mesh index exceeds the renderer contract");
+            }
             render_index = base_instances_.size();
             base_instances_.push_back({
                 .position = entity.position,
                 .scale = entity.scale,
                 .tint = entity.tint,
+                .mesh_index = static_cast<std::uint32_t>(mesh_index),
             });
         }
         if (assets::HasFlag(entity, assets::SceneEntityCollider))
