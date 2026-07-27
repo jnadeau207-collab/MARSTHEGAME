@@ -22,6 +22,13 @@ class Phase3RendererAuditTests(unittest.TestCase):
     def setUp(self) -> None:
         self.manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
 
+    def pending_manifest(self) -> dict:
+        manifest = copy.deepcopy(self.manifest)
+        for key in _CI_VERIFICATION_KEYS:
+            manifest[key] = "pending"
+        manifest["verification_run"] = None
+        return manifest
+
     def test_committed_native_foundation_passes_truthful_audit(self) -> None:
         report = audit_phase3_renderer(self.manifest)
         self.assertEqual(report["status"], "pass")
@@ -42,7 +49,7 @@ class Phase3RendererAuditTests(unittest.TestCase):
         self.assertIn("visual_claim_fail_closed", report["failures"])
 
     def test_ci_evidence_must_advance_as_one_exact_head_set(self) -> None:
-        manifest = copy.deepcopy(self.manifest)
+        manifest = self.pending_manifest()
         manifest["native_build_verification"] = "passed"
         report = audit_phase3_renderer(manifest)
         self.assertEqual(report["status"], "fail")
