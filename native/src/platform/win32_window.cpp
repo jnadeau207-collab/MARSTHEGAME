@@ -2,6 +2,7 @@
 
 #include <stdexcept>
 #include <string>
+#include <utility>
 
 namespace mars::platform
 {
@@ -27,7 +28,8 @@ void Win32Window::Create(
     HINSTANCE instance,
     const std::uint32_t width,
     const std::uint32_t height,
-    const std::wstring_view title)
+    const std::wstring_view title,
+    const bool visible)
 {
     if (instance == nullptr || width == 0 || height == 0)
     {
@@ -78,8 +80,11 @@ void Win32Window::Create(
     }
 
     running_ = true;
-    ShowWindow(window_, SW_SHOWDEFAULT);
-    UpdateWindow(window_);
+    if (visible)
+    {
+        ShowWindow(window_, SW_SHOWDEFAULT);
+        UpdateWindow(window_);
+    }
 }
 
 bool Win32Window::PumpMessages()
