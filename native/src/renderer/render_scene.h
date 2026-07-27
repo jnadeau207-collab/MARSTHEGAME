@@ -45,6 +45,8 @@ struct RenderScene
     DirectX::XMFLOAT3 player_velocity{};
     float target_exposure = 1.0f;
     bool mission_complete = false;
+    std::array<RenderInstance, 8> supplemental_character_instances{};
+    std::uint32_t supplemental_character_count = 0;
     std::span<const RenderInstance> instances{};
 };
 } // namespace mars::renderer
