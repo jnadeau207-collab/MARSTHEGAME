@@ -104,21 +104,45 @@ int main(const int argc, char** argv)
 
     const mars::game::GameState game(definition);
     const mars::renderer::RenderScene scene = game.Scene();
-    std::array<std::size_t, static_cast<std::size_t>(mars::renderer::MeshKind::Count)> render_counts{};
+    Require(scene.instances.size() == definition.entities.size(),
+        "runtime scene must preserve all eighteen authored instance slots");
+    Require(scene.supplemental_character_count == 8,
+        "runtime scene must expose eight supplemental generated character parts");
+
+    std::array<std::size_t, static_cast<std::size_t>(mars::renderer::MeshKind::Count)> authored_runtime_counts{};
     for (const mars::renderer::RenderInstance& instance : scene.instances)
     {
         const std::size_t mesh_index = static_cast<std::size_t>(instance.mesh);
-        Require(mesh_index < render_counts.size(), "runtime scene must reject invalid mesh kinds");
-        ++render_counts[mesh_index];
+        Require(mesh_index < authored_runtime_counts.size(),
+            "runtime scene must reject invalid authored mesh kinds");
+        ++authored_runtime_counts[mesh_index];
     }
-    Require(render_counts[static_cast<std::size_t>(mars::renderer::MeshKind::Cube)] == 5,
-        "runtime scene must preserve five cube instances");
-    Require(render_counts[static_cast<std::size_t>(mars::renderer::MeshKind::MarsRock)] == 6,
-        "runtime scene must preserve six generated rock instances");
-    Require(render_counts[static_cast<std::size_t>(mars::renderer::MeshKind::BeaconColumn)] == 6,
-        "runtime scene must preserve six generated column instances");
-    Require(render_counts[static_cast<std::size_t>(mars::renderer::MeshKind::TerrainPatch)] == 1,
-        "runtime scene must preserve one generated terrain instance");
+    Require(authored_runtime_counts[static_cast<std::size_t>(mars::renderer::MeshKind::Cube)] == 6,
+        "runtime scene must replace the authored player column with the generated torso cube");
+    Require(authored_runtime_counts[static_cast<std::size_t>(mars::renderer::MeshKind::MarsRock)] == 6,
+        "runtime scene must preserve six authored generated rock instances");
+    Require(authored_runtime_counts[static_cast<std::size_t>(mars::renderer::MeshKind::BeaconColumn)] == 5,
+        "runtime scene must preserve five non-player authored column instances");
+    Require(authored_runtime_counts[static_cast<std::size_t>(mars::renderer::MeshKind::TerrainPatch)] == 1,
+        "runtime scene must preserve one authored generated terrain instance");
+
+    std::array<std::size_t, static_cast<std::size_t>(mars::renderer::MeshKind::Count)> supplemental_counts{};
+    for (std::uint32_t index = 0; index < scene.supplemental_character_count; ++index)
+    {
+        const mars::renderer::RenderInstance& instance = scene.supplemental_character_instances[index];
+        const std::size_t mesh_index = static_cast<std::size_t>(instance.mesh);
+        Require(mesh_index < supplemental_counts.size(),
+            "supplemental character must reject invalid generated mesh kinds");
+        ++supplemental_counts[mesh_index];
+    }
+    Require(supplemental_counts[static_cast<std::size_t>(mars::renderer::MeshKind::Cube)] == 3,
+        "supplemental character must contain pelvis backpack and visor cube parts");
+    Require(supplemental_counts[static_cast<std::size_t>(mars::renderer::MeshKind::MarsRock)] == 1,
+        "supplemental character must contain one generated helmet part");
+    Require(supplemental_counts[static_cast<std::size_t>(mars::renderer::MeshKind::BeaconColumn)] == 4,
+        "supplemental character must contain four generated limb parts");
+    Require(supplemental_counts[static_cast<std::size_t>(mars::renderer::MeshKind::TerrainPatch)] == 0,
+        "supplemental character must not misuse terrain geometry");
 
     RequireThrows(
         []() {

@@ -40,39 +40,43 @@ jobs:
             -DDXC_EXECUTABLE="$env:DXC_EXECUTABLE" 2>&1 |
             Tee-Object -FilePath build/native-configure.log
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Build native game, cooker, scene package, and shaders
+      - name: Build Phase 5 native visual slice, cooker, and shaders
         shell: pwsh
         run: |
           cmake --build build/native --parallel 2>&1 |
             Tee-Object -FilePath build/native-build.log
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Run deterministic native gameplay and asset tests
+      - name: Run deterministic native gameplay, visual, audio, and asset tests
         shell: pwsh
         run: |
           ctest --test-dir build/native --output-on-failure 2>&1 |
             Tee-Object -FilePath build/native-tests.log
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Verify packaged shader and scene payloads
+      - name: Verify packaged multi-pass shaders and scene payloads
         shell: pwsh
         run: |
           .\build\native\mars_native.exe --self-test
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Render cooked Ares Reach scene under D3D12 validation
-        timeout-minutes: 2
+      - name: Render and capture Phase 5 slice under D3D12 validation
+        timeout-minutes: 3
         shell: pwsh
         run: |
-          .\build\native\mars_native.exe --warp-smoke-test
+          .\build\native\mars_native.exe --warp-smoke-test 2>&1 |
+            Tee-Object -FilePath build/phase5-warp.log
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Upload native game and diagnostic evidence
+          if (-not (Test-Path build/native/phase5_visual_slice.bmp)) {
+            throw "Phase 5 visual capture was not produced"
+          }
+      - name: Upload native game and Phase 5 evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: mars-native-game-${{ github.sha }}
+          name: mars-phase5-${{ github.sha }}
           path: |
             build/*.log
             build/native/mars_native.exe
-            build/native/mars_native_game_tests.exe
             build/native/mars_scene_cooker.exe
             build/native/shaders/*.dxil
             build/native/assets/scenes/*.bin
+            build/native/phase5_visual_slice.bmp
           if-no-files-found: warn

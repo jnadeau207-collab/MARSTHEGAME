@@ -1,6 +1,7 @@
 #include "game/game_state.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <span>
 #include <stdexcept>
@@ -49,6 +50,36 @@ renderer::MeshKind ToRenderMeshKind(const assets::SceneMeshKind mesh)
     }
     throw std::invalid_argument("Scene contains an unsupported generated mesh kind");
 }
+
+renderer::MeshKind ToRenderMeshKind(const std::uint32_t slot)
+{
+    if (slot >= static_cast<std::uint32_t>(renderer::MeshKind::Count))
+    {
+        throw std::invalid_argument("Character rig contains an invalid generated mesh slot");
+    }
+    return static_cast<renderer::MeshKind>(slot);
+}
+
+renderer::RenderInstance RigInstance(
+    const DirectX::XMFLOAT3 player_position,
+    const CharacterPartPose& part)
+{
+    return {
+        .position = {
+            player_position.x + part.offset.x,
+            player_position.y + part.offset.y,
+            player_position.z + part.offset.z,
+        },
+        .rotation_radians = {
+            part.rotation_radians.x,
+            part.rotation_radians.y,
+            part.rotation_radians.z,
+        },
+        .scale = {part.scale.x, part.scale.y, part.scale.z},
+        .tint = {part.tint.r, part.tint.g, part.tint.b, part.tint.a},
+        .mesh = ToRenderMeshKind(part.mesh_slot),
+    };
+}
 } // namespace
 
 GameState::GameState(const assets::SceneDefinition& scene)
@@ -78,6 +109,7 @@ void GameState::InitializeScene(const assets::SceneDefinition& scene)
             render_index = base_instances_.size();
             base_instances_.push_back({
                 .position = entity.position,
+                .rotation_radians = {},
                 .scale = entity.scale,
                 .tint = entity.tint,
                 .mesh = ToRenderMeshKind(assets::MeshKindForEntity(entity)),
@@ -259,23 +291,62 @@ DirectX::XMFLOAT3 GameState::PlayerPosition() const noexcept
 
 renderer::RenderScene GameState::Scene() const noexcept
 {
+    const float lateral_velocity = player_velocity_.x * 0.045f;
     const DirectX::XMFLOAT3 eye{
-        player_position_.x,
-        player_position_.y + 6.0f,
-        player_position_.z - 9.5f,
+        player_position_.x - lateral_velocity,
+        player_position_.y + 5.8f,
+        player_position_.z - 10.5f,
     };
     const DirectX::XMFLOAT3 target{
-        player_position_.x,
-        player_position_.y + 0.5f,
-        player_position_.z + 3.0f,
+        player_position_.x + lateral_velocity * 0.35f,
+        player_position_.y + 1.15f,
+        player_position_.z + 3.4f,
     };
     const DirectX::XMFLOAT4 clear = mission_state_ == MissionState::Complete
-        ? DirectX::XMFLOAT4{0.025f, 0.060f, 0.052f, 1.0f}
-        : DirectX::XMFLOAT4{0.038f, 0.018f, 0.012f, 1.0f};
+        ? DirectX::XMFLOAT4{0.016f, 0.050f, 0.040f, 1.0f}
+        : DirectX::XMFLOAT4{0.022f, 0.010f, 0.006f, 1.0f};
+    const std::array<renderer::PointLight, 4> lights = {{
+        {
+            .position = {objective_position_.x, objective_position_.y + 2.5f, objective_position_.z},
+            .radius = 15.0f,
+            .color = mission_state_ == MissionState::Complete
+                ? DirectX::XMFLOAT3{0.18f, 1.0f, 0.52f}
+                : DirectX::XMFLOAT3{1.0f, 0.24f, 0.06f},
+            .intensity = 14.0f,
+        },
+        {
+            .position = {checkpoint_position_.x, checkpoint_position_.y + 1.8f, checkpoint_position_.z},
+            .radius = 9.0f,
+            .color = checkpoint_reached_
+                ? DirectX::XMFLOAT3{0.12f, 0.88f, 0.52f}
+                : DirectX::XMFLOAT3{0.12f, 0.42f, 1.0f},
+            .intensity = checkpoint_reached_ ? 7.5f : 4.0f,
+        },
+        {
+            .position = {player_position_.x, player_position_.y + 1.7f, player_position_.z - 0.2f},
+            .radius = 4.5f,
+            .color = {0.22f, 0.58f, 1.0f},
+            .intensity = 2.8f,
+        },
+        {
+            .position = {0.0f, 6.5f, 7.0f},
+            .radius = 19.0f,
+            .color = {1.0f, 0.32f, 0.12f},
+            .intensity = 3.2f,
+        },
+    }};
     return {
         .camera_eye = eye,
         .camera_target = target,
         .clear_color = clear,
+        .point_lights = lights,
+        .particle_emitter = {objective_position_.x, objective_position_.y + 1.0f, objective_position_.z},
+        .elapsed_seconds = elapsed_seconds_,
+        .player_velocity = player_velocity_,
+        .target_exposure = mission_state_ == MissionState::Complete ? 1.12f : 0.92f,
+        .mission_complete = mission_state_ == MissionState::Complete,
+        .supplemental_character_instances = supplemental_character_instances_,
+        .supplemental_character_count = static_cast<std::uint32_t>(supplemental_character_instances_.size()),
         .instances = std::span<const renderer::RenderInstance>(instances_),
     };
 }
@@ -350,7 +421,21 @@ void GameState::IntegrateFixedStep(const InputState& input)
 void GameState::RebuildScene()
 {
     instances_ = base_instances_;
-    instances_[player_instance_index_].position = player_position_;
+    const float planar_speed = std::sqrt(
+        player_velocity_.x * player_velocity_.x + player_velocity_.z * player_velocity_.z);
+    const CharacterPose pose = EvaluateCharacterPose(
+        elapsed_seconds_,
+        planar_speed,
+        mission_state_ == MissionState::Complete);
+    instances_[player_instance_index_] = RigInstance(
+        player_position_,
+        pose.parts[static_cast<std::size_t>(CharacterPart::Torso)]);
+    for (std::size_t part_index = 1; part_index < kCharacterPartCount; ++part_index)
+    {
+        supplemental_character_instances_[part_index - 1U] = RigInstance(
+            player_position_,
+            pose.parts[part_index]);
+    }
 
     const float pulse = 1.0f + std::sin(elapsed_seconds_ * 4.0f) * 0.12f;
     renderer::RenderInstance& objective = instances_[objective_instance_index_];
