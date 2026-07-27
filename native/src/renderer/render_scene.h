@@ -24,6 +24,7 @@ struct RenderInstance
     DirectX::XMFLOAT3 scale{1.0f, 1.0f, 1.0f};
     DirectX::XMFLOAT4 tint{1.0f, 1.0f, 1.0f, 1.0f};
     MeshKind mesh = MeshKind::Cube;
+    std::uint32_t material_slot = 0;
 };
 
 struct PointLight
