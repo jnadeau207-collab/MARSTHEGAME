@@ -1,4 +1,5 @@
 #include "renderer/d3d12_renderer.h"
+#include "renderer/procedural_geometry.h"
 
 #include <d3d12sdklayers.h>
 
@@ -717,40 +718,36 @@ void D3D12Renderer::CreatePipeline()
 
 void D3D12Renderer::CreateGeometry()
 {
-    constexpr std::array<Vertex, 24> vertices = {{
-        {{-1.0f, -1.0f, -1.0f}, {0.0f, 0.0f, -1.0f}, {1.0f, 1.0f, 1.0f}},
-        {{-1.0f, 1.0f, -1.0f}, {0.0f, 0.0f, -1.0f}, {1.0f, 1.0f, 1.0f}},
-        {{1.0f, 1.0f, -1.0f}, {0.0f, 0.0f, -1.0f}, {1.0f, 1.0f, 1.0f}},
-        {{1.0f, -1.0f, -1.0f}, {0.0f, 0.0f, -1.0f}, {1.0f, 1.0f, 1.0f}},
-        {{1.0f, -1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}},
-        {{1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}},
-        {{-1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}},
-        {{-1.0f, -1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}},
-        {{-1.0f, -1.0f, 1.0f}, {-1.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
-        {{-1.0f, 1.0f, 1.0f}, {-1.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
-        {{-1.0f, 1.0f, -1.0f}, {-1.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
-        {{-1.0f, -1.0f, -1.0f}, {-1.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
-        {{1.0f, -1.0f, -1.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
-        {{1.0f, 1.0f, -1.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
-        {{1.0f, 1.0f, 1.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
-        {{1.0f, -1.0f, 1.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
-        {{-1.0f, 1.0f, -1.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
-        {{-1.0f, 1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
-        {{1.0f, 1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
-        {{1.0f, 1.0f, -1.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
-        {{-1.0f, -1.0f, 1.0f}, {0.0f, -1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
-        {{-1.0f, -1.0f, -1.0f}, {0.0f, -1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
-        {{1.0f, -1.0f, -1.0f}, {0.0f, -1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
-        {{1.0f, -1.0f, 1.0f}, {0.0f, -1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
-    }};
-    constexpr std::array<std::uint16_t, 36> indices = {
-        0, 1, 2, 0, 2, 3,
-        4, 5, 6, 4, 6, 7,
-        8, 9, 10, 8, 10, 11,
-        12, 13, 14, 12, 14, 15,
-        16, 17, 18, 16, 18, 19,
-        20, 21, 22, 20, 22, 23,
+    const std::array<MeshData, static_cast<std::size_t>(MeshKind::Count)> meshes = {
+        GenerateUnitCube(),
+        GenerateMarsRock(0xA51E5U, 12, 20, 0.26f),
+        GenerateBeaconColumn(32),
+        GenerateTerrainPatch(0x4D415253U, 32, 48, 24.0f, 32.0f, 0.82f),
     };
+
+    std::vector<MeshVertex> vertices;
+    std::vector<std::uint32_t> indices;
+    for (std::size_t mesh_index = 0; mesh_index < meshes.size(); ++mesh_index)
+    {
+        const MeshData& mesh = meshes[mesh_index];
+        if (!ValidateMesh(mesh))
+        {
+            throw std::runtime_error("Generated mesh atlas contains invalid topology");
+        }
+        if (vertices.size() > static_cast<std::size_t>((std::numeric_limits<std::int32_t>::max)())
+            || indices.size() > static_cast<std::size_t>((std::numeric_limits<std::uint32_t>::max)())
+            || mesh.indices.size() > static_cast<std::size_t>((std::numeric_limits<std::uint32_t>::max)()))
+        {
+            throw std::runtime_error("Generated mesh atlas exceeds renderer index limits");
+        }
+        mesh_ranges_[mesh_index] = {
+            .index_count = static_cast<std::uint32_t>(mesh.indices.size()),
+            .start_index = static_cast<std::uint32_t>(indices.size()),
+            .base_vertex = static_cast<std::int32_t>(vertices.size()),
+        };
+        vertices.insert(vertices.end(), mesh.vertices.begin(), mesh.vertices.end());
+        indices.insert(indices.end(), mesh.indices.begin(), mesh.indices.end());
+    }
 
     const auto create_upload_buffer = [this](
                                           const void* source,
@@ -779,7 +776,7 @@ void D3D12Renderer::CreateGeometry()
                 D3D12_RESOURCE_STATE_GENERIC_READ,
                 nullptr,
                 IID_PPV_ARGS(&resource)),
-            "ID3D12Device::CreateCommittedResource(upload)");
+            "ID3D12Device::CreateCommittedResource(generated mesh atlas)");
         NameObject(resource.Get(), name);
 
         void* mapped = nullptr;
@@ -789,16 +786,25 @@ void D3D12Renderer::CreateGeometry()
         resource->Unmap(0, nullptr);
     };
 
-    create_upload_buffer(vertices.data(), sizeof(vertices), vertex_buffer_, L"MARSTHEGAME Cube Vertices");
+    create_upload_buffer(
+        vertices.data(),
+        vertices.size() * sizeof(MeshVertex),
+        vertex_buffer_,
+        L"MARSTHEGAME Procedural Mesh Atlas Vertices");
     vertex_buffer_view_.BufferLocation = vertex_buffer_->GetGPUVirtualAddress();
-    vertex_buffer_view_.StrideInBytes = static_cast<UINT>(sizeof(Vertex));
-    vertex_buffer_view_.SizeInBytes = static_cast<UINT>(sizeof(vertices));
+    vertex_buffer_view_.StrideInBytes = static_cast<UINT>(sizeof(MeshVertex));
+    vertex_buffer_view_.SizeInBytes =
+        static_cast<UINT>(vertices.size() * sizeof(MeshVertex));
 
-    create_upload_buffer(indices.data(), sizeof(indices), index_buffer_, L"MARSTHEGAME Cube Indices");
+    create_upload_buffer(
+        indices.data(),
+        indices.size() * sizeof(std::uint32_t),
+        index_buffer_,
+        L"MARSTHEGAME Procedural Mesh Atlas Indices");
     index_buffer_view_.BufferLocation = index_buffer_->GetGPUVirtualAddress();
-    index_buffer_view_.SizeInBytes = static_cast<UINT>(sizeof(indices));
-    index_buffer_view_.Format = DXGI_FORMAT_R16_UINT;
-    index_count_ = static_cast<std::uint32_t>(indices.size());
+    index_buffer_view_.SizeInBytes =
+        static_cast<UINT>(indices.size() * sizeof(std::uint32_t));
+    index_buffer_view_.Format = DXGI_FORMAT_R32_UINT;
 }
 
 void D3D12Renderer::CreateSceneConstants()
@@ -861,6 +867,12 @@ void D3D12Renderer::UpdateSceneConstants(const RenderScene& scene)
     for (std::uint32_t index = 0; index < instance_count_; ++index)
     {
         const RenderInstance& instance = scene.instances[index];
+        const std::size_t mesh_index = static_cast<std::size_t>(instance.mesh);
+        if (mesh_index >= mesh_ranges_.size())
+        {
+            throw std::invalid_argument("RenderScene contains an invalid generated mesh kind");
+        }
+        instance_meshes_[index] = instance.mesh;
         const XMMATRIX world =
             XMMatrixScaling(instance.scale.x, instance.scale.y, instance.scale.z)
             * XMMatrixTranslation(instance.position.x, instance.position.y, instance.position.z);
@@ -914,7 +926,14 @@ void D3D12Renderer::PopulateCommandList()
         command_list_->SetGraphicsRootConstantBufferView(
             0,
             base_address + constant_index * sizeof(SceneConstants));
-        command_list_->DrawIndexedInstanced(index_count_, 1, 0, 0, 0);
+        const MeshRange& mesh =
+            mesh_ranges_[static_cast<std::size_t>(instance_meshes_[index])];
+        command_list_->DrawIndexedInstanced(
+            mesh.index_count,
+            1,
+            mesh.start_index,
+            mesh.base_vertex,
+            0);
     }
 
     if (capture_requested_)

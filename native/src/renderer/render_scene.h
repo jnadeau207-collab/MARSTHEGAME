@@ -2,15 +2,26 @@
 
 #include <DirectXMath.h>
 
+#include <cstdint>
 #include <span>
 
 namespace mars::renderer
 {
+enum class MeshKind : std::uint32_t
+{
+    Cube = 0,
+    MarsRock = 1,
+    BeaconColumn = 2,
+    TerrainPatch = 3,
+    Count = 4,
+};
+
 struct RenderInstance
 {
     DirectX::XMFLOAT3 position{};
     DirectX::XMFLOAT3 scale{1.0f, 1.0f, 1.0f};
     DirectX::XMFLOAT4 tint{1.0f, 1.0f, 1.0f, 1.0f};
+    MeshKind mesh = MeshKind::Cube;
 };
 
 struct RenderScene
