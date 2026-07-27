@@ -7,13 +7,16 @@
   "aaa_claim": "target_not_achieved",
   "integration_verification": "passed",
   "current_tranche": "relay_echo_campaign_promotion",
+  "active_subtranche": "relay_echo_completed_mission_replay",
   "relay_echo_contract_verification": "passed",
   "relay_echo_runtime_state_verification": "passed",
   "relay_echo_playable_candidate_verification": "passed",
   "relay_echo_accessibility_parity_verification": "passed",
   "relay_echo_accessibility_parity_run": "30223550502",
   "relay_echo_campaign_promotion_verification": "passed",
-  "verification_run": "30225034895",
+  "relay_echo_campaign_promotion_run": "30225073774",
+  "relay_echo_completed_mission_replay_verification": "pending",
+  "verification_run": null,
   "implemented_missions": [
     "ares_reach",
     "relay_echo"
@@ -31,7 +34,8 @@
     "authored_final_assets_complete": false,
     "packaged_build_soak_complete": false,
     "keyboard_gamepad_completion_parity": true,
-    "accessibility_path_verified": true
+    "accessibility_path_verified": true,
+    "completed_mission_replay_verified": false
   },
-  "truthfulness": "Phase 2 has two implemented missions in the catalog: Ares Reach and Relay Echo. Relay Echo campaign routing, atomic launch, atomic completion, and the Phobos Vector unlock passed exact-head verification in GitHub Actions run 30225034895. Keyboard/gamepad parity and accessibility remain grounded in exact-head run 30223550502. Phobos Vector and Frontier Burn remain planned and non-playable. Founder direct play, final authored assets, packaged-build soak, external playtests, completed-mission replay/reset, full-campaign completion, and the AAA-quality target remain unachieved."
+  "truthfulness": "Phase 2 has two implemented missions: Ares Reach and Relay Echo. Relay Echo promotion remains grounded in exact-head run 30225073774, and accessibility/input parity remains grounded in run 30223550502. Durable completed-run archival and completed-mission replay/reset are the active subtranche under verification. Phobos Vector and Frontier Burn remain planned and non-playable. Founder direct play, final authored assets, packaged-build soak, external playtests, full-campaign completion, and the AAA-quality target remain unachieved."
 }
