@@ -19,10 +19,10 @@ from tools.relay_echo_replay_reset_replay import run_replay
 
 ROOT = Path(__file__).resolve().parents[1]
 _REQUIRED_FILES = {
-    "game/core/engine.py",
+    "game/core/replay_engine.py",
     "game/core/relay_echo_replay.py",
-    "game/core/save.py",
-    "game/scenes/campaign.py",
+    "game/core/relay_echo_save.py",
+    "game/scenes/campaign_replay.py",
     "game/scenes/relay_echo_promoted.py",
     "tools/relay_echo_replay_reset_audit.py",
     "tools/relay_echo_replay_reset_replay.py",
@@ -106,25 +106,30 @@ def audit_relay_replay_reset(
         archive,
     )
 
-    engine_source = (ROOT / "game/core/engine.py").read_text(encoding="utf-8")
-    save_source = (ROOT / "game/core/save.py").read_text(encoding="utf-8")
-    campaign_source = (ROOT / "game/scenes/campaign.py").read_text(encoding="utf-8")
+    engine_source = (ROOT / "game/core/replay_engine.py").read_text(encoding="utf-8")
+    save_source = (ROOT / "game/core/relay_echo_save.py").read_text(encoding="utf-8")
+    campaign_source = (ROOT / "game/scenes/campaign_replay.py").read_text(
+        encoding="utf-8"
+    )
     promoted_source = (ROOT / "game/scenes/relay_echo_promoted.py").read_text(
         encoding="utf-8"
     )
+    entrypoint_source = (ROOT / "main.py").read_text(encoding="utf-8")
     record(
         "runtime_replay_routed",
-        "prepare_relay_echo_replay" in engine_source
-        and "previous_replay" in engine_source
+        "ReplayCapableEngine" in entrypoint_source
+        and "prepare_relay_echo_replay" in engine_source
+        and "previous_archive" in engine_source
         and 'return "REPLAY"' in campaign_source
         and "complete_relay_echo_replay" in promoted_source
-        and "relay_echo_replay" in save_source
+        and "RelayEchoSaveData" in save_source
         and "normalize_relay_echo_replay" in save_source,
         {
+            "entrypoint_uses_replay_engine": "ReplayCapableEngine" in entrypoint_source,
             "engine_prepares_replay": "prepare_relay_echo_replay" in engine_source,
             "campaign_labels_replay": 'return "REPLAY"' in campaign_source,
             "scene_completes_replay": "complete_relay_echo_replay" in promoted_source,
-            "save_persists_archive": "relay_echo_replay" in save_source,
+            "save_persists_archive": "RelayEchoSaveData" in save_source,
         },
     )
 
