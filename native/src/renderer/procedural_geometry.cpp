@@ -15,33 +15,40 @@ namespace
 constexpr std::uint64_t kFnvOffsetBasis = 1'469'598'103'934'665'603ULL;
 constexpr std::uint64_t kFnvPrime = 1'099'511'628'211ULL;
 
-class DeterministicRandom final
+DirectX::XMFLOAT3 Add(
+    const DirectX::XMFLOAT3 first,
+    const DirectX::XMFLOAT3 second) noexcept
 {
-public:
-    explicit DeterministicRandom(const std::uint32_t seed) noexcept
-        : state_(seed == 0 ? 0x9E3779B9U : seed)
-    {
-    }
+    return {first.x + second.x, first.y + second.y, first.z + second.z};
+}
 
-    [[nodiscard]] std::uint32_t Next() noexcept
-    {
-        std::uint32_t value = state_;
-        value ^= value << 13U;
-        value ^= value >> 17U;
-        value ^= value << 5U;
-        state_ = value;
-        return value;
-    }
+DirectX::XMFLOAT3 Subtract(
+    const DirectX::XMFLOAT3 first,
+    const DirectX::XMFLOAT3 second) noexcept
+{
+    return {first.x - second.x, first.y - second.y, first.z - second.z};
+}
 
-    [[nodiscard]] float SignedUnit() noexcept
-    {
-        constexpr float inverse = 1.0f / static_cast<float>(std::numeric_limits<std::uint32_t>::max());
-        return static_cast<float>(Next()) * inverse * 2.0f - 1.0f;
-    }
+DirectX::XMFLOAT3 Scale(const DirectX::XMFLOAT3 value, const float scale) noexcept
+{
+    return {value.x * scale, value.y * scale, value.z * scale};
+}
 
-private:
-    std::uint32_t state_;
-};
+float Dot(const DirectX::XMFLOAT3 first, const DirectX::XMFLOAT3 second) noexcept
+{
+    return first.x * second.x + first.y * second.y + first.z * second.z;
+}
+
+DirectX::XMFLOAT3 Cross(
+    const DirectX::XMFLOAT3 first,
+    const DirectX::XMFLOAT3 second) noexcept
+{
+    return {
+        first.y * second.z - first.z * second.y,
+        first.z * second.x - first.x * second.z,
+        first.x * second.y - first.y * second.x,
+    };
+}
 
 DirectX::XMFLOAT3 Normalize(const DirectX::XMFLOAT3 value) noexcept
 {
@@ -54,17 +61,57 @@ DirectX::XMFLOAT3 Normalize(const DirectX::XMFLOAT3 value) noexcept
     return {value.x * inverse_length, value.y * inverse_length, value.z * inverse_length};
 }
 
-float TerrainNoise(const std::uint32_t seed, const float x, const float z) noexcept
+std::uint32_t HashCoordinate(
+    const std::uint32_t seed,
+    const std::uint32_t first,
+    const std::uint32_t second) noexcept
+{
+    std::uint32_t value = seed ^ (first * 0x9E3779B9U) ^ (second * 0x85EBCA6BU);
+    value ^= value >> 16U;
+    value *= 0x7FEB352DU;
+    value ^= value >> 15U;
+    value *= 0x846CA68BU;
+    value ^= value >> 16U;
+    return value;
+}
+
+float SignedNoise(
+    const std::uint32_t seed,
+    const std::uint32_t first,
+    const std::uint32_t second) noexcept
+{
+    constexpr float inverse = 1.0f
+        / static_cast<float>((std::numeric_limits<std::uint16_t>::max)());
+    return static_cast<float>(HashCoordinate(seed, first, second) & 0xFFFFU)
+        * inverse * 2.0f - 1.0f;
+}
+
+float TerrainHeight(
+    const std::uint32_t seed,
+    const float x,
+    const float z,
+    const float width,
+    const float depth,
+    const float height_scale) noexcept
 {
     const float seed_low = static_cast<float>(seed & 0xFFFFU);
     const float seed_high = static_cast<float>((seed >> 16U) & 0xFFFFU);
-    const float phase_a = seed_low * 0.017f + seed_high * 0.071f;
-    const float phase_b = seed_low * 0.043f - seed_high * 0.029f;
-    const float ridge = std::sin(x * 0.31f + phase_a)
-        * std::cos(z * 0.27f + phase_b);
-    const float detail = std::sin((x + z) * 0.83f + phase_a * 0.37f + phase_b * 0.19f) * 0.35f;
-    const float basin = -std::exp(-(x * x + z * z) * 0.015f) * 0.55f;
-    return ridge * 0.62f + detail + basin;
+    const float phase_a = seed_low * 0.013f + seed_high * 0.031f;
+    const float phase_b = seed_low * 0.021f - seed_high * 0.017f;
+    const float normalized_x = x / (width * 0.5f);
+    const float normalized_z = z / (depth * 0.5f);
+
+    const float macro = std::sin(x * 0.115f + phase_a)
+        * std::cos(z * 0.085f + phase_b) * 0.34f;
+    const float secondary = std::sin(x * 0.29f + z * 0.17f + phase_b) * 0.12f;
+    const float fine = std::sin((x - z) * 0.57f + phase_a * 0.41f) * 0.045f;
+    const float side_rise = std::pow(std::abs(normalized_x), 2.35f) * 1.85f;
+    const float service_basin = -std::exp(-normalized_x * normalized_x * 7.5f) * 0.22f;
+    const float landing_shelf = -std::exp(
+        -(normalized_x * normalized_x * 12.0f
+          + (normalized_z + 0.42f) * (normalized_z + 0.42f) * 16.0f)) * 0.16f;
+    return (macro + secondary + fine + service_basin + landing_shelf + side_rise)
+        * height_scale;
 }
 
 void HashBytes(std::uint64_t& hash, const void* data, const std::size_t size) noexcept
@@ -76,44 +123,109 @@ void HashBytes(std::uint64_t& hash, const void* data, const std::size_t size) no
         hash *= kFnvPrime;
     }
 }
+
+struct FaceBasis
+{
+    DirectX::XMFLOAT3 normal{};
+    DirectX::XMFLOAT3 axis_u{};
+    DirectX::XMFLOAT3 axis_v{};
+};
+
+DirectX::XMFLOAT3 RoundedBoxPoint(
+    const DirectX::XMFLOAT3 cube_point,
+    const float bevel,
+    DirectX::XMFLOAT3& normal) noexcept
+{
+    const float core = 1.0f - bevel;
+    const DirectX::XMFLOAT3 nearest{
+        (std::clamp)(cube_point.x, -core, core),
+        (std::clamp)(cube_point.y, -core, core),
+        (std::clamp)(cube_point.z, -core, core),
+    };
+    normal = Normalize(Subtract(cube_point, nearest));
+    return Add(nearest, Scale(normal, bevel));
+}
+
+void AppendFlatRockTriangle(
+    MeshData& mesh,
+    DirectX::XMFLOAT3 first,
+    DirectX::XMFLOAT3 second,
+    DirectX::XMFLOAT3 third) 
+{
+    DirectX::XMFLOAT3 normal = Normalize(Cross(Subtract(second, first), Subtract(third, first)));
+    const DirectX::XMFLOAT3 centroid = Scale(Add(Add(first, second), third), 1.0f / 3.0f);
+    if (Dot(normal, centroid) < 0.0f)
+    {
+        std::swap(second, third);
+        normal = Scale(normal, -1.0f);
+    }
+    const float height = (std::clamp)((centroid.y + 0.60f) / 1.25f, 0.0f, 1.0f);
+    const float upward = (std::clamp)(normal.y * 0.5f + 0.5f, 0.0f, 1.0f);
+    const DirectX::XMFLOAT3 color{
+        0.30f + height * 0.15f + upward * 0.035f,
+        0.205f + height * 0.095f + upward * 0.025f,
+        0.155f + height * 0.065f,
+    };
+    const std::uint32_t base = static_cast<std::uint32_t>(mesh.vertices.size());
+    mesh.vertices.push_back({first, normal, color});
+    mesh.vertices.push_back({second, normal, color});
+    mesh.vertices.push_back({third, normal, color});
+    mesh.indices.insert(mesh.indices.end(), {base, base + 1U, base + 2U});
+}
 } // namespace
 
 MeshData GenerateUnitCube()
 {
-    constexpr std::array<MeshVertex, 24> vertices = {{
-        {{-1.0f, -1.0f, -1.0f}, {0.0f, 0.0f, -1.0f}, {1.0f, 1.0f, 1.0f}},
-        {{-1.0f, 1.0f, -1.0f}, {0.0f, 0.0f, -1.0f}, {1.0f, 1.0f, 1.0f}},
-        {{1.0f, 1.0f, -1.0f}, {0.0f, 0.0f, -1.0f}, {1.0f, 1.0f, 1.0f}},
-        {{1.0f, -1.0f, -1.0f}, {0.0f, 0.0f, -1.0f}, {1.0f, 1.0f, 1.0f}},
-        {{1.0f, -1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}},
-        {{1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}},
-        {{-1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}},
-        {{-1.0f, -1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}},
-        {{-1.0f, -1.0f, 1.0f}, {-1.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
-        {{-1.0f, 1.0f, 1.0f}, {-1.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
-        {{-1.0f, 1.0f, -1.0f}, {-1.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
-        {{-1.0f, -1.0f, -1.0f}, {-1.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
-        {{1.0f, -1.0f, -1.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
-        {{1.0f, 1.0f, -1.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
-        {{1.0f, 1.0f, 1.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
-        {{1.0f, -1.0f, 1.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
-        {{-1.0f, 1.0f, -1.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
-        {{-1.0f, 1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
-        {{1.0f, 1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
-        {{1.0f, 1.0f, -1.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
-        {{-1.0f, -1.0f, 1.0f}, {0.0f, -1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
-        {{-1.0f, -1.0f, -1.0f}, {0.0f, -1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
-        {{1.0f, -1.0f, -1.0f}, {0.0f, -1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
-        {{1.0f, -1.0f, 1.0f}, {0.0f, -1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
+    constexpr std::uint32_t subdivisions = 4U;
+    constexpr float bevel = 0.14f;
+    constexpr std::array<FaceBasis, 6> faces = {{
+        {{1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}},
+        {{-1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, -1.0f}},
+        {{0.0f, 1.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f, -1.0f}},
+        {{0.0f, -1.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 1.0f}},
+        {{0.0f, 0.0f, 1.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}},
+        {{0.0f, 0.0f, -1.0f}, {-1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}},
     }};
-    constexpr std::array<std::uint32_t, 36> indices = {
-        0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7, 8, 9, 10, 8, 10, 11,
-        12, 13, 14, 12, 14, 15, 16, 17, 18, 16, 18, 19, 20, 21, 22, 20, 22, 23,
-    };
-    return {
-        .vertices = {vertices.begin(), vertices.end()},
-        .indices = {indices.begin(), indices.end()},
-    };
+
+    MeshData mesh;
+    const std::uint32_t stride = subdivisions + 1U;
+    mesh.vertices.reserve(faces.size() * static_cast<std::size_t>(stride) * stride);
+    mesh.indices.reserve(faces.size() * static_cast<std::size_t>(subdivisions) * subdivisions * 6U);
+
+    for (const FaceBasis& face : faces)
+    {
+        const std::uint32_t face_start = static_cast<std::uint32_t>(mesh.vertices.size());
+        for (std::uint32_t v_index = 0; v_index <= subdivisions; ++v_index)
+        {
+            const float v = -1.0f + 2.0f * static_cast<float>(v_index)
+                / static_cast<float>(subdivisions);
+            for (std::uint32_t u_index = 0; u_index <= subdivisions; ++u_index)
+            {
+                const float u = -1.0f + 2.0f * static_cast<float>(u_index)
+                    / static_cast<float>(subdivisions);
+                const DirectX::XMFLOAT3 cube_point = Add(
+                    face.normal,
+                    Add(Scale(face.axis_u, u), Scale(face.axis_v, v)));
+                DirectX::XMFLOAT3 normal{};
+                const DirectX::XMFLOAT3 position = RoundedBoxPoint(cube_point, bevel, normal);
+                mesh.vertices.push_back({position, normal, {1.0f, 1.0f, 1.0f}});
+            }
+        }
+        for (std::uint32_t v_index = 0; v_index < subdivisions; ++v_index)
+        {
+            for (std::uint32_t u_index = 0; u_index < subdivisions; ++u_index)
+            {
+                const std::uint32_t first = face_start + v_index * stride + u_index;
+                const std::uint32_t right = first + 1U;
+                const std::uint32_t upper = first + stride;
+                const std::uint32_t upper_right = upper + 1U;
+                mesh.indices.insert(
+                    mesh.indices.end(),
+                    {first, right, upper, right, upper_right, upper});
+            }
+        }
+    }
+    return mesh;
 }
 
 MeshData GenerateMarsRock(
@@ -122,56 +234,65 @@ MeshData GenerateMarsRock(
     const std::uint32_t segments,
     const float radial_variation)
 {
-    if (rings < 3 || segments < 3 || radial_variation < 0.0f || radial_variation > 0.8f)
+    if (rings < 3U || segments < 3U || radial_variation < 0.0f || radial_variation > 0.8f)
     {
         return {};
     }
 
-    MeshData mesh;
-    mesh.vertices.reserve(static_cast<std::size_t>(rings + 1) * (segments + 1));
-    mesh.indices.reserve(static_cast<std::size_t>(rings) * segments * 6);
-    DeterministicRandom random(seed);
+    const std::uint32_t stride = segments + 1U;
+    std::vector<DirectX::XMFLOAT3> positions;
+    positions.reserve(static_cast<std::size_t>(rings + 1U) * stride);
+    const float phase = static_cast<float>(seed & 0xFFFFU) * 0.00037f;
 
     for (std::uint32_t ring = 0; ring <= rings; ++ring)
     {
-        const float v = static_cast<float>(ring) / static_cast<float>(rings);
-        const float latitude = v * std::numbers::pi_v<float>;
+        const float latitude = static_cast<float>(ring) / static_cast<float>(rings)
+            * std::numbers::pi_v<float>;
         const float sin_latitude = std::sin(latitude);
         const float cos_latitude = std::cos(latitude);
         for (std::uint32_t segment = 0; segment <= segments; ++segment)
         {
-            const float u = static_cast<float>(segment) / static_cast<float>(segments);
-            const float longitude = u * std::numbers::pi_v<float> * 2.0f;
-            const DirectX::XMFLOAT3 direction = {
-                sin_latitude * std::cos(longitude),
-                cos_latitude,
-                sin_latitude * std::sin(longitude),
-            };
-            const float layered = std::sin(longitude * 3.0f + latitude * 2.0f) * 0.08f;
-            const float radius = 1.0f + layered + random.SignedUnit() * radial_variation;
-            const float vertical_compression = 0.72f + random.SignedUnit() * 0.035f;
-            mesh.vertices.push_back({
-                .position = {
-                    direction.x * radius,
-                    direction.y * radius * vertical_compression,
-                    direction.z * radius,
-                },
-                .normal = Normalize(direction),
-                .color = {0.46f, 0.23f, 0.13f},
+            const std::uint32_t wrapped_segment = segment % segments;
+            const float longitude = static_cast<float>(segment) / static_cast<float>(segments)
+                * std::numbers::pi_v<float> * 2.0f;
+            const float low_frequency = std::sin(longitude * 2.0f + phase) * 0.12f
+                + std::sin(longitude * 5.0f - latitude * 2.0f + phase * 0.7f) * 0.055f;
+            const float seeded = SignedNoise(seed, ring, wrapped_segment)
+                * radial_variation * 0.33f;
+            const float radius = 1.0f + (low_frequency + seeded) * sin_latitude;
+            const float stratum = 1.0f + std::sin(cos_latitude * 26.0f + phase) * 0.035f;
+            float y = cos_latitude * radius * 0.72f;
+            if (y < -0.54f)
+            {
+                y = -0.54f + (y + 0.54f) * 0.10f;
+            }
+            if (y > 0.58f)
+            {
+                y = 0.58f + (y - 0.58f) * 0.18f;
+            }
+            positions.push_back({
+                sin_latitude * std::cos(longitude) * radius * 1.08f * stratum,
+                y,
+                sin_latitude * std::sin(longitude) * radius * 0.86f * stratum,
             });
         }
     }
 
-    const std::uint32_t stride = segments + 1;
+    MeshData mesh;
+    mesh.vertices.reserve(static_cast<std::size_t>(rings) * segments * 6U);
+    mesh.indices.reserve(static_cast<std::size_t>(rings) * segments * 6U);
     for (std::uint32_t ring = 0; ring < rings; ++ring)
     {
         for (std::uint32_t segment = 0; segment < segments; ++segment)
         {
             const std::uint32_t first = ring * stride + segment;
             const std::uint32_t second = first + stride;
-            mesh.indices.insert(
-                mesh.indices.end(),
-                {first, second, first + 1, second, second + 1, first + 1});
+            AppendFlatRockTriangle(mesh, positions[first], positions[second], positions[first + 1U]);
+            AppendFlatRockTriangle(
+                mesh,
+                positions[second],
+                positions[second + 1U],
+                positions[first + 1U]);
         }
     }
     return mesh;
@@ -179,38 +300,61 @@ MeshData GenerateMarsRock(
 
 MeshData GenerateBeaconColumn(const std::uint32_t segments)
 {
-    if (segments < 3)
+    if (segments < 3U)
     {
         return {};
     }
 
+    constexpr std::uint32_t vertical_segments = 12U;
+    constexpr float body_half_height = 0.64f;
+    constexpr float cap_height = 1.0f - body_half_height;
+    const std::uint32_t stride = segments + 1U;
     MeshData mesh;
-    mesh.vertices.reserve(static_cast<std::size_t>(segments + 1) * 2 + 2);
-    mesh.indices.reserve(static_cast<std::size_t>(segments) * 12);
-    for (std::uint32_t segment = 0; segment <= segments; ++segment)
-    {
-        const float angle = static_cast<float>(segment) / static_cast<float>(segments)
-            * std::numbers::pi_v<float> * 2.0f;
-        const float x = std::cos(angle);
-        const float z = std::sin(angle);
-        mesh.vertices.push_back({{x, -1.0f, z}, {x, 0.0f, z}, {1.0f, 1.0f, 1.0f}});
-        mesh.vertices.push_back({{x, 1.0f, z}, {x, 0.0f, z}, {1.0f, 1.0f, 1.0f}});
-    }
-    const std::uint32_t bottom_center = static_cast<std::uint32_t>(mesh.vertices.size());
-    mesh.vertices.push_back({{0.0f, -1.0f, 0.0f}, {0.0f, -1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}});
-    const std::uint32_t top_center = static_cast<std::uint32_t>(mesh.vertices.size());
-    mesh.vertices.push_back({{0.0f, 1.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}});
+    mesh.vertices.reserve(static_cast<std::size_t>(vertical_segments + 1U) * stride);
+    mesh.indices.reserve(static_cast<std::size_t>(vertical_segments) * segments * 6U);
 
-    for (std::uint32_t segment = 0; segment < segments; ++segment)
+    for (std::uint32_t vertical = 0; vertical <= vertical_segments; ++vertical)
     {
-        const std::uint32_t lower = segment * 2;
-        const std::uint32_t upper = lower + 1;
-        const std::uint32_t next_lower = lower + 2;
-        const std::uint32_t next_upper = upper + 2;
-        mesh.indices.insert(
-            mesh.indices.end(),
-            {lower, upper, next_lower, upper, next_upper, next_lower,
-             bottom_center, next_lower, lower, top_center, upper, next_upper});
+        const float y = -1.0f + 2.0f * static_cast<float>(vertical)
+            / static_cast<float>(vertical_segments);
+        float radius = 1.0f;
+        float normal_y = 0.0f;
+        if (y < -body_half_height)
+        {
+            normal_y = (y + body_half_height) / cap_height;
+            radius = std::sqrt((std::max)(0.0f, 1.0f - normal_y * normal_y));
+        }
+        else if (y > body_half_height)
+        {
+            normal_y = (y - body_half_height) / cap_height;
+            radius = std::sqrt((std::max)(0.0f, 1.0f - normal_y * normal_y));
+        }
+
+        for (std::uint32_t segment = 0; segment <= segments; ++segment)
+        {
+            const float angle = static_cast<float>(segment) / static_cast<float>(segments)
+                * std::numbers::pi_v<float> * 2.0f;
+            const float x = std::cos(angle);
+            const float z = std::sin(angle);
+            const DirectX::XMFLOAT3 normal = Normalize({x, normal_y * 1.45f, z});
+            mesh.vertices.push_back({
+                {x * radius, y, z * radius},
+                normal,
+                {1.0f, 1.0f, 1.0f},
+            });
+        }
+    }
+
+    for (std::uint32_t vertical = 0; vertical < vertical_segments; ++vertical)
+    {
+        for (std::uint32_t segment = 0; segment < segments; ++segment)
+        {
+            const std::uint32_t first = vertical * stride + segment;
+            const std::uint32_t second = first + stride;
+            mesh.indices.insert(
+                mesh.indices.end(),
+                {first, second, first + 1U, second, second + 1U, first + 1U});
+        }
     }
     return mesh;
 }
@@ -223,16 +367,16 @@ MeshData GenerateTerrainPatch(
     const float depth,
     const float height_scale)
 {
-    if (cells_x < 2 || cells_z < 2 || width <= 0.0f || depth <= 0.0f || height_scale < 0.0f)
+    if (cells_x < 2U || cells_z < 2U || width <= 0.0f || depth <= 0.0f || height_scale < 0.0f)
     {
         return {};
     }
 
     MeshData mesh;
-    const std::uint32_t vertices_x = cells_x + 1;
-    const std::uint32_t vertices_z = cells_z + 1;
+    const std::uint32_t vertices_x = cells_x + 1U;
+    const std::uint32_t vertices_z = cells_z + 1U;
     mesh.vertices.reserve(static_cast<std::size_t>(vertices_x) * vertices_z);
-    mesh.indices.reserve(static_cast<std::size_t>(cells_x) * cells_z * 6);
+    mesh.indices.reserve(static_cast<std::size_t>(cells_x) * cells_z * 6U);
 
     const float step_x = width / static_cast<float>(cells_x);
     const float step_z = depth / static_cast<float>(cells_z);
@@ -245,17 +389,22 @@ MeshData GenerateTerrainPatch(
         {
             const float x = origin_x + static_cast<float>(x_index) * step_x;
             const float z = origin_z + static_cast<float>(z_index) * step_z;
-            const float height = TerrainNoise(seed, x, z) * height_scale;
-            const float left = TerrainNoise(seed, x - step_x, z) * height_scale;
-            const float right = TerrainNoise(seed, x + step_x, z) * height_scale;
-            const float back = TerrainNoise(seed, x, z - step_z) * height_scale;
-            const float front = TerrainNoise(seed, x, z + step_z) * height_scale;
+            const float height = TerrainHeight(seed, x, z, width, depth, height_scale);
+            const float left = TerrainHeight(seed, x - step_x, z, width, depth, height_scale);
+            const float right = TerrainHeight(seed, x + step_x, z, width, depth, height_scale);
+            const float back = TerrainHeight(seed, x, z - step_z, width, depth, height_scale);
+            const float front = TerrainHeight(seed, x, z + step_z, width, depth, height_scale);
             const DirectX::XMFLOAT3 normal = Normalize({left - right, step_x + step_z, back - front});
-            const float color_variation = (std::clamp)(height * 0.08f, -0.08f, 0.08f);
+            const float height_mix = (std::clamp)((height + 0.35f) / 2.0f, 0.0f, 1.0f);
+            const float grain = SignedNoise(seed, x_index, z_index) * 0.018f;
             mesh.vertices.push_back({
                 .position = {x, height, z},
                 .normal = normal,
-                .color = {0.48f + color_variation, 0.19f, 0.085f},
+                .color = {
+                    0.39f + height_mix * 0.11f + grain,
+                    0.245f + height_mix * 0.095f + grain * 0.6f,
+                    0.155f + height_mix * 0.070f,
+                },
             });
         }
     }
@@ -268,7 +417,7 @@ MeshData GenerateTerrainPatch(
             const std::uint32_t second = first + vertices_x;
             mesh.indices.insert(
                 mesh.indices.end(),
-                {first, second, first + 1, second, second + 1, first + 1});
+                {first, second, first + 1U, second, second + 1U, first + 1U});
         }
     }
     return mesh;
@@ -294,7 +443,7 @@ std::uint64_t HashMesh(const MeshData& mesh) noexcept
 
 bool ValidateMesh(const MeshData& mesh) noexcept
 {
-    if (mesh.vertices.empty() || mesh.indices.empty() || mesh.indices.size() % 3 != 0)
+    if (mesh.vertices.empty() || mesh.indices.empty() || mesh.indices.size() % 3U != 0U)
     {
         return false;
     }
