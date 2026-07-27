@@ -2,8 +2,8 @@
 
 #include <d3d12sdklayers.h>
 
-#include <algorithm>
 #include <array>
+#include <chrono>
 #include <cstring>
 #include <fstream>
 #include <limits>
@@ -13,11 +13,22 @@
 #include <string_view>
 #include <vector>
 
+#ifndef MARS_ENABLE_D3D12_VALIDATION
+#define MARS_ENABLE_D3D12_VALIDATION 0
+#endif
+
 namespace mars::renderer
 {
 namespace
 {
 using Microsoft::WRL::ComPtr;
+
+std::string FormatHresult(const HRESULT result)
+{
+    std::ostringstream value;
+    value << "0x" << std::hex << static_cast<unsigned long>(result);
+    return value.str();
+}
 
 void ThrowIfFailed(const HRESULT result, const std::string_view operation)
 {
@@ -25,11 +36,7 @@ void ThrowIfFailed(const HRESULT result, const std::string_view operation)
     {
         return;
     }
-
-    std::ostringstream message;
-    message << operation << " failed with HRESULT 0x" << std::hex
-            << static_cast<unsigned long>(result);
-    throw std::runtime_error(message.str());
+    throw std::runtime_error(std::string(operation) + " failed with HRESULT " + FormatHresult(result));
 }
 
 void NameObject(ID3D12Object* object, const std::wstring_view name)
@@ -50,15 +57,16 @@ std::vector<std::uint8_t> ReadBinaryFile(const std::filesystem::path& path)
         throw std::runtime_error("Could not open shader: " + path.string());
     }
 
-    const std::streamsize size = stream.tellg();
-    if (size <= 0)
+    const std::streampos end = stream.tellg();
+    if (end <= 0)
     {
         throw std::runtime_error("Shader is empty: " + path.string());
     }
+    const auto size = static_cast<std::size_t>(end);
     stream.seekg(0, std::ios::beg);
 
-    std::vector<std::uint8_t> bytes(static_cast<std::size_t>(size));
-    if (!stream.read(reinterpret_cast<char*>(bytes.data()), size))
+    std::vector<std::uint8_t> bytes(size);
+    if (!stream.read(reinterpret_cast<char*>(bytes.data()), static_cast<std::streamsize>(size)))
     {
         throw std::runtime_error("Could not read shader: " + path.string());
     }
@@ -95,7 +103,8 @@ D3D12Renderer::~D3D12Renderer()
 void D3D12Renderer::Initialize(
     const HWND window,
     const std::uint32_t width,
-    const std::uint32_t height)
+    const std::uint32_t height,
+    const AdapterPreference adapter_preference)
 {
     if (initialized_)
     {
@@ -108,9 +117,12 @@ void D3D12Renderer::Initialize(
 
     width_ = width;
     height_ = height;
+    presented_frames_ = 0;
+    last_cpu_frame_ms_ = 0.0;
+    max_cpu_frame_ms_ = 0.0;
 
     EnableDebugLayer();
-    CreateFactoryAndDevice();
+    CreateFactoryAndDevice(adapter_preference);
     CreateCommandObjects();
     CreateSwapChain(window);
     CreateRenderTargetViews();
@@ -128,6 +140,7 @@ void D3D12Renderer::Render()
         return;
     }
 
+    const auto started = std::chrono::steady_clock::now();
     ThrowIfFailed(
         command_allocators_[frame_index_]->Reset(),
         "ID3D12CommandAllocator::Reset");
@@ -140,9 +153,13 @@ void D3D12Renderer::Render()
 
     ID3D12CommandList* command_lists[] = {command_list_.Get()};
     command_queue_->ExecuteCommandLists(1, command_lists);
-    ThrowIfFailed(swap_chain_->Present(1, 0), "IDXGISwapChain::Present");
+    ThrowIfDeviceFailed(swap_chain_->Present(1, 0), "IDXGISwapChain::Present");
     ++presented_frames_;
     MoveToNextFrame();
+
+    const auto elapsed = std::chrono::steady_clock::now() - started;
+    last_cpu_frame_ms_ = std::chrono::duration<double, std::milli>(elapsed).count();
+    max_cpu_frame_ms_ = (std::max)(max_cpu_frame_ms_, last_cpu_frame_ms_);
 }
 
 void D3D12Renderer::Resize(const std::uint32_t width, const std::uint32_t height)
@@ -157,7 +174,7 @@ void D3D12Renderer::Resize(const std::uint32_t width, const std::uint32_t height
 
     DXGI_SWAP_CHAIN_DESC description{};
     ThrowIfFailed(swap_chain_->GetDesc(&description), "IDXGISwapChain::GetDesc");
-    ThrowIfFailed(
+    ThrowIfDeviceFailed(
         swap_chain_->ResizeBuffers(
             kFrameCount,
             width,
@@ -219,28 +236,37 @@ std::uint64_t D3D12Renderer::PresentedFrameCount() const noexcept
     return presented_frames_;
 }
 
+FrameStatistics D3D12Renderer::Statistics() const noexcept
+{
+    return {
+        .presented_frames = presented_frames_,
+        .last_cpu_frame_ms = last_cpu_frame_ms_,
+        .max_cpu_frame_ms = max_cpu_frame_ms_,
+    };
+}
+
 void D3D12Renderer::EnableDebugLayer()
 {
-#if defined(_DEBUG)
+#if MARS_ENABLE_D3D12_VALIDATION
     ComPtr<ID3D12Debug> debug_controller;
-    if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debug_controller))))
-    {
-        debug_controller->EnableDebugLayer();
-    }
+    ThrowIfFailed(
+        D3D12GetDebugInterface(IID_PPV_ARGS(&debug_controller)),
+        "D3D12GetDebugInterface");
+    debug_controller->EnableDebugLayer();
 #endif
 }
 
-void D3D12Renderer::CreateFactoryAndDevice()
+void D3D12Renderer::CreateFactoryAndDevice(const AdapterPreference adapter_preference)
 {
     UINT factory_flags = 0;
-#if defined(_DEBUG)
+#if MARS_ENABLE_D3D12_VALIDATION
     factory_flags |= DXGI_CREATE_FACTORY_DEBUG;
 #endif
     ThrowIfFailed(
         CreateDXGIFactory2(factory_flags, IID_PPV_ARGS(&factory_)),
         "CreateDXGIFactory2");
 
-    const ComPtr<IDXGIAdapter1> adapter = ChooseAdapter(*factory_.Get());
+    const ComPtr<IDXGIAdapter1> adapter = ChooseAdapter(*factory_.Get(), adapter_preference);
     ThrowIfFailed(
         D3D12CreateDevice(
             adapter.Get(),
@@ -249,13 +275,15 @@ void D3D12Renderer::CreateFactoryAndDevice()
         "D3D12CreateDevice");
     NameObject(device_.Get(), L"MARSTHEGAME D3D12 Device");
 
-#if defined(_DEBUG)
+#if MARS_ENABLE_D3D12_VALIDATION
     ComPtr<ID3D12InfoQueue> info_queue;
-    if (SUCCEEDED(device_.As(&info_queue)))
-    {
-        info_queue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_CORRUPTION, TRUE);
-        info_queue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_ERROR, TRUE);
-    }
+    ThrowIfFailed(device_.As(&info_queue), "ID3D12Device::QueryInterface(ID3D12InfoQueue)");
+    ThrowIfFailed(
+        info_queue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_CORRUPTION, TRUE),
+        "ID3D12InfoQueue::SetBreakOnSeverity(corruption)");
+    ThrowIfFailed(
+        info_queue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_ERROR, TRUE),
+        "ID3D12InfoQueue::SetBreakOnSeverity(error)");
 #endif
 }
 
@@ -395,10 +423,12 @@ void D3D12Renderer::CreatePipeline()
         &root_error);
     if (FAILED(serialization_result))
     {
-        const char* error_text = root_error != nullptr
-            ? static_cast<const char*>(root_error->GetBufferPointer())
+        const std::string error_text = root_error != nullptr
+            ? std::string(
+                  static_cast<const char*>(root_error->GetBufferPointer()),
+                  root_error->GetBufferSize())
             : "unknown root-signature error";
-        throw std::runtime_error(std::string("Root signature serialization failed: ") + error_text);
+        throw std::runtime_error("Root signature serialization failed: " + error_text);
     }
     ThrowIfFailed(
         device_->CreateRootSignature(
@@ -455,10 +485,13 @@ void D3D12Renderer::CreatePipeline()
     pipeline_description.VS = {vertex_shader.data(), vertex_shader.size()};
     pipeline_description.PS = {pixel_shader.data(), pixel_shader.size()};
     pipeline_description.BlendState = blend;
-    pipeline_description.SampleMask = std::numeric_limits<UINT>::max();
+    pipeline_description.SampleMask = (std::numeric_limits<UINT>::max)();
     pipeline_description.RasterizerState = rasterizer;
     pipeline_description.DepthStencilState = depth_stencil;
-    pipeline_description.InputLayout = {input_layout.data(), static_cast<UINT>(input_layout.size())};
+    pipeline_description.InputLayout = {
+        input_layout.data(),
+        static_cast<UINT>(input_layout.size()),
+    };
     pipeline_description.IBStripCutValue = D3D12_INDEX_BUFFER_STRIP_CUT_VALUE_DISABLED;
     pipeline_description.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
     pipeline_description.NumRenderTargets = 1;
@@ -502,7 +535,7 @@ void D3D12Renderer::CreateGeometry()
         D3D12_RESOURCE_DESC description{};
         description.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
         description.Alignment = 0;
-        description.Width = size;
+        description.Width = static_cast<UINT64>(size);
         description.Height = 1;
         description.DepthOrArraySize = 1;
         description.MipLevels = 1;
@@ -536,8 +569,8 @@ void D3D12Renderer::CreateGeometry()
         vertex_buffer_,
         L"MARSTHEGAME Triangle Vertex Buffer");
     vertex_buffer_view_.BufferLocation = vertex_buffer_->GetGPUVirtualAddress();
-    vertex_buffer_view_.StrideInBytes = sizeof(Vertex);
-    vertex_buffer_view_.SizeInBytes = sizeof(vertices);
+    vertex_buffer_view_.StrideInBytes = static_cast<UINT>(sizeof(Vertex));
+    vertex_buffer_view_.SizeInBytes = static_cast<UINT>(sizeof(vertices));
 
     create_upload_buffer(
         indices.data(),
@@ -545,7 +578,7 @@ void D3D12Renderer::CreateGeometry()
         index_buffer_,
         L"MARSTHEGAME Triangle Index Buffer");
     index_buffer_view_.BufferLocation = index_buffer_->GetGPUVirtualAddress();
-    index_buffer_view_.SizeInBytes = sizeof(indices);
+    index_buffer_view_.SizeInBytes = static_cast<UINT>(sizeof(indices));
     index_buffer_view_.Format = DXGI_FORMAT_R16_UINT;
 }
 
@@ -581,14 +614,14 @@ void D3D12Renderer::PopulateCommandList()
 void D3D12Renderer::MoveToNextFrame()
 {
     const std::uint64_t signal_value = fence_values_[frame_index_];
-    ThrowIfFailed(
+    ThrowIfDeviceFailed(
         command_queue_->Signal(fence_.Get(), signal_value),
         "ID3D12CommandQueue::Signal");
 
     frame_index_ = swap_chain_->GetCurrentBackBufferIndex();
     if (fence_->GetCompletedValue() < fence_values_[frame_index_])
     {
-        ThrowIfFailed(
+        ThrowIfDeviceFailed(
             fence_->SetEventOnCompletion(fence_values_[frame_index_], fence_event_),
             "ID3D12Fence::SetEventOnCompletion");
         WaitForSingleObject(fence_event_, INFINITE);
@@ -604,10 +637,10 @@ void D3D12Renderer::WaitForGpu()
     }
 
     const std::uint64_t signal_value = fence_values_[frame_index_];
-    ThrowIfFailed(
+    ThrowIfDeviceFailed(
         command_queue_->Signal(fence_.Get(), signal_value),
         "ID3D12CommandQueue::Signal(wait)");
-    ThrowIfFailed(
+    ThrowIfDeviceFailed(
         fence_->SetEventOnCompletion(signal_value, fence_event_),
         "ID3D12Fence::SetEventOnCompletion(wait)");
     WaitForSingleObject(fence_event_, INFINITE);
@@ -637,6 +670,26 @@ void D3D12Renderer::UpdateViewportAndScissor()
     scissor_rect_.bottom = static_cast<LONG>(height_);
 }
 
+void D3D12Renderer::ThrowIfDeviceFailed(
+    const HRESULT result,
+    const std::string_view operation) const
+{
+    if (SUCCEEDED(result))
+    {
+        return;
+    }
+
+    std::string message =
+        std::string(operation) + " failed with HRESULT " + FormatHresult(result);
+    if (device_ != nullptr
+        && (result == DXGI_ERROR_DEVICE_HUNG || result == DXGI_ERROR_DEVICE_REMOVED
+            || result == DXGI_ERROR_DEVICE_RESET))
+    {
+        message += "; device removal reason " + FormatHresult(device_->GetDeviceRemovedReason());
+    }
+    throw std::runtime_error(message);
+}
+
 std::filesystem::path D3D12Renderer::ExecutableDirectory() const
 {
     std::array<wchar_t, 32'768> path{};
@@ -648,8 +701,19 @@ std::filesystem::path D3D12Renderer::ExecutableDirectory() const
     return std::filesystem::path(std::wstring_view(path.data(), length)).parent_path();
 }
 
-ComPtr<IDXGIAdapter1> D3D12Renderer::ChooseAdapter(IDXGIFactory6& factory)
+ComPtr<IDXGIAdapter1> D3D12Renderer::ChooseAdapter(
+    IDXGIFactory6& factory,
+    const AdapterPreference adapter_preference)
 {
+    if (adapter_preference == AdapterPreference::Warp)
+    {
+        ComPtr<IDXGIAdapter1> warp_adapter;
+        ThrowIfFailed(
+            factory.EnumWarpAdapter(IID_PPV_ARGS(&warp_adapter)),
+            "IDXGIFactory::EnumWarpAdapter");
+        return warp_adapter;
+    }
+
     for (UINT index = 0;; ++index)
     {
         ComPtr<IDXGIAdapter1> adapter;
