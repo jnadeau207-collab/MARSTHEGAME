@@ -1,0 +1,49 @@
+name: One-Time Branch Cleanup
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/branch-cleanup-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  delete-non-main-branches:
+    name: Delete every branch except main
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete remote branch refs
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mapfile -t branches < <(
+            gh api --paginate "repos/${GITHUB_REPOSITORY}/branches?per_page=100" --jq '.[].name'
+          )
+
+          deleted=0
+          for branch in "${branches[@]}"; do
+            if [[ "$branch" == "main" ]]; then
+              continue
+            fi
+
+            echo "Deleting branch: $branch"
+            encoded_branch="$(python -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$branch")"
+            gh api --method DELETE "repos/${GITHUB_REPOSITORY}/git/refs/heads/${encoded_branch}"
+            deleted=$((deleted + 1))
+          done
+
+          echo "Deleted ${deleted} non-main branches."
+
+          remaining="$(gh api --paginate "repos/${GITHUB_REPOSITORY}/branches?per_page=100" --jq '.[].name')"
+          if [[ "$remaining" != "main" ]]; then
+            echo "Unexpected remaining branches:"
+            printf '%s\n' "$remaining"
+            exit 1
+          fi
+
+          echo "Verified: main is the only remaining branch."
