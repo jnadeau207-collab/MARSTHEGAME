@@ -1,21 +1,18 @@
 #!/usr/bin/env python3
-"""
-STARMAN: An Elon Odyssey
-A side-scrolling / arena-hybrid narrative action game.
-Pure Python + Pygame.
-"""
+"""MARSTHEGAME Python compatibility runtime entrypoint."""
 
-import sys
+from __future__ import annotations
+
 import os
+import sys
 
-# Ensure package root is on path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from game.core.engine import Engine
+from game.core.replay_engine import ReplayCapableEngine
 
 
-def main():
-    engine = Engine()
+def main() -> None:
+    engine = ReplayCapableEngine()
     engine.run()
 
 
