@@ -446,9 +446,9 @@ void CookSceneFile(
     {
         throw std::runtime_error("Could not open source scene: " + source_path.string());
     }
-    const std::string source(
-        std::istreambuf_iterator<char>(input),
-        std::istreambuf_iterator<char>());
+    const std::string source{
+        std::istreambuf_iterator<char>{input},
+        std::istreambuf_iterator<char>{}};
     WriteCookedScene(output_path, ParseSceneSource(source));
 }
 } // namespace mars::assets
