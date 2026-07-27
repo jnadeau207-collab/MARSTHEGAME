@@ -5,7 +5,10 @@ from __future__ import annotations
 from copy import deepcopy
 
 from game.core.relay_echo_promotion import complete_relay_echo_campaign
-from game.core.relay_echo_replay import complete_relay_echo_replay
+from game.core.relay_echo_replay import (
+    complete_relay_echo_replay,
+    default_relay_echo_replay,
+)
 from game.scenes.relay_echo_accessible import AccessibleRelayEchoScene
 
 
@@ -24,7 +27,14 @@ class PromotedRelayEchoScene(AccessibleRelayEchoScene):
 
         previous_relay = deepcopy(self.engine.save.relay_echo)
         previous_campaign = deepcopy(self.engine.save.campaign)
-        previous_archive = deepcopy(self.engine.save.relay_echo_replay)
+        previous_archive = deepcopy(
+            getattr(
+                self.engine.save,
+                "relay_echo_replay",
+                default_relay_echo_replay(),
+            )
+        )
+        self.engine.save.relay_echo_replay = deepcopy(previous_archive)
         replay = "relay_echo" in previous_campaign["completed_missions"]
         if replay:
             transition = complete_relay_echo_replay(
