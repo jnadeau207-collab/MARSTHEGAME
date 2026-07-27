@@ -18,7 +18,12 @@ public:
     Win32Window& operator=(const Win32Window&) = delete;
     ~Win32Window();
 
-    void Create(HINSTANCE instance, std::uint32_t width, std::uint32_t height, std::wstring_view title);
+    void Create(
+        HINSTANCE instance,
+        std::uint32_t width,
+        std::uint32_t height,
+        std::wstring_view title,
+        bool visible = true);
     [[nodiscard]] bool PumpMessages();
     [[nodiscard]] HWND Handle() const noexcept;
     [[nodiscard]] std::uint32_t Width() const noexcept;
