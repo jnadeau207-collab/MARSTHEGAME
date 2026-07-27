@@ -23,6 +23,7 @@ enum SceneEntityFlag : std::uint32_t
 struct SceneEntity
 {
     std::string id{};
+    std::string mesh_id{};
     std::uint32_t flags = SceneEntityNone;
     DirectX::XMFLOAT3 position{};
     DirectX::XMFLOAT3 scale{1.0f, 1.0f, 1.0f};
@@ -31,7 +32,7 @@ struct SceneEntity
 
 struct SceneDefinition
 {
-    static constexpr std::uint32_t kSchemaVersion = 1;
+    static constexpr std::uint32_t kSchemaVersion = 2;
 
     std::uint32_t schema_version = kSchemaVersion;
     std::uint64_t source_hash = 0;
