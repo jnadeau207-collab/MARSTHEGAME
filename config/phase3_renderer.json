@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "phase": "Phase 3",
+  "status": "in_progress",
+  "tranche": "windows_native_renderer_foundation",
+  "shipping_runtime_language": "c++23",
+  "graphics_api": "direct3d12",
+  "shader_language": "hlsl",
+  "shader_compiler": "dxc",
+  "build_system": "cmake",
+  "primary_platform": "windows",
+  "third_party_game_engine": false,
+  "three_js_shipping_runtime": false,
+  "pygame_role": "compatibility_and_behavior_oracle",
+  "native_build_verification": "pending",
+  "native_runtime_self_test": "pending",
+  "validation_clean_runtime": "pending",
+  "indexed_mesh_rendered": "pending",
+  "visual_quality_claim": "prototype_kernel_only",
+  "aaa_claim": "target_not_achieved",
+  "remaining_phase_count_after_phase2": 6,
+  "truthfulness": "Phase 3 has selected a Windows-native C++23, Direct3D 12, and HLSL shipping architecture. The repository contains the initial renderer kernel under verification. This is not an AAA visual slice, does not prove a validation-clean live GPU run on the founder reference PC, and does not change the AAA claim."
+}
