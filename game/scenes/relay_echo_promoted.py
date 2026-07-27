@@ -1,15 +1,19 @@
-"""Campaign-promoted Relay Echo scene with atomic campaign completion."""
+"""Campaign-promoted Relay Echo scene with atomic completion and replay support."""
 
 from __future__ import annotations
 
 from copy import deepcopy
 
 from game.core.relay_echo_promotion import complete_relay_echo_campaign
+from game.core.relay_echo_replay import (
+    complete_relay_echo_replay,
+    default_relay_echo_replay,
+)
 from game.scenes.relay_echo_accessible import AccessibleRelayEchoScene
 
 
 class PromotedRelayEchoScene(AccessibleRelayEchoScene):
-    """Expose Relay Echo through the campaign and commit its successor atomically."""
+    """Commit first completion or a replay without corrupting campaign history."""
 
     slice_id = "relay_echo_campaign_mission"
 
@@ -23,20 +27,40 @@ class PromotedRelayEchoScene(AccessibleRelayEchoScene):
 
         previous_relay = deepcopy(self.engine.save.relay_echo)
         previous_campaign = deepcopy(self.engine.save.campaign)
-        transition = complete_relay_echo_campaign(
-            self.engine.save,
-            evidence,
+        previous_archive = deepcopy(
+            getattr(
+                self.engine.save,
+                "relay_echo_replay",
+                default_relay_echo_replay(),
+            )
         )
+        self.engine.save.relay_echo_replay = deepcopy(previous_archive)
+        replay = "relay_echo" in previous_campaign["completed_missions"]
+        if replay:
+            transition = complete_relay_echo_replay(
+                self.engine.save,
+                evidence,
+            )
+        else:
+            transition = complete_relay_echo_campaign(
+                self.engine.save,
+                evidence,
+            )
         if not self.engine.save.save():
             self.engine.save.relay_echo = previous_relay
             self.engine.save.campaign = previous_campaign
+            self.engine.save.relay_echo_replay = previous_archive
             self.msg = f"Mission completion failed to persist: {self.engine.save.last_error}"
             self.msg_timer = 240
             return False
 
         self._last_transition = transition
         self.phase = self.mission_state["current_state"]
-        self.msg = "Extraction complete — Phobos Vector authorized"
+        if replay:
+            run_id = transition["run_id"]
+            self.msg = f"Replay run {run_id} complete — campaign history preserved"
+        else:
+            self.msg = "Extraction complete — Phobos Vector authorized"
         self.msg_timer = 240
         self.mission_complete = True
         self.completion_timer = 0.0

@@ -49,8 +49,11 @@ jobs:
           game/core/input.py
           game/core/input_profiles.py
           game/core/presentation.py
+          game/core/replay_engine.py
           game/core/relay_echo_accessibility.py
           game/core/relay_echo_promotion.py
+          game/core/relay_echo_replay.py
+          game/core/relay_echo_save.py
           game/core/relay_echo_state.py
           game/core/save.py
           game/core/settings.py
@@ -64,6 +67,7 @@ jobs:
           game/data/relay_echo_candidate.py
           game/entities/mars_sentinel.py
           game/scenes/campaign.py
+          game/scenes/campaign_replay.py
           game/scenes/credits.py
           game/scenes/relay_echo.py
           game/scenes/relay_echo_accessible.py
@@ -97,8 +101,11 @@ jobs:
           game/core/input.py
           game/core/input_profiles.py
           game/core/presentation.py
+          game/core/replay_engine.py
           game/core/relay_echo_accessibility.py
           game/core/relay_echo_promotion.py
+          game/core/relay_echo_replay.py
+          game/core/relay_echo_save.py
           game/core/relay_echo_state.py
           game/core/save.py
           game/core/settings.py
@@ -108,6 +115,7 @@ jobs:
           ruff format --check
           game/entities/mars_sentinel.py
           game/scenes/campaign.py
+          game/scenes/campaign_replay.py
           game/scenes/credits.py
           game/scenes/relay_echo.py
           game/scenes/relay_echo_accessible.py
@@ -147,6 +155,10 @@ jobs:
         run: >-
           python -m tools.relay_echo_promotion_audit
           --json-out build/relay-echo-promotion-audit.json
+      - name: Audit Relay Echo completed-mission replay
+        run: >-
+          python -m tools.relay_echo_replay_reset_audit
+          --json-out build/relay-echo-replay-reset-audit.json
 
   phase-artifacts:
     name: Classic Mode, Phase 1, and Phase 2 evidence
@@ -173,6 +185,10 @@ jobs:
         run: >-
           python -m tools.relay_echo_promotion_replay
           --json-out build/relay-echo-promotion-replay.json
+      - name: Replay completed Relay Echo mission
+        run: >-
+          python -m tools.relay_echo_replay_reset_replay
+          --json-out build/relay-echo-replay-reset-replay.json
       - name: Capture performance evidence
         run: >-
           python -m tools.performance_baseline
@@ -207,6 +223,10 @@ jobs:
         run: >-
           python -m tools.relay_echo_promotion_audit
           --json-out build/relay-echo-promotion-audit.json
+      - name: Audit Relay Echo completed-mission replay
+        run: >-
+          python -m tools.relay_echo_replay_reset_audit
+          --json-out build/relay-echo-replay-reset-audit.json
       - name: Upload Phase evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -218,6 +238,7 @@ jobs:
             build/relay-echo-replay.json
             build/relay-echo-accessibility-replay.json
             build/relay-echo-promotion-replay.json
+            build/relay-echo-replay-reset-replay.json
             build/performance-baseline.json
             build/phase0-organization.json
             build/phase0-audit.json
@@ -227,6 +248,7 @@ jobs:
             build/relay-echo-candidate.json
             build/relay-echo-accessibility-audit.json
             build/relay-echo-promotion-audit.json
+            build/relay-echo-replay-reset-audit.json
           if-no-files-found: warn
 
   performance-regression:
