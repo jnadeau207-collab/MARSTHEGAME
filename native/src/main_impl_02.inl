@@ -34,9 +34,12 @@
         return 4;
     }
     if (capture.width != 800 || capture.height != 450 || capture.checksum == 0
-        || capture.non_background_pixels < 12'000 || capture.dark_pixels < 500
-        || capture.average_luminance <= 0.005 || capture.average_luminance >= 0.95
-        || capture.peak_luminance <= capture.average_luminance || capture.edge_energy <= 0.0001)
+        || capture.non_background_pixels < 250'000
+        || capture.dark_pixels < 100 || capture.highlight_pixels < 100
+        || capture.average_luminance <= 0.12 || capture.average_luminance >= 0.70
+        || capture.peak_luminance < 0.85
+        || capture.peak_luminance <= capture.average_luminance * 2.0
+        || capture.edge_energy <= 0.001)
     {
         return 5;
     }
