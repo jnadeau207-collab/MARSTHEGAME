@@ -1,0 +1,57 @@
+name: Format Relay Echo replay reset once
+
+on:
+  push:
+    branches: [agent/phase2-relay-echo-replay-reset]
+    paths: [.github/workflows/format-replay-reset-once.yml]
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/phase2-relay-echo-replay-reset
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Apply pinned Ruff
+        run: |
+          python -m pip install ruff==0.16.0
+          ruff check --fix \
+            main.py \
+            game/core/replay_engine.py \
+            game/core/relay_echo_replay.py \
+            game/core/relay_echo_save.py \
+            game/scenes/campaign_replay.py \
+            game/scenes/relay_echo_promoted.py \
+            tools/relay_echo_replay_reset_audit.py \
+            tools/relay_echo_replay_reset_replay.py \
+            tests/test_relay_echo_replay_reset.py \
+            tests/test_relay_echo_replay_reset_audit.py \
+            tests/test_relay_echo_replay_reset_replay.py
+          ruff format \
+            main.py \
+            game/core/replay_engine.py \
+            game/core/relay_echo_replay.py \
+            game/core/relay_echo_save.py \
+            game/scenes/campaign_replay.py \
+            game/scenes/relay_echo_promoted.py \
+            tools/relay_echo_replay_reset_audit.py \
+            tools/relay_echo_replay_reset_replay.py \
+            tests/test_relay_echo_replay_reset.py \
+            tests/test_relay_echo_replay_reset_audit.py \
+            tests/test_relay_echo_replay_reset_replay.py
+      - name: Commit formatted production tree and remove helper
+        env:
+          BRANCH: agent/phase2-relay-echo-replay-reset
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git rm .github/workflows/format-replay-reset-once.yml
+          git add main.py game tools tests
+          git commit -m "Format Relay Echo replay reset tranche" || exit 0
+          git push origin "HEAD:${BRANCH}"
