@@ -90,6 +90,7 @@ float4 ScenePS(ScenePixelInput input) : SV_TARGET
     const float3 ambientSky = lerp(horizonColorBloom.rgb, skyZenithHistory.rgb, skyAmount);
     color += ambientSky * albedo * (0.08f + 0.17f * occlusion) * (1.0f - metallic * 0.65f);
     color += albedo * authoredMask * float3(0.20f, 0.055f, 0.012f);
+    color += albedo * input.emissive * (1.4f + authoredMask * 2.0f);
 
     const float cameraDistance = length(cameraPositionTime.xyz - input.worldPosition);
     const float heightFog = exp(-max(input.worldPosition.y, 0.0f) * 0.04f);
