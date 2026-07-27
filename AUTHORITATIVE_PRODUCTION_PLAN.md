@@ -123,6 +123,8 @@ The versioned scene pipeline now contains:
 - deterministic entity ordering,
 - a native scene cooker,
 - a checksummed runtime package with source provenance,
+- a versioned content manifest binding the authored scene source, canonical generated mesh hashes, mesh-catalog identity, world-composition identity, and aggregate content identity,
+- runtime recomputation and fail-closed rejection of corrupted or mismatched packaged content,
 - transactional cooked-package replacement and corruption rejection,
 - scene-driven render instances, collision, player spawn, checkpoint, and objective data.
 
@@ -132,16 +134,16 @@ The code-authored content and renderer path now contain:
 - seeded irregular Mars-rock topology,
 - generated cylindrical structural and beacon geometry,
 - seeded elevated Mars terrain with generated normals and color variation,
+- one canonical procedural mesh catalog shared by cooker and runtime compilation,
 - deterministic mesh hashing and fail-closed topology validation,
 - validated 32-bit vertex/index atlas construction,
 - cooked-scene mesh identity for cube, rock, column, and terrain geometry,
 - per-instance D3D12 draw-range selection,
 - an Ares Reach composition containing generated terrain, six rocks, six radial elements, and five explicit hard-surface cube elements,
-- strict topology, seed-divergence, density, elevation, cooked-scene, runtime-composition, DXIL-package, D3D12 validation, resize, and GPU-readback evidence.
+- strict topology, seed-divergence, density, elevation, cooked-scene, aggregate-manifest, corruption-rejection, runtime-composition, DXIL-package, D3D12 validation, resize, and GPU-readback evidence.
 
 ### Remaining Phase 4 systems
 
-- deterministic procedural world-composition manifests and aggregate content hashes,
 - project-owned texture, normal, roughness, mask, and material generation,
 - default-heap GPU upload, staging, synchronization, and resource lifetime tracking,
 - mesh, texture, material, sampler, and shader-variant management,
