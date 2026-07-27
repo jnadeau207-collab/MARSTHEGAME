@@ -188,6 +188,7 @@ private:
     Microsoft::WRL::ComPtr<ID3D12Resource> normal_texture_{};
     Microsoft::WRL::ComPtr<ID3D12Resource> surface_texture_{};
     Microsoft::WRL::ComPtr<ID3D12Resource> environment_texture_{};
+    Microsoft::WRL::ComPtr<ID3D12Resource> subtitle_texture_{};
     Microsoft::WRL::ComPtr<ID3D12Resource> object_constant_buffer_{};
     Microsoft::WRL::ComPtr<ID3D12Resource> frame_constant_buffer_{};
     Microsoft::WRL::ComPtr<ID3D12QueryHeap> timestamp_query_heap_{};
