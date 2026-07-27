@@ -36,22 +36,22 @@ jobs:
           cmake
           -S native
           -B build/native
-          -G "Visual Studio 17 2022"
-          -A x64
+          -G Ninja
+          -DCMAKE_BUILD_TYPE=RelWithDebInfo
           -DDXC_EXECUTABLE="$env:DXC_EXECUTABLE"
       - name: Build native runtime and shaders
         shell: pwsh
-        run: cmake --build build/native --config RelWithDebInfo --parallel
+        run: cmake --build build/native --parallel
       - name: Verify packaged shader payload
         shell: pwsh
-        run: .\build\native\RelWithDebInfo\mars_native.exe --self-test
+        run: .\build\native\mars_native.exe --self-test
       - name: Upload native executable evidence
         uses: actions/upload-artifact@v4
         with:
           name: mars-native-${{ github.sha }}
           path: |
-            build/native/RelWithDebInfo/mars_native.exe
-            build/native/RelWithDebInfo/shaders/*.dxil
+            build/native/mars_native.exe
+            build/native/shaders/*.dxil
           if-no-files-found: error
 
   phase3-truth:
