@@ -2,6 +2,7 @@
 
 #include "renderer/generated_environment.h"
 #include "renderer/generated_materials.h"
+#include "renderer/generated_subtitles.h"
 #include "renderer/gpu_upload.h"
 #include "renderer/render_scene.h"
 #include "renderer/visual_slice.h"
