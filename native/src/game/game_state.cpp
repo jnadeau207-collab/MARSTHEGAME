@@ -90,7 +90,7 @@ void GameState::InitializeScene(const assets::SceneDefinition& scene)
             {
                 throw std::invalid_argument("Scene requires one renderable checkpoint entity");
             }
-            checkpoint_position_ = {entity.position.x, landing_position_.y, entity.position.z};
+            checkpoint_position_ = entity.position;
             checkpoint_instance_index_ = render_index;
         }
         if (assets::HasFlag(entity, assets::SceneEntityObjective))
@@ -109,6 +109,7 @@ void GameState::InitializeScene(const assets::SceneDefinition& scene)
     {
         throw std::invalid_argument("Scene is missing required gameplay entities or collision");
     }
+    checkpoint_position_.y = landing_position_.y;
     instances_ = base_instances_;
 }
 
