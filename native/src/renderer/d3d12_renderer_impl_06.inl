@@ -7,9 +7,9 @@
     if (previous_camera_valid_)
     {
         camera_motion = {
-            scene.camera_eye.x - previous_camera_eye_.x,
-            scene.camera_eye.y - previous_camera_eye_.y,
-            scene.camera_eye.z - previous_camera_eye_.z,
+            cinematic_eye_values.x - previous_camera_eye_.x,
+            cinematic_eye_values.y - previous_camera_eye_.y,
+            cinematic_eye_values.z - previous_camera_eye_.z,
         };
     }
 
@@ -18,9 +18,9 @@
     XMStoreFloat4x4(&frame.previous_view_projection, previous_view_projection);
     XMStoreFloat4x4(&frame.light_view_projection, light_view_projection);
     frame.camera_position_time = {
-        scene.camera_eye.x, scene.camera_eye.y, scene.camera_eye.z, scene.elapsed_seconds};
+        cinematic_eye_values.x, cinematic_eye_values.y, cinematic_eye_values.z, scene.elapsed_seconds};
     frame.sun_direction_exposure = {-0.42f, -0.78f, -0.46f, current_exposure_};
-    frame.sun_color_intensity = {1.0f, 0.58f, 0.33f, 5.8f};
+    frame.sun_color_intensity = {1.0f, 0.60f, 0.36f, 7.2f};
     frame.fog_color_density = scene.mission_complete
         ? XMFLOAT4{0.055f, 0.14f, 0.11f, visual_configuration_.fog_density * 0.72f}
         : XMFLOAT4{0.12f, 0.034f, 0.018f, visual_configuration_.fog_density};
@@ -117,7 +117,7 @@
     }
 
     XMStoreFloat4x4(&previous_view_projection_, view_projection);
-    previous_camera_eye_ = scene.camera_eye;
+    previous_camera_eye_ = cinematic_eye_values;
     previous_camera_valid_ = true;
     previous_scene_time_ = scene.elapsed_seconds;
 }
