@@ -19,7 +19,7 @@
     XMStoreFloat4x4(&frame.light_view_projection, light_view_projection);
     frame.camera_position_time = {
         cinematic_eye_values.x, cinematic_eye_values.y, cinematic_eye_values.z, scene.elapsed_seconds};
-    frame.sun_direction_exposure = {-0.42f, -0.78f, -0.46f, current_exposure_};
+    frame.sun_direction_exposure = {0.28f, -0.74f, -0.61f, current_exposure_};
     frame.sun_color_intensity = {1.0f, 0.60f, 0.36f, 7.2f};
     frame.fog_color_density = scene.mission_complete
         ? XMFLOAT4{0.055f, 0.14f, 0.11f, visual_configuration_.fog_density * 0.72f}
@@ -57,10 +57,21 @@
     for (std::size_t light_index = 0; light_index < scene.point_lights.size(); ++light_index)
     {
         const PointLight& light = scene.point_lights[light_index];
+        DirectX::XMFLOAT3 position = light.position;
+        float radius = light.radius;
+        float intensity = light.intensity;
+        if (light_index == 2U)
+        {
+            position.x = cinematic_eye_values.x * 0.35f + position.x * 0.65f;
+            position.y += 0.9f;
+            position.z -= 2.2f;
+            radius = 7.0f;
+            intensity *= 3.2f;
+        }
         frame.local_light_position_radius[light_index] = {
-            light.position.x, light.position.y, light.position.z, light.radius};
+            position.x, position.y, position.z, radius};
         frame.local_light_color_intensity[light_index] = {
-            light.color.x, light.color.y, light.color.z, light.intensity};
+            light.color.x, light.color.y, light.color.z, intensity};
     }
     std::byte* frame_destination = mapped_frame_constants_
         + static_cast<std::size_t>(frame_index_) * sizeof(FrameConstants);
