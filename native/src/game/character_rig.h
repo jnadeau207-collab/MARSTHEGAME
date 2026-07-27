@@ -57,6 +57,7 @@ struct CharacterPartPose
     RigVector3 scale{1.0f, 1.0f, 1.0f};
     RigColor tint{};
     std::uint32_t mesh_slot = 0;
+    std::uint32_t material_slot = 0;
 };
 
 struct CharacterPose
