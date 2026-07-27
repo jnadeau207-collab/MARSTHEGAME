@@ -1,5 +1,6 @@
 #pragma once
 
+#include "assets/mesh_asset.h"
 #include "assets/scene_asset.h"
 #include "game/collision.h"
 #include "renderer/render_scene.h"
@@ -9,6 +10,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <span>
 #include <vector>
 
 namespace mars::game
@@ -45,7 +47,9 @@ class GameState final
 public:
     static constexpr float kFixedStepSeconds = 1.0f / 60.0f;
 
-    explicit GameState(const assets::SceneDefinition& scene);
+    GameState(
+        const assets::SceneDefinition& scene,
+        std::span<const assets::StaticMesh> meshes);
 
     void Reset();
     void RestoreCheckpoint();
@@ -61,7 +65,9 @@ public:
 private:
     static constexpr std::size_t kInvalidIndex = (std::numeric_limits<std::size_t>::max)();
 
-    void InitializeScene(const assets::SceneDefinition& scene);
+    void InitializeScene(
+        const assets::SceneDefinition& scene,
+        std::span<const assets::StaticMesh> meshes);
     void RebuildScene();
     void IntegrateFixedStep(const InputState& input);
 
