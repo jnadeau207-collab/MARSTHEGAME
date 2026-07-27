@@ -15,7 +15,6 @@
 #include <stdexcept>
 #include <system_error>
 #include <type_traits>
-#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -354,7 +353,6 @@ const BufferView& CheckedView(
 
 std::size_t CheckedElementEnd(
     const Accessor& accessor,
-    const BufferView& view,
     const std::size_t element_size,
     const std::size_t stride)
 {
@@ -392,7 +390,7 @@ std::vector<DirectX::XMFLOAT3> ReadFloatVec3(
     const BufferView& view = CheckedView(views, accessor.buffer_view);
     constexpr std::size_t element_size = sizeof(float) * 3U;
     const std::size_t stride = view.stride == 0 ? element_size : view.stride;
-    if (CheckedElementEnd(accessor, view, element_size, stride) > view.length)
+    if (CheckedElementEnd(accessor, element_size, stride) > view.length)
     {
         throw std::runtime_error(std::string(semantic) + " accessor exceeds its bufferView");
     }
@@ -441,7 +439,7 @@ std::vector<std::uint32_t> ReadIndices(
 
     const BufferView& view = CheckedView(views, accessor.buffer_view);
     const std::size_t stride = view.stride == 0 ? element_size : view.stride;
-    if (CheckedElementEnd(accessor, view, element_size, stride) > view.length)
+    if (CheckedElementEnd(accessor, element_size, stride) > view.length)
     {
         throw std::runtime_error("glTF index accessor exceeds its bufferView");
     }
@@ -840,31 +838,31 @@ void CookGltfMeshFile(
 
 StaticMesh MakeCubeMesh()
 {
-    constexpr std::array<MeshVertex, 24> vertices = {{
-        {{{-1.0f, -1.0f, -1.0f}}, {{0.0f, 0.0f, -1.0f}}, {{1.0f, 1.0f, 1.0f}}},
-        {{{-1.0f, 1.0f, -1.0f}}, {{0.0f, 0.0f, -1.0f}}, {{1.0f, 1.0f, 1.0f}}},
-        {{{1.0f, 1.0f, -1.0f}}, {{0.0f, 0.0f, -1.0f}}, {{1.0f, 1.0f, 1.0f}}},
-        {{{1.0f, -1.0f, -1.0f}}, {{0.0f, 0.0f, -1.0f}}, {{1.0f, 1.0f, 1.0f}}},
-        {{{1.0f, -1.0f, 1.0f}}, {{0.0f, 0.0f, 1.0f}}, {{1.0f, 1.0f, 1.0f}}},
-        {{{1.0f, 1.0f, 1.0f}}, {{0.0f, 0.0f, 1.0f}}, {{1.0f, 1.0f, 1.0f}}},
-        {{{-1.0f, 1.0f, 1.0f}}, {{0.0f, 0.0f, 1.0f}}, {{1.0f, 1.0f, 1.0f}}},
-        {{{-1.0f, -1.0f, 1.0f}}, {{0.0f, 0.0f, 1.0f}}, {{1.0f, 1.0f, 1.0f}}},
-        {{{-1.0f, -1.0f, 1.0f}}, {{-1.0f, 0.0f, 0.0f}}, {{1.0f, 1.0f, 1.0f}}},
-        {{{-1.0f, 1.0f, 1.0f}}, {{-1.0f, 0.0f, 0.0f}}, {{1.0f, 1.0f, 1.0f}}},
-        {{{-1.0f, 1.0f, -1.0f}}, {{-1.0f, 0.0f, 0.0f}}, {{1.0f, 1.0f, 1.0f}}},
-        {{{-1.0f, -1.0f, -1.0f}}, {{-1.0f, 0.0f, 0.0f}}, {{1.0f, 1.0f, 1.0f}}},
-        {{{1.0f, -1.0f, -1.0f}}, {{1.0f, 0.0f, 0.0f}}, {{1.0f, 1.0f, 1.0f}}},
-        {{{1.0f, 1.0f, -1.0f}}, {{1.0f, 0.0f, 0.0f}}, {{1.0f, 1.0f, 1.0f}}},
-        {{{1.0f, 1.0f, 1.0f}}, {{1.0f, 0.0f, 0.0f}}, {{1.0f, 1.0f, 1.0f}}},
-        {{{1.0f, -1.0f, 1.0f}}, {{1.0f, 0.0f, 0.0f}}, {{1.0f, 1.0f, 1.0f}}},
-        {{{-1.0f, 1.0f, -1.0f}}, {{0.0f, 1.0f, 0.0f}}, {{1.0f, 1.0f, 1.0f}}},
-        {{{-1.0f, 1.0f, 1.0f}}, {{0.0f, 1.0f, 0.0f}}, {{1.0f, 1.0f, 1.0f}}},
-        {{{1.0f, 1.0f, 1.0f}}, {{0.0f, 1.0f, 0.0f}}, {{1.0f, 1.0f, 1.0f}}},
-        {{{1.0f, 1.0f, -1.0f}}, {{0.0f, 1.0f, 0.0f}}, {{1.0f, 1.0f, 1.0f}}},
-        {{{-1.0f, -1.0f, 1.0f}}, {{0.0f, -1.0f, 0.0f}}, {{1.0f, 1.0f, 1.0f}}},
-        {{{-1.0f, -1.0f, -1.0f}}, {{0.0f, -1.0f, 0.0f}}, {{1.0f, 1.0f, 1.0f}}},
-        {{{1.0f, -1.0f, -1.0f}}, {{0.0f, -1.0f, 0.0f}}, {{1.0f, 1.0f, 1.0f}}},
-        {{{1.0f, -1.0f, 1.0f}}, {{0.0f, -1.0f, 0.0f}}, {{1.0f, 1.0f, 1.0f}}},
+    const std::array<MeshVertex, 24> vertices = {{
+        {{-1.0f, -1.0f, -1.0f}, {0.0f, 0.0f, -1.0f}, {1.0f, 1.0f, 1.0f}},
+        {{-1.0f, 1.0f, -1.0f}, {0.0f, 0.0f, -1.0f}, {1.0f, 1.0f, 1.0f}},
+        {{1.0f, 1.0f, -1.0f}, {0.0f, 0.0f, -1.0f}, {1.0f, 1.0f, 1.0f}},
+        {{1.0f, -1.0f, -1.0f}, {0.0f, 0.0f, -1.0f}, {1.0f, 1.0f, 1.0f}},
+        {{1.0f, -1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}},
+        {{1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}},
+        {{-1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}},
+        {{-1.0f, -1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}},
+        {{-1.0f, -1.0f, 1.0f}, {-1.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
+        {{-1.0f, 1.0f, 1.0f}, {-1.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
+        {{-1.0f, 1.0f, -1.0f}, {-1.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
+        {{-1.0f, -1.0f, -1.0f}, {-1.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
+        {{1.0f, -1.0f, -1.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
+        {{1.0f, 1.0f, -1.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
+        {{1.0f, 1.0f, 1.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
+        {{1.0f, -1.0f, 1.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
+        {{-1.0f, 1.0f, -1.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
+        {{-1.0f, 1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
+        {{1.0f, 1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
+        {{1.0f, 1.0f, -1.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
+        {{-1.0f, -1.0f, 1.0f}, {0.0f, -1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
+        {{-1.0f, -1.0f, -1.0f}, {0.0f, -1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
+        {{1.0f, -1.0f, -1.0f}, {0.0f, -1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
+        {{1.0f, -1.0f, 1.0f}, {0.0f, -1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
     }};
     constexpr std::array<std::uint32_t, 36> indices = {
         0, 1, 2, 0, 2, 3,
