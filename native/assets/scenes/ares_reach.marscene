@@ -5,8 +5,8 @@ mars_scene 1
 # Hero basin and landing shelter
 entity ground render,mesh_terrain 0.0 -0.78 6.5 1.0 1.0 1.0 0.28 0.16 0.10 1.0
 entity landing_pad render -2.6 -0.52 -7.5 2.8 0.10 2.1 0.30 0.32 0.33 1.0
-entity shelter_rear render,collider -5.2 0.75 -9.1 2.7 1.35 0.20 0.20 0.22 0.23 1.0
-entity shelter_roof render -4.2 2.15 -8.0 3.7 0.16 1.35 0.25 0.27 0.28 1.0
+entity shelter_rear render,collider -6.4 0.75 -9.3 1.5 1.35 0.20 0.20 0.22 0.23 1.0
+entity shelter_roof render -5.4 2.25 -7.9 2.2 0.12 1.15 0.25 0.27 0.28 1.0
 entity shelter_side render,collider -7.65 0.60 -7.4 0.18 1.20 1.55 0.18 0.20 0.21 1.0
 
 # Geological enclosure: overlapping authored clusters instead of perimeter walls
