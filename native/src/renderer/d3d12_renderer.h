@@ -65,9 +65,11 @@ private:
     Microsoft::WRL::ComPtr<ID3D12RootSignature> root_signature_{};
     Microsoft::WRL::ComPtr<ID3D12PipelineState> pipeline_state_{};
     Microsoft::WRL::ComPtr<ID3D12Resource> vertex_buffer_{};
+    Microsoft::WRL::ComPtr<ID3D12Resource> index_buffer_{};
     Microsoft::WRL::ComPtr<ID3D12Fence> fence_{};
 
     D3D12_VERTEX_BUFFER_VIEW vertex_buffer_view_{};
+    D3D12_INDEX_BUFFER_VIEW index_buffer_view_{};
     D3D12_VIEWPORT viewport_{};
     D3D12_RECT scissor_rect_{};
     HANDLE fence_event_ = nullptr;
