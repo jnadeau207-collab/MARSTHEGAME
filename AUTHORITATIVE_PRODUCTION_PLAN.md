@@ -1,4 +1,4 @@
-# AUTHORITATIVE PRODUCTION PLAN V5: MARSTHEGAME
+# AUTHORITATIVE PRODUCTION PLAN V7: MARSTHEGAME
 
 ## 1. Authority
 
@@ -15,13 +15,13 @@ MARSTHEGAME is a Windows-first, custom-engine action game with an AAA-quality ta
 AAA is an earned quality result. It is not established by budget, engine choice, language, polygon count, confidence, or marketing language. Representative shipping content must eventually demonstrate:
 
 - exceptional movement and combat feel,
-- production-quality character and environment art,
+- production-quality character and environment presentation,
 - coherent physically based materials and lighting,
 - high-quality animation, camera, VFX, UI, and audio,
 - stable frame pacing and measured CPU, GPU, memory, streaming, and hitch budgets,
 - polished controls, accessibility, onboarding, saves, recovery, and failure handling,
 - crash-free start-to-finish sessions,
-- professional asset and content tooling,
+- professional procedural-content and authoring tooling,
 - representative external playtests meeting committed completion and emotional-response gates.
 
 Until those gates pass, the only truthful description is **custom-engine game with an AAA-quality target**.
@@ -30,13 +30,15 @@ Until those gates pass, the only truthful description is **custom-engine game wi
 
 The game runtime is native-only:
 
-- **C++23** owns platform integration, engine systems, gameplay, memory, assets, animation, audio, tools that ship with the product, and runtime orchestration.
+- **C++23** owns platform integration, engine systems, gameplay, memory, procedural content, animation, audio, native tools, and runtime orchestration.
 - **Direct3D 12** is the primary Windows graphics backend.
 - **HLSL compiled with DXC** owns programmable GPU work.
 - **CMake and Ninja** own reproducible project generation and builds.
 - The Windows SDK and narrowly scoped platform libraries may be used when they do not become the game architecture.
 
 There is no Python or Pygame product runtime. There is no browser runtime and no Three.js shipping dependency. No third-party game engine may replace the project architecture.
+
+The production path does not assume an external asset library. Geometry, terrain, structures, materials, textures, animation data, effects, and audio content must be created by project-owned code and project-owned tools. Imported third-party art is not a prerequisite or default escape hatch.
 
 Cross-platform renderer abstraction is deferred until the Windows vertical slice is proven. Premature backend generalization is prohibited.
 
@@ -47,7 +49,7 @@ Cross-platform renderer abstraction is deferred until the Windows vertical slice
 1. Mythic Kinetic Earnestness
 2. Player Agency Through Mastery
 3. Multiplanetary Progression
-4. Procedural + Authored Hybrid
+4. Procedural + Directed Composition
 5. Accessibility-First Feel
 
 The emotional target is earnest determination. The work must not collapse into parody, empty spectacle, or motivational wallpaper.
@@ -99,35 +101,55 @@ Delivered and verified:
 
 ## 6. Active production phase
 
-## Phase 4 — native scene, asset, animation, and gameplay migration
+## Phase 4 — native scene, procedural content, animation, and gameplay production
 
-### Current delivered tranche
+### Current delivered tranches
 
-The native executable now contains the first playable Ares Reach graybox:
+The native executable and runtime now contain:
 
 - deterministic fixed-step C++ gameplay state,
-- WASD/arrow movement and sprint,
-- bounded traversal arena,
+- keyboard and XInput gamepad mapping,
+- bounded collision-aware traversal,
 - follow camera,
-- native mission objective and completion state,
-- reset behavior,
-- independently transformed scene instances,
-- Mars terrain, landing pad, structural obstacles, rock formations, player marker, and objective beacon,
-- strict C++ gameplay tests,
+- native mission objective, checkpoint, save, replay, and reset state,
+- transactional native saves with validation and corruption handling,
+- strict C++ gameplay and input tests,
 - native-only CI with CTest and validation-enabled rendered-frame evidence.
+
+The versioned scene pipeline now contains:
+
+- a project-authored Ares Reach source scene with stable entity identifiers,
+- strict source parsing and validation,
+- deterministic entity ordering,
+- a native scene cooker,
+- a checksummed runtime package with source provenance,
+- transactional cooked-package replacement and corruption rejection,
+- scene-driven render instances, collision, player spawn, checkpoint, and objective data.
+
+The code-authored content and renderer path now contain:
+
+- deterministic generated hard-surface geometry,
+- seeded irregular Mars-rock topology,
+- generated cylindrical structural and beacon geometry,
+- seeded elevated Mars terrain with generated normals and color variation,
+- deterministic mesh hashing and fail-closed topology validation,
+- validated 32-bit vertex/index atlas construction,
+- cooked-scene mesh identity for cube, rock, column, and terrain geometry,
+- per-instance D3D12 draw-range selection,
+- an Ares Reach composition containing generated terrain, six rocks, six radial elements, and five explicit hard-surface cube elements,
+- strict topology, seed-divergence, density, elevation, cooked-scene, runtime-composition, DXIL-package, D3D12 validation, resize, and GPU-readback evidence.
 
 ### Remaining Phase 4 systems
 
-- versioned scene and entity data,
-- glTF 2.0 authored-asset ingestion,
-- deterministic asset cooker with hashes and dependency tracking,
-- default-heap GPU upload and resource lifetime tracking,
+- deterministic procedural world-composition manifests and aggregate content hashes,
+- project-owned texture, normal, roughness, mask, and material generation,
+- default-heap GPU upload, staging, synchronization, and resource lifetime tracking,
 - mesh, texture, material, sampler, and shader-variant management,
 - physically based metallic/roughness material path,
-- skeletal hierarchy, skinning, clips, blending, root-motion policy, and animation state machines,
-- native input abstraction with keyboard and gamepad parity,
-- collision, locomotion, combat, interaction, checkpoints, saves, campaign progression, settings, and accessibility,
-- debug visualization and authoring support sufficient for the visual slice.
+- project-owned skeletal hierarchy, skinning, clips, blending, root-motion policy, and animation state machines,
+- combat, interaction, campaign progression, settings, and accessibility completion,
+- project-owned audio synthesis, procedural ambience, authored sequencing, and runtime mixing,
+- debug visualization and native authoring support sufficient for the visual slice.
 
 ### Phase 4 exit gate
 
@@ -137,7 +159,8 @@ A native Ares Reach graybox must be playable from start to finish with:
 - native save and replay evidence,
 - keyboard and gamepad completion,
 - collision and interaction parity,
-- no dependence on a removed compatibility runtime,
+- generated project-owned geometry and material content,
+- no dependence on a removed compatibility runtime or external asset library,
 - validation-clean rendering,
 - measured CPU, GPU, memory, and hitch behavior.
 
@@ -145,7 +168,7 @@ A native Ares Reach graybox must be playable from start to finish with:
 
 Exactly five major phases remain.
 
-## Phase 4 — native scene, asset, animation, and gameplay migration
+## Phase 4 — native scene, procedural content, animation, and gameplay production
 
 Status: **in progress**.
 
@@ -153,7 +176,7 @@ Status: **in progress**.
 
 ### Goal
 
-Make one representative Ares Reach segment visually and aurally credible against modern high-end action-game references.
+Make one representative Ares Reach segment visually and aurally credible against modern high-end action-game references using project-owned runtime and content-generation technology.
 
 ### Required systems
 
@@ -161,12 +184,12 @@ Make one representative Ares Reach segment visually and aurally credible against
 - image-based lighting and production PBR materials,
 - stable direct shadows and local lighting,
 - atmosphere, fog, dust, sky, and distance treatment,
-- terrain and authored environment composition,
+- generated terrain plus deliberately composed environment structure,
 - temporal anti-aliasing or equivalent temporal stability,
 - reflections, ambient occlusion, bloom, exposure, depth of field, and motion treatment,
-- GPU particles and authored VFX,
-- production character model, rig, animation, impacts, and camera presentation,
-- authored music, ambience, sound design, dialogue/subtitles, and mix,
+- GPU particles and project-authored VFX,
+- project-generated character geometry, rig, animation, impacts, and camera presentation,
+- project-authored or synthesized music, ambience, sound design, dialogue/subtitles, and mix,
 - capture workflow and automated image/performance comparisons.
 
 ### Exit gate
@@ -183,9 +206,9 @@ Produce the smallest complete campaign that preserves quality rather than maximi
 
 - complete Ares Reach,
 - complete Relay Echo,
-- implement Phobos Vector only after its contract, art plan, technical risks, and replay path are approved,
+- implement Phobos Vector only after its contract, procedural-content plan, technical risks, and replay path are approved,
 - implement Frontier Burn only if the quality budget supports it,
-- create reusable objective, encounter, checkpoint, cinematic, dialogue, and environment authoring systems,
+- create reusable objective, encounter, checkpoint, cinematic, dialogue, environment-composition, and procedural-content systems,
 - produce final fictionalized narrative and localization-ready content.
 
 ### Exit gate
@@ -200,7 +223,7 @@ Turn the complete game into a supportable Windows product.
 
 ### Required work
 
-- asset cooking and patch strategy,
+- procedural-content compilation, caching, versioning, and patch strategy,
 - build signing and installer packaging,
 - crash reporting and diagnostics,
 - save migration and corruption recovery,
