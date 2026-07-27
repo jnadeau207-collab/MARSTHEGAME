@@ -17,7 +17,7 @@ from game.core.relay_echo_replay import (
     normalize_relay_echo_replay,
     prepare_relay_echo_replay,
 )
-from game.core.save import SaveData
+from game.core.relay_echo_save import RelayEchoSaveData
 
 _OBJECTIVES_BEFORE_EXTRACTION = (
     ("reach_noctis_relay", {}),
@@ -29,8 +29,8 @@ _OBJECTIVES_BEFORE_EXTRACTION = (
 
 
 class RelayEchoReplayResetTests(unittest.TestCase):
-    def make_completed_save(self) -> SaveData:
-        save = SaveData()
+    def make_completed_save(self) -> RelayEchoSaveData:
+        save = RelayEchoSaveData()
         save.update_phase1_slice(
             checkpoint_id=4,
             best_phase="complete",
@@ -44,7 +44,7 @@ class RelayEchoReplayResetTests(unittest.TestCase):
         return save
 
     @staticmethod
-    def complete_replay(save: SaveData) -> dict:
+    def complete_replay(save: RelayEchoSaveData) -> dict:
         for objective_id, evidence in _OBJECTIVES_BEFORE_EXTRACTION:
             save.complete_relay_echo_objective(objective_id, evidence)
         return complete_relay_echo_replay(save)
@@ -119,7 +119,7 @@ class RelayEchoReplayResetTests(unittest.TestCase):
         self.assertIn("phobos_vector", save.campaign["unlocked_missions"])
 
     def test_replay_requires_completed_campaign_and_current_run(self) -> None:
-        save = SaveData()
+        save = RelayEchoSaveData()
         with self.assertRaisesRegex(RelayEchoReplayError, "campaign completion"):
             prepare_relay_echo_replay(save)
 
@@ -139,12 +139,12 @@ class RelayEchoReplayResetTests(unittest.TestCase):
     def test_legacy_save_migrates_archive_and_round_trips_history(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "save.json"
-            legacy = SaveData(path)
+            legacy = RelayEchoSaveData(path)
             payload = legacy.to_dict()
             payload.pop("relay_echo_replay", None)
             path.write_text(json.dumps(payload), encoding="utf-8")
 
-            loaded = SaveData(path)
+            loaded = RelayEchoSaveData(path)
             self.assertTrue(loaded.load())
             self.assertEqual(loaded.relay_echo_replay, default_relay_echo_replay())
 
@@ -154,7 +154,7 @@ class RelayEchoReplayResetTests(unittest.TestCase):
             prepare_relay_echo_replay(completed)
             self.assertTrue(completed.save())
 
-            round_trip = SaveData(path)
+            round_trip = RelayEchoSaveData(path)
             self.assertTrue(round_trip.load())
             self.assertEqual(
                 round_trip.relay_echo_replay,
