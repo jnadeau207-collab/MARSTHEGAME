@@ -443,7 +443,7 @@ double JsonValue::AsNumber() const
     return number_;
 }
 
-const std::string& JsonValue::AsString() const
+const std::string& JsonValue::AsString() const &
 {
     if (type_ != Type::String)
     {
@@ -452,7 +452,16 @@ const std::string& JsonValue::AsString() const
     return string_;
 }
 
-const JsonValue::Array& JsonValue::AsArray() const
+std::string JsonValue::AsString() &&
+{
+    if (type_ != Type::String)
+    {
+        ThrowTypeError("string");
+    }
+    return std::move(string_);
+}
+
+const JsonValue::Array& JsonValue::AsArray() const &
 {
     if (type_ != Type::Array)
     {
@@ -461,13 +470,31 @@ const JsonValue::Array& JsonValue::AsArray() const
     return array_;
 }
 
-const JsonValue::Object& JsonValue::AsObject() const
+JsonValue::Array JsonValue::AsArray() &&
+{
+    if (type_ != Type::Array)
+    {
+        ThrowTypeError("array");
+    }
+    return std::move(array_);
+}
+
+const JsonValue::Object& JsonValue::AsObject() const &
 {
     if (type_ != Type::Object)
     {
         ThrowTypeError("object");
     }
     return object_;
+}
+
+JsonValue::Object JsonValue::AsObject() &&
+{
+    if (type_ != Type::Object)
+    {
+        ThrowTypeError("object");
+    }
+    return std::move(object_);
 }
 
 JsonValue ParseJson(const std::string_view source)
