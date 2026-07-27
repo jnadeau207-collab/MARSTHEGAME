@@ -1,4 +1,6 @@
 #include "renderer/d3d12_renderer.h"
+
+#include "renderer/procedural_catalog.h"
 #include "renderer/procedural_geometry.h"
 
 #include <d3d12sdklayers.h>
@@ -6,9 +8,11 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <cfloat>
 #include <cstring>
 #include <fstream>
 #include <limits>
+#include <span>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -27,8 +31,9 @@ using Microsoft::WRL::ComPtr;
 
 constexpr std::uint64_t kFnvOffsetBasis = 1'469'598'103'934'665'603ULL;
 constexpr std::uint64_t kFnvPrime = 1'099'511'628'211ULL;
+constexpr UINT kMaterialTextureDescriptorCount = 3;
 
-std::string FormatHresult(const HRESULT result)
+[[nodiscard]] std::string FormatHresult(const HRESULT result)
 {
     std::ostringstream value;
     value << "0x" << std::hex << static_cast<unsigned long>(result);
@@ -54,7 +59,7 @@ void NameObject(ID3D12Object* object, const std::wstring_view name)
     ThrowIfFailed(object->SetName(owned_name.c_str()), "ID3D12Object::SetName");
 }
 
-std::vector<std::uint8_t> ReadBinaryFile(const std::filesystem::path& path)
+[[nodiscard]] std::vector<std::uint8_t> ReadBinaryFile(const std::filesystem::path& path)
 {
     std::ifstream stream(path, std::ios::binary | std::ios::ate);
     if (!stream)
@@ -78,7 +83,7 @@ std::vector<std::uint8_t> ReadBinaryFile(const std::filesystem::path& path)
     return bytes;
 }
 
-D3D12_RESOURCE_BARRIER TransitionBarrier(
+[[nodiscard]] D3D12_RESOURCE_BARRIER TransitionBarrier(
     ID3D12Resource* resource,
     const D3D12_RESOURCE_STATES before,
     const D3D12_RESOURCE_STATES after)
@@ -91,6 +96,15 @@ D3D12_RESOURCE_BARRIER TransitionBarrier(
     barrier.Transition.StateAfter = after;
     barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
     return barrier;
+}
+
+[[nodiscard]] UINT CheckedSizeToUint(const std::size_t size, const std::string_view label)
+{
+    if (size > static_cast<std::size_t>((std::numeric_limits<UINT>::max)()))
+    {
+        throw std::runtime_error(std::string(label) + " exceeds the D3D12 UINT size limit");
+    }
+    return static_cast<UINT>(size);
 }
 } // namespace
 
@@ -144,7 +158,7 @@ void D3D12Renderer::Initialize(
             CreateCaptureBuffer();
         }
         CreatePipeline();
-        CreateGeometry();
+        CreateStaticResources();
         CreateSceneConstants();
         UpdateViewportAndScissor();
     }
@@ -248,6 +262,7 @@ void D3D12Renderer::Shutdown()
     }
 
     WaitForGpu();
+    upload_context_.Shutdown();
     initialized_ = false;
 
     if (scene_constant_buffer_ != nullptr && mapped_scene_constants_ != nullptr)
@@ -262,8 +277,12 @@ void D3D12Renderer::Shutdown()
     }
 
     scene_constant_buffer_.Reset();
+    surface_texture_.Reset();
+    normal_texture_.Reset();
+    base_color_texture_.Reset();
     index_buffer_.Reset();
     vertex_buffer_.Reset();
+    srv_heap_.Reset();
     pipeline_state_.Reset();
     root_signature_.Reset();
     command_list_.Reset();
@@ -283,6 +302,7 @@ void D3D12Renderer::Shutdown()
     factory_.Reset();
     frame_capture_enabled_ = false;
     instance_count_ = 0;
+    upload_statistics_ = {};
 }
 
 void D3D12Renderer::RequestFrameCapture()
@@ -329,10 +349,10 @@ FrameCaptureEvidence D3D12Renderer::ConsumeFrameCapture()
             checksum ^= row[offset];
             checksum *= kFnvPrime;
         }
-        for (std::size_t offset = 0; offset + 3 < row_size; offset += 4)
+        for (std::size_t offset = 0; offset + 3U < row_size; offset += 4U)
         {
-            if (row[offset] != background[0] || row[offset + 1] != background[1]
-                || row[offset + 2] != background[2] || row[offset + 3] != background[3])
+            if (row[offset] != background[0] || row[offset + 1U] != background[1]
+                || row[offset + 2U] != background[2] || row[offset + 3U] != background[3])
             {
                 ++non_background_pixels;
             }
@@ -367,6 +387,11 @@ FrameStatistics D3D12Renderer::Statistics() const noexcept
         .last_cpu_frame_ms = last_cpu_frame_ms_,
         .max_cpu_frame_ms = max_cpu_frame_ms_,
     };
+}
+
+GpuUploadStatistics D3D12Renderer::UploadStatistics() const noexcept
+{
+    return upload_statistics_;
 }
 
 void D3D12Renderer::EnableDebugLayer()
@@ -622,15 +647,47 @@ void D3D12Renderer::CreatePipeline()
     const std::vector<std::uint8_t> pixel_shader =
         ReadBinaryFile(shader_directory / L"scene.ps.dxil");
 
-    D3D12_ROOT_PARAMETER root_parameter{};
-    root_parameter.ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
-    root_parameter.Descriptor.ShaderRegister = 0;
-    root_parameter.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+    D3D12_DESCRIPTOR_RANGE material_range{};
+    material_range.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+    material_range.NumDescriptors = kMaterialTextureDescriptorCount;
+    material_range.BaseShaderRegister = 0;
+    material_range.RegisterSpace = 0;
+    material_range.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
+    std::array<D3D12_ROOT_PARAMETER, 2> root_parameters{};
+    root_parameters[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+    root_parameters[0].Descriptor.ShaderRegister = 0;
+    root_parameters[0].Descriptor.RegisterSpace = 0;
+    root_parameters[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+    root_parameters[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+    root_parameters[1].DescriptorTable.NumDescriptorRanges = 1;
+    root_parameters[1].DescriptorTable.pDescriptorRanges = &material_range;
+    root_parameters[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+
+    D3D12_STATIC_SAMPLER_DESC sampler{};
+    sampler.Filter = D3D12_FILTER_ANISOTROPIC;
+    sampler.AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+    sampler.AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+    sampler.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+    sampler.MipLODBias = 0.0f;
+    sampler.MaxAnisotropy = 8;
+    sampler.ComparisonFunc = D3D12_COMPARISON_FUNC_ALWAYS;
+    sampler.BorderColor = D3D12_STATIC_BORDER_COLOR_OPAQUE_BLACK;
+    sampler.MinLOD = 0.0f;
+    sampler.MaxLOD = FLT_MAX;
+    sampler.ShaderRegister = 0;
+    sampler.RegisterSpace = 0;
+    sampler.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
     D3D12_ROOT_SIGNATURE_DESC root_description{};
-    root_description.NumParameters = 1;
-    root_description.pParameters = &root_parameter;
-    root_description.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
+    root_description.NumParameters = static_cast<UINT>(root_parameters.size());
+    root_description.pParameters = root_parameters.data();
+    root_description.NumStaticSamplers = 1;
+    root_description.pStaticSamplers = &sampler;
+    root_description.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT
+        | D3D12_ROOT_SIGNATURE_FLAG_DENY_HULL_SHADER_ROOT_ACCESS
+        | D3D12_ROOT_SIGNATURE_FLAG_DENY_DOMAIN_SHADER_ROOT_ACCESS
+        | D3D12_ROOT_SIGNATURE_FLAG_DENY_GEOMETRY_SHADER_ROOT_ACCESS;
 
     ComPtr<ID3DBlob> serialized_root_signature;
     ComPtr<ID3DBlob> root_error;
@@ -655,7 +712,7 @@ void D3D12Renderer::CreatePipeline()
             serialized_root_signature->GetBufferSize(),
             IID_PPV_ARGS(&root_signature_)),
         "ID3D12Device::CreateRootSignature");
-    NameObject(root_signature_.Get(), L"MARSTHEGAME Root Signature");
+    NameObject(root_signature_.Get(), L"MARSTHEGAME Material Root Signature");
 
     const std::array<D3D12_INPUT_ELEMENT_DESC, 3> input_layout = {{
         {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0,
@@ -713,23 +770,25 @@ void D3D12Renderer::CreatePipeline()
             &pipeline_description,
             IID_PPV_ARGS(&pipeline_state_)),
         "ID3D12Device::CreateGraphicsPipelineState");
-    NameObject(pipeline_state_.Get(), L"MARSTHEGAME Native Scene Pipeline");
+    NameObject(pipeline_state_.Get(), L"MARSTHEGAME Generated Material Pipeline");
 }
 
-void D3D12Renderer::CreateGeometry()
+void D3D12Renderer::CreateStaticResources()
 {
-    const std::array<MeshData, static_cast<std::size_t>(MeshKind::Count)> meshes = {
-        GenerateUnitCube(),
-        GenerateMarsRock(0xA51E5U, 12, 20, 0.26f),
-        GenerateBeaconColumn(32),
-        GenerateTerrainPatch(0x4D415253U, 32, 48, 24.0f, 32.0f, 0.82f),
-    };
+    const ProceduralMeshCatalog mesh_catalog = GenerateProceduralMeshCatalog();
+    const GeneratedMaterialCatalog material_catalog = GenerateMaterialCatalog();
+    if (!ValidateMaterialCatalog(material_catalog))
+    {
+        throw std::runtime_error("Generated material catalog failed validation");
+    }
+    static_assert(kProceduralMeshCount == kGeneratedMaterialCount);
+    static_assert(kGeneratedMaterialCount == static_cast<std::size_t>(MeshKind::Count));
 
     std::vector<MeshVertex> vertices;
     std::vector<std::uint32_t> indices;
-    for (std::size_t mesh_index = 0; mesh_index < meshes.size(); ++mesh_index)
+    for (std::size_t mesh_index = 0; mesh_index < mesh_catalog.meshes.size(); ++mesh_index)
     {
-        const MeshData& mesh = meshes[mesh_index];
+        const MeshData& mesh = mesh_catalog.meshes[mesh_index];
         if (!ValidateMesh(mesh))
         {
             throw std::runtime_error("Generated mesh atlas contains invalid topology");
@@ -749,62 +808,85 @@ void D3D12Renderer::CreateGeometry()
         indices.insert(indices.end(), mesh.indices.begin(), mesh.indices.end());
     }
 
-    const auto create_upload_buffer = [this](
-                                          const void* source,
-                                          const std::size_t size,
-                                          ComPtr<ID3D12Resource>& resource,
-                                          const std::wstring_view name) {
-        D3D12_HEAP_PROPERTIES heap{};
-        heap.Type = D3D12_HEAP_TYPE_UPLOAD;
-        heap.CreationNodeMask = 1;
-        heap.VisibleNodeMask = 1;
+    upload_context_.Initialize(*device_.Get(), *command_queue_.Get());
+    upload_context_.Begin();
+    vertex_buffer_ = upload_context_.UploadBuffer(
+        std::as_bytes(std::span<const MeshVertex>(vertices)),
+        D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER,
+        L"MARSTHEGAME Default-Heap Procedural Vertices");
+    index_buffer_ = upload_context_.UploadBuffer(
+        std::as_bytes(std::span<const std::uint32_t>(indices)),
+        D3D12_RESOURCE_STATE_INDEX_BUFFER,
+        L"MARSTHEGAME Default-Heap Procedural Indices");
+    base_color_texture_ = upload_context_.UploadTexture2DArrayRgba8(
+        std::span<const std::uint8_t>(material_catalog.base_color.rgba8),
+        material_catalog.base_color.width,
+        material_catalog.base_color.height,
+        material_catalog.base_color.layers,
+        D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+        L"MARSTHEGAME Generated Base Color Array");
+    normal_texture_ = upload_context_.UploadTexture2DArrayRgba8(
+        std::span<const std::uint8_t>(material_catalog.normal.rgba8),
+        material_catalog.normal.width,
+        material_catalog.normal.height,
+        material_catalog.normal.layers,
+        D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+        L"MARSTHEGAME Generated Normal Array");
+    surface_texture_ = upload_context_.UploadTexture2DArrayRgba8(
+        std::span<const std::uint8_t>(material_catalog.surface.rgba8),
+        material_catalog.surface.width,
+        material_catalog.surface.height,
+        material_catalog.surface.layers,
+        D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+        L"MARSTHEGAME Generated Roughness Metallic Mask Array");
+    const std::uint64_t upload_fence = upload_context_.Submit();
+    upload_context_.Wait(upload_fence);
+    upload_statistics_ = upload_context_.Statistics();
+    if (upload_statistics_.pending_staging_batches != 0)
+    {
+        throw std::runtime_error("Completed startup uploads retained stale staging resources");
+    }
 
-        D3D12_RESOURCE_DESC description{};
-        description.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-        description.Width = static_cast<UINT64>(size);
-        description.Height = 1;
-        description.DepthOrArraySize = 1;
-        description.MipLevels = 1;
-        description.SampleDesc.Count = 1;
-        description.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-
-        ThrowIfFailed(
-            device_->CreateCommittedResource(
-                &heap,
-                D3D12_HEAP_FLAG_NONE,
-                &description,
-                D3D12_RESOURCE_STATE_GENERIC_READ,
-                nullptr,
-                IID_PPV_ARGS(&resource)),
-            "ID3D12Device::CreateCommittedResource(generated mesh atlas)");
-        NameObject(resource.Get(), name);
-
-        void* mapped = nullptr;
-        const D3D12_RANGE read_range{0, 0};
-        ThrowIfFailed(resource->Map(0, &read_range, &mapped), "ID3D12Resource::Map");
-        std::memcpy(mapped, source, size);
-        resource->Unmap(0, nullptr);
-    };
-
-    create_upload_buffer(
-        vertices.data(),
-        vertices.size() * sizeof(MeshVertex),
-        vertex_buffer_,
-        L"MARSTHEGAME Procedural Mesh Atlas Vertices");
     vertex_buffer_view_.BufferLocation = vertex_buffer_->GetGPUVirtualAddress();
     vertex_buffer_view_.StrideInBytes = static_cast<UINT>(sizeof(MeshVertex));
-    vertex_buffer_view_.SizeInBytes =
-        static_cast<UINT>(vertices.size() * sizeof(MeshVertex));
-
-    create_upload_buffer(
-        indices.data(),
-        indices.size() * sizeof(std::uint32_t),
-        index_buffer_,
-        L"MARSTHEGAME Procedural Mesh Atlas Indices");
+    vertex_buffer_view_.SizeInBytes = CheckedSizeToUint(
+        vertices.size() * sizeof(MeshVertex),
+        "procedural vertex atlas");
     index_buffer_view_.BufferLocation = index_buffer_->GetGPUVirtualAddress();
-    index_buffer_view_.SizeInBytes =
-        static_cast<UINT>(indices.size() * sizeof(std::uint32_t));
+    index_buffer_view_.SizeInBytes = CheckedSizeToUint(
+        indices.size() * sizeof(std::uint32_t),
+        "procedural index atlas");
     index_buffer_view_.Format = DXGI_FORMAT_R32_UINT;
+    materials_ = material_catalog.materials;
+
+    D3D12_DESCRIPTOR_HEAP_DESC heap_description{};
+    heap_description.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+    heap_description.NumDescriptors = kMaterialTextureDescriptorCount;
+    heap_description.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+    ThrowIfFailed(
+        device_->CreateDescriptorHeap(&heap_description, IID_PPV_ARGS(&srv_heap_)),
+        "ID3D12Device::CreateDescriptorHeap(material SRV)");
+    NameObject(srv_heap_.Get(), L"MARSTHEGAME Generated Material SRV Heap");
+
+    D3D12_SHADER_RESOURCE_VIEW_DESC view{};
+    view.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+    view.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    view.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2DARRAY;
+    view.Texture2DArray.MostDetailedMip = 0;
+    view.Texture2DArray.MipLevels = 1;
+    view.Texture2DArray.FirstArraySlice = 0;
+    view.Texture2DArray.ArraySize = static_cast<UINT>(kGeneratedMaterialCount);
+    view.Texture2DArray.PlaneSlice = 0;
+    view.Texture2DArray.ResourceMinLODClamp = 0.0f;
+
+    const UINT descriptor_size =
+        device_->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+    D3D12_CPU_DESCRIPTOR_HANDLE descriptor = srv_heap_->GetCPUDescriptorHandleForHeapStart();
+    device_->CreateShaderResourceView(base_color_texture_.Get(), &view, descriptor);
+    descriptor.ptr += descriptor_size;
+    device_->CreateShaderResourceView(normal_texture_.Get(), &view, descriptor);
+    descriptor.ptr += descriptor_size;
+    device_->CreateShaderResourceView(surface_texture_.Get(), &view, descriptor);
 }
 
 void D3D12Renderer::CreateSceneConstants()
@@ -868,7 +950,7 @@ void D3D12Renderer::UpdateSceneConstants(const RenderScene& scene)
     {
         const RenderInstance& instance = scene.instances[index];
         const std::size_t mesh_index = static_cast<std::size_t>(instance.mesh);
-        if (mesh_index >= mesh_ranges_.size())
+        if (mesh_index >= mesh_ranges_.size() || mesh_index >= materials_.size())
         {
             throw std::invalid_argument("RenderScene contains an invalid generated mesh kind");
         }
@@ -877,11 +959,29 @@ void D3D12Renderer::UpdateSceneConstants(const RenderScene& scene)
             XMMatrixScaling(instance.scale.x, instance.scale.y, instance.scale.z)
             * XMMatrixTranslation(instance.position.x, instance.position.y, instance.position.z);
 
+        const GeneratedMaterial& material = materials_[mesh_index];
         SceneConstants constants{};
         XMStoreFloat4x4(&constants.world, world);
         XMStoreFloat4x4(&constants.world_view_projection, world * view * projection);
         constants.light_direction = {-0.45f, -0.82f, -0.35f, 0.0f};
-        constants.tint = instance.tint;
+        constants.tint = {
+            instance.tint.x * material.base_color_tint[0],
+            instance.tint.y * material.base_color_tint[1],
+            instance.tint.z * material.base_color_tint[2],
+            instance.tint.w,
+        };
+        constants.material_parameters = {
+            material.texture_scale,
+            material.normal_strength,
+            material.roughness,
+            material.metallic,
+        };
+        constants.material_layer_mask = {
+            static_cast<float>(material.texture_layer),
+            material.mask_strength,
+            0.0f,
+            0.0f,
+        };
 
         const std::size_t constant_index =
             static_cast<std::size_t>(frame_index_) * kMaxInstances + index;
@@ -914,6 +1014,11 @@ void D3D12Renderer::PopulateCommandList()
         0,
         nullptr);
     command_list_->SetGraphicsRootSignature(root_signature_.Get());
+    ID3D12DescriptorHeap* descriptor_heaps[] = {srv_heap_.Get()};
+    command_list_->SetDescriptorHeaps(1, descriptor_heaps);
+    command_list_->SetGraphicsRootDescriptorTable(
+        1,
+        srv_heap_->GetGPUDescriptorHandleForHeapStart());
     command_list_->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     command_list_->IASetVertexBuffers(0, 1, &vertex_buffer_view_);
     command_list_->IASetIndexBuffer(&index_buffer_view_);
@@ -983,7 +1088,11 @@ void D3D12Renderer::MoveToNextFrame()
         ThrowIfDeviceFailed(
             fence_->SetEventOnCompletion(fence_values_[frame_index_], fence_event_),
             "ID3D12Fence::SetEventOnCompletion");
-        WaitForSingleObject(fence_event_, INFINITE);
+        const DWORD wait_result = WaitForSingleObject(fence_event_, INFINITE);
+        if (wait_result != WAIT_OBJECT_0)
+        {
+            throw std::runtime_error("WaitForSingleObject failed for the frame fence");
+        }
     }
     fence_values_[frame_index_] = signal_value + 1;
 }
@@ -1002,7 +1111,11 @@ void D3D12Renderer::WaitForGpu()
     ThrowIfDeviceFailed(
         fence_->SetEventOnCompletion(signal_value, fence_event_),
         "ID3D12Fence::SetEventOnCompletion(wait)");
-    WaitForSingleObject(fence_event_, INFINITE);
+    const DWORD wait_result = WaitForSingleObject(fence_event_, INFINITE);
+    if (wait_result != WAIT_OBJECT_0)
+    {
+        throw std::runtime_error("WaitForSingleObject failed while draining the frame queue");
+    }
     fence_values_[frame_index_] = signal_value + 1;
 }
 
