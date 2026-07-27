@@ -49,10 +49,16 @@ int main()
     Require(first.normal.rgba8 == second.normal.rgba8, "normal bytes must be deterministic");
     Require(first.surface.rgba8 == second.surface.rgba8, "surface bytes must be deterministic");
 
-    Require(first.materials.size() == kGeneratedMaterialCount, "material count must match mesh catalog");
-    Require(first.base_color.layers == static_cast<std::uint32_t>(kGeneratedMaterialCount), "base-color array must contain one layer per material");
-    Require(first.normal.layers == static_cast<std::uint32_t>(kGeneratedMaterialCount), "normal array must contain one layer per material");
-    Require(first.surface.layers == static_cast<std::uint32_t>(kGeneratedMaterialCount), "surface array must contain one layer per material");
+    Require(kGeneratedMaterialCount == 9U,
+        "recovery catalog must contain environment plus five field-engineer material families");
+    Require(first.materials.size() == kGeneratedMaterialCount,
+        "material count must match the generated recovery catalog");
+    Require(first.base_color.layers == static_cast<std::uint32_t>(kGeneratedMaterialCount),
+        "base-color array must contain one layer per material");
+    Require(first.normal.layers == static_cast<std::uint32_t>(kGeneratedMaterialCount),
+        "normal array must contain one layer per material");
+    Require(first.surface.layers == static_cast<std::uint32_t>(kGeneratedMaterialCount),
+        "surface array must contain one layer per material");
 
     for (std::size_t layer = 1; layer < kGeneratedMaterialCount; ++layer)
     {
@@ -60,6 +66,20 @@ int main()
             HashLayer(first.base_color, layer - 1U) != HashLayer(first.base_color, layer),
             "adjacent generated base-color layers must be materially distinct");
     }
+
+    const auto& fabric = first.materials[static_cast<std::size_t>(GeneratedMaterialSlot::SuitFabric)];
+    const auto& abrasion = first.materials[static_cast<std::size_t>(GeneratedMaterialSlot::SuitAbrasion)];
+    const auto& shell = first.materials[static_cast<std::size_t>(GeneratedMaterialSlot::SuitShell)];
+    const auto& mechanism = first.materials[static_cast<std::size_t>(GeneratedMaterialSlot::SuitMechanism)];
+    const auto& visor = first.materials[static_cast<std::size_t>(GeneratedMaterialSlot::Visor)];
+    Require(fabric.roughness > shell.roughness,
+        "woven pressure fabric must remain rougher than the hard shell");
+    Require(abrasion.roughness >= fabric.roughness,
+        "abrasion panels must remain at least as matte as pressure fabric");
+    Require(mechanism.metallic > shell.metallic && mechanism.metallic > fabric.metallic,
+        "life-support mechanisms must have a distinct metallic response");
+    Require(visor.roughness < shell.roughness && visor.normal_strength < shell.normal_strength,
+        "visor must remain smoother than painted shell material");
 
     bool found_non_flat_normal = false;
     for (std::size_t index = 0; index + 3U < first.normal.rgba8.size(); index += 4U)
@@ -78,16 +98,17 @@ int main()
         first.surface.rgba8.begin(),
         first.surface.rgba8.end(),
         [](const std::uint8_t left, const std::uint8_t right) { return left < right; });
-    Require(roughness_bounds.first != roughness_bounds.second, "surface texture must contain channel variation");
+    Require(roughness_bounds.first != roughness_bounds.second,
+        "surface texture must contain channel variation");
 
     GeneratedMaterialCatalog corrupted = first;
     corrupted.surface.rgba8.pop_back();
     Require(!ValidateMaterialCatalog(corrupted), "truncated texture payload must fail closed");
 
     corrupted = first;
-    corrupted.materials[0].texture_layer = 3;
+    corrupted.materials[0].texture_layer = 8;
     Require(!ValidateMaterialCatalog(corrupted), "material-to-layer mismatch must fail closed");
 
-    std::cout << "MARSTHEGAME generated material tests passed\n";
+    std::cout << "MARSTHEGAME environment and field-engineer material tests passed\n";
     return 0;
 }
