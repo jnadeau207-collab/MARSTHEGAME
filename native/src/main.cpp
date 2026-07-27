@@ -57,6 +57,23 @@ void LogFrameStatistics(const mars::renderer::FrameStatistics statistics)
     }
 }
 
+void LogFrameCapture(const mars::renderer::FrameCaptureEvidence capture)
+{
+    std::array<wchar_t, 256> message{};
+    const int written = swprintf_s(
+        message.data(),
+        message.size(),
+        L"MARSTHEGAME capture width=%u height=%u checksum=%llu non_background=%llu\n",
+        capture.width,
+        capture.height,
+        static_cast<unsigned long long>(capture.checksum),
+        static_cast<unsigned long long>(capture.non_background_pixels));
+    if (written > 0)
+    {
+        OutputDebugStringW(message.data());
+    }
+}
+
 int RunWarpSmokeTest(const HINSTANCE instance)
 {
     mars::platform::Win32Window window;
@@ -67,7 +84,8 @@ int RunWarpSmokeTest(const HINSTANCE instance)
         window.Handle(),
         window.Width(),
         window.Height(),
-        mars::renderer::AdapterPreference::Warp);
+        mars::renderer::AdapterPreference::Warp,
+        true);
     window.SetResizeCallback(
         [&renderer](const std::uint32_t width, const std::uint32_t height) {
             renderer.Resize(width, height);
@@ -83,7 +101,7 @@ int RunWarpSmokeTest(const HINSTANCE instance)
     }
 
     renderer.Resize(800, 450);
-    for (std::uint32_t frame = 0; frame < 3; ++frame)
+    for (std::uint32_t frame = 0; frame < 2; ++frame)
     {
         if (!window.PumpMessages())
         {
@@ -92,12 +110,22 @@ int RunWarpSmokeTest(const HINSTANCE instance)
         renderer.Render();
     }
 
+    renderer.RequestFrameCapture();
+    renderer.Render();
+    const mars::renderer::FrameCaptureEvidence capture = renderer.ConsumeFrameCapture();
     const mars::renderer::FrameStatistics statistics = renderer.Statistics();
     LogFrameStatistics(statistics);
+    LogFrameCapture(capture);
     renderer.Shutdown();
+
     if (statistics.presented_frames != 6 || statistics.max_cpu_frame_ms <= 0.0)
     {
         return 3;
+    }
+    if (capture.width != 800 || capture.height != 450 || capture.checksum == 0
+        || capture.non_background_pixels < 1'000)
+    {
+        return 4;
     }
     return 0;
 }
