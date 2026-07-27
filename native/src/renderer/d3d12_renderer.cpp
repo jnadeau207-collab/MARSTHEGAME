@@ -154,11 +154,19 @@ void D3D12Renderer::Initialize(
     }
 }
 
-void D3D12Renderer::Render()
+void D3D12Renderer::Render(const RenderScene& scene)
 {
     if (!initialized_ || width_ == 0 || height_ == 0)
     {
         return;
+    }
+    if (scene.instances.empty())
+    {
+        throw std::invalid_argument("RenderScene must contain at least one instance");
+    }
+    if (scene.instances.size() > kMaxInstances)
+    {
+        throw std::invalid_argument("RenderScene exceeds the native instance limit");
     }
 
     const auto started = std::chrono::steady_clock::now();
@@ -170,7 +178,7 @@ void D3D12Renderer::Render()
         command_list_->Reset(command_allocators_[frame_index_].Get(), pipeline_state_.Get()),
         "ID3D12GraphicsCommandList::Reset");
 
-    UpdateSceneConstants();
+    UpdateSceneConstants(scene);
     PopulateCommandList();
     ThrowIfFailed(command_list_->Close(), "ID3D12GraphicsCommandList::Close");
 
@@ -246,7 +254,6 @@ void D3D12Renderer::Shutdown()
         scene_constant_buffer_->Unmap(0, nullptr);
         mapped_scene_constants_ = nullptr;
     }
-
     if (fence_event_ != nullptr)
     {
         CloseHandle(fence_event_);
@@ -274,6 +281,7 @@ void D3D12Renderer::Shutdown()
     device_.Reset();
     factory_.Reset();
     frame_capture_enabled_ = false;
+    instance_count_ = 0;
 }
 
 void D3D12Renderer::RequestFrameCapture()
@@ -306,12 +314,7 @@ FrameCaptureEvidence D3D12Renderer::ConsumeFrameCapture()
     ThrowIfFailed(capture_buffer_->Map(0, &read_range, &mapped), "ID3D12Resource::Map(capture)");
 
     const auto* bytes = static_cast<const std::uint8_t*>(mapped);
-    const std::array<std::uint8_t, 4> background = {
-        bytes[0],
-        bytes[1],
-        bytes[2],
-        bytes[3],
-    };
+    const std::array<std::uint8_t, 4> background = {bytes[0], bytes[1], bytes[2], bytes[3]};
     std::uint64_t checksum = kFnvOffsetBasis;
     std::uint64_t non_background_pixels = 0;
     const std::size_t row_size = static_cast<std::size_t>(capture_row_size_bytes_);
@@ -388,10 +391,7 @@ void D3D12Renderer::CreateFactoryAndDevice(const AdapterPreference adapter_prefe
 
     const ComPtr<IDXGIAdapter1> adapter = ChooseAdapter(*factory_.Get(), adapter_preference);
     ThrowIfFailed(
-        D3D12CreateDevice(
-            adapter.Get(),
-            D3D_FEATURE_LEVEL_12_0,
-            IID_PPV_ARGS(&device_)),
+        D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_12_0, IID_PPV_ARGS(&device_)),
         "D3D12CreateDevice");
     NameObject(device_.Get(), L"MARSTHEGAME D3D12 Device");
 
@@ -413,7 +413,6 @@ void D3D12Renderer::CreateCommandObjects()
     queue_description.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
     queue_description.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL;
     queue_description.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
-    queue_description.NodeMask = 0;
     ThrowIfFailed(
         device_->CreateCommandQueue(&queue_description, IID_PPV_ARGS(&command_queue_)),
         "ID3D12Device::CreateCommandQueue");
@@ -426,9 +425,7 @@ void D3D12Renderer::CreateCommandObjects()
                 D3D12_COMMAND_LIST_TYPE_DIRECT,
                 IID_PPV_ARGS(&command_allocators_[index])),
             "ID3D12Device::CreateCommandAllocator");
-        NameObject(
-            command_allocators_[index].Get(),
-            L"MARSTHEGAME Frame Command Allocator");
+        NameObject(command_allocators_[index].Get(), L"MARSTHEGAME Frame Command Allocator");
     }
 
     ThrowIfFailed(
@@ -460,15 +457,12 @@ void D3D12Renderer::CreateSwapChain(const HWND window)
     description.Width = width_;
     description.Height = height_;
     description.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-    description.Stereo = FALSE;
     description.SampleDesc.Count = 1;
-    description.SampleDesc.Quality = 0;
     description.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
     description.BufferCount = kFrameCount;
     description.Scaling = DXGI_SCALING_STRETCH;
     description.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
     description.AlphaMode = DXGI_ALPHA_MODE_UNSPECIFIED;
-    description.Flags = 0;
 
     ComPtr<IDXGISwapChain1> swap_chain;
     ThrowIfFailed(
@@ -497,8 +491,6 @@ void D3D12Renderer::CreateRenderTargetViews()
         D3D12_DESCRIPTOR_HEAP_DESC heap_description{};
         heap_description.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
         heap_description.NumDescriptors = kFrameCount;
-        heap_description.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-        heap_description.NodeMask = 0;
         ThrowIfFailed(
             device_->CreateDescriptorHeap(&heap_description, IID_PPV_ARGS(&rtv_heap_)),
             "ID3D12Device::CreateDescriptorHeap(RTV)");
@@ -526,7 +518,6 @@ void D3D12Renderer::CreateDepthBuffer()
         D3D12_DESCRIPTOR_HEAP_DESC heap_description{};
         heap_description.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
         heap_description.NumDescriptors = 1;
-        heap_description.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
         ThrowIfFailed(
             device_->CreateDescriptorHeap(&heap_description, IID_PPV_ARGS(&dsv_heap_)),
             "ID3D12Device::CreateDescriptorHeap(DSV)");
@@ -553,7 +544,6 @@ void D3D12Renderer::CreateDepthBuffer()
     D3D12_CLEAR_VALUE clear_value{};
     clear_value.Format = DXGI_FORMAT_D32_FLOAT;
     clear_value.DepthStencil.Depth = 1.0f;
-    clear_value.DepthStencil.Stencil = 0;
 
     ThrowIfFailed(
         device_->CreateCommittedResource(
@@ -569,7 +559,6 @@ void D3D12Renderer::CreateDepthBuffer()
     D3D12_DEPTH_STENCIL_VIEW_DESC view{};
     view.Format = DXGI_FORMAT_D32_FLOAT;
     view.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
-    view.Flags = D3D12_DSV_FLAG_NONE;
     device_->CreateDepthStencilView(depth_buffer_.Get(), &view, dsv_handle_);
 }
 
@@ -609,7 +598,6 @@ void D3D12Renderer::CreateCaptureBuffer()
     description.Height = 1;
     description.DepthOrArraySize = 1;
     description.MipLevels = 1;
-    description.Format = DXGI_FORMAT_UNKNOWN;
     description.SampleDesc.Count = 1;
     description.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 
@@ -629,21 +617,18 @@ void D3D12Renderer::CreatePipeline()
 {
     const std::filesystem::path shader_directory = ExecutableDirectory() / L"shaders";
     const std::vector<std::uint8_t> vertex_shader =
-        ReadBinaryFile(shader_directory / L"triangle.vs.dxil");
+        ReadBinaryFile(shader_directory / L"scene.vs.dxil");
     const std::vector<std::uint8_t> pixel_shader =
-        ReadBinaryFile(shader_directory / L"triangle.ps.dxil");
+        ReadBinaryFile(shader_directory / L"scene.ps.dxil");
 
     D3D12_ROOT_PARAMETER root_parameter{};
     root_parameter.ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
     root_parameter.Descriptor.ShaderRegister = 0;
-    root_parameter.Descriptor.RegisterSpace = 0;
     root_parameter.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
     D3D12_ROOT_SIGNATURE_DESC root_description{};
     root_description.NumParameters = 1;
     root_description.pParameters = &root_parameter;
-    root_description.NumStaticSamplers = 0;
-    root_description.pStaticSamplers = nullptr;
     root_description.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 
     ComPtr<ID3DBlob> serialized_root_signature;
@@ -683,22 +668,13 @@ void D3D12Renderer::CreatePipeline()
     D3D12_RASTERIZER_DESC rasterizer{};
     rasterizer.FillMode = D3D12_FILL_MODE_SOLID;
     rasterizer.CullMode = D3D12_CULL_MODE_NONE;
-    rasterizer.FrontCounterClockwise = FALSE;
     rasterizer.DepthBias = D3D12_DEFAULT_DEPTH_BIAS;
     rasterizer.DepthBiasClamp = D3D12_DEFAULT_DEPTH_BIAS_CLAMP;
     rasterizer.SlopeScaledDepthBias = D3D12_DEFAULT_SLOPE_SCALED_DEPTH_BIAS;
     rasterizer.DepthClipEnable = TRUE;
-    rasterizer.MultisampleEnable = FALSE;
-    rasterizer.AntialiasedLineEnable = FALSE;
-    rasterizer.ForcedSampleCount = 0;
-    rasterizer.ConservativeRaster = D3D12_CONSERVATIVE_RASTERIZATION_MODE_OFF;
 
     D3D12_BLEND_DESC blend{};
-    blend.AlphaToCoverageEnable = FALSE;
-    blend.IndependentBlendEnable = FALSE;
     D3D12_RENDER_TARGET_BLEND_DESC& target_blend = blend.RenderTarget[0];
-    target_blend.BlendEnable = FALSE;
-    target_blend.LogicOpEnable = FALSE;
     target_blend.SrcBlend = D3D12_BLEND_ONE;
     target_blend.DestBlend = D3D12_BLEND_ZERO;
     target_blend.BlendOp = D3D12_BLEND_OP_ADD;
@@ -712,7 +688,6 @@ void D3D12Renderer::CreatePipeline()
     depth_stencil.DepthEnable = TRUE;
     depth_stencil.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
     depth_stencil.DepthFunc = D3D12_COMPARISON_FUNC_LESS;
-    depth_stencil.StencilEnable = FALSE;
 
     D3D12_GRAPHICS_PIPELINE_STATE_DESC pipeline_description{};
     pipeline_description.pRootSignature = root_signature_.Get();
@@ -726,52 +701,47 @@ void D3D12Renderer::CreatePipeline()
         input_layout.data(),
         static_cast<UINT>(input_layout.size()),
     };
-    pipeline_description.IBStripCutValue = D3D12_INDEX_BUFFER_STRIP_CUT_VALUE_DISABLED;
     pipeline_description.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
     pipeline_description.NumRenderTargets = 1;
     pipeline_description.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
     pipeline_description.DSVFormat = DXGI_FORMAT_D32_FLOAT;
     pipeline_description.SampleDesc.Count = 1;
-    pipeline_description.SampleDesc.Quality = 0;
-    pipeline_description.NodeMask = 0;
-    pipeline_description.CachedPSO = {};
-    pipeline_description.Flags = D3D12_PIPELINE_STATE_FLAG_NONE;
 
     ThrowIfFailed(
         device_->CreateGraphicsPipelineState(
             &pipeline_description,
             IID_PPV_ARGS(&pipeline_state_)),
         "ID3D12Device::CreateGraphicsPipelineState");
-    NameObject(pipeline_state_.Get(), L"MARSTHEGAME Lit 3D Pipeline");
+    NameObject(pipeline_state_.Get(), L"MARSTHEGAME Native Scene Pipeline");
 }
 
 void D3D12Renderer::CreateGeometry()
 {
     constexpr std::array<Vertex, 24> vertices = {{
-        {{-1.0f, -1.0f, -1.0f}, {0.0f, 0.0f, -1.0f}, {0.90f, 0.28f, 0.14f}},
-        {{-1.0f, 1.0f, -1.0f}, {0.0f, 0.0f, -1.0f}, {0.90f, 0.28f, 0.14f}},
-        {{1.0f, 1.0f, -1.0f}, {0.0f, 0.0f, -1.0f}, {0.90f, 0.28f, 0.14f}},
-        {{1.0f, -1.0f, -1.0f}, {0.0f, 0.0f, -1.0f}, {0.90f, 0.28f, 0.14f}},
-        {{1.0f, -1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {0.95f, 0.68f, 0.18f}},
-        {{1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {0.95f, 0.68f, 0.18f}},
-        {{-1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {0.95f, 0.68f, 0.18f}},
-        {{-1.0f, -1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {0.95f, 0.68f, 0.18f}},
-        {{-1.0f, -1.0f, 1.0f}, {-1.0f, 0.0f, 0.0f}, {0.20f, 0.45f, 0.92f}},
-        {{-1.0f, 1.0f, 1.0f}, {-1.0f, 0.0f, 0.0f}, {0.20f, 0.45f, 0.92f}},
-        {{-1.0f, 1.0f, -1.0f}, {-1.0f, 0.0f, 0.0f}, {0.20f, 0.45f, 0.92f}},
-        {{-1.0f, -1.0f, -1.0f}, {-1.0f, 0.0f, 0.0f}, {0.20f, 0.45f, 0.92f}},
-        {{1.0f, -1.0f, -1.0f}, {1.0f, 0.0f, 0.0f}, {0.35f, 0.76f, 0.46f}},
-        {{1.0f, 1.0f, -1.0f}, {1.0f, 0.0f, 0.0f}, {0.35f, 0.76f, 0.46f}},
-        {{1.0f, 1.0f, 1.0f}, {1.0f, 0.0f, 0.0f}, {0.35f, 0.76f, 0.46f}},
-        {{1.0f, -1.0f, 1.0f}, {1.0f, 0.0f, 0.0f}, {0.35f, 0.76f, 0.46f}},
-        {{-1.0f, 1.0f, -1.0f}, {0.0f, 1.0f, 0.0f}, {0.76f, 0.34f, 0.86f}},
-        {{-1.0f, 1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}, {0.76f, 0.34f, 0.86f}},
-        {{1.0f, 1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}, {0.76f, 0.34f, 0.86f}},
-        {{1.0f, 1.0f, -1.0f}, {0.0f, 1.0f, 0.0f}, {0.76f, 0.34f, 0.86f}},
-        {{-1.0f, -1.0f, 1.0f}, {0.0f, -1.0f, 0.0f}, {0.18f, 0.74f, 0.82f}},
-        {{-1.0f, -1.0f, -1.0f}, {0.0f, -1.0f, 0.0f}, {0.18f, 0.74f, 0.82f}},
-        {{1.0f, -1.0f, -1.0f}, {0.0f, -1.0f, 0.0f}, {0.18f, 0.74f, 0.82f}},
-        {{1.0f, -1.0f, 1.0f}, {0.0f, -1.0f, 0.0f}, {0.18f, 0.74f, 0.82f}},
+        {{-1.0f, -1.0f, -1.0f}, {0.0f, 0.0f, -1.0f}, {1.0f, 1.0f, 1.0f}},
+        {{-1.0f, 1.0f, -1.0f}, {0.0f, 0.0f, -1.0f}, {1.0f, 1.0f, 1.0f}},
+        {{1.0f, 1.0f, -1.0f}, {0.0f, 0.0f, -1.0f}, {1.0f, 1.0f, 1.0f}},
+        {{1.0f, -1.0f, -1.0f}, {0.0f, 0.0f, -1.0f}, {1.0f, 1.0f, 1.0f}},
+        {{1.0f, -1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}},
+        {{1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}},
+        {{-1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}},
+        {{-1.0f, -1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}},
+        {{-1.0f, -1.0f, 1.0f}, {-1.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
+        {{-1.0f, 1.0f, 1.0f}, {-1.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
+        {{-1.0f, 1.0f, -1.0f}, {-1.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
+        {{-1.0f, -1.0f, -1.0f}, {-1.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
+        {{1.0f, -1.0f, -1.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
+        {{1.0f, 1.0f, -1.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
+        {{1.0f, 1.0f, 1.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
+        {{1.0f, -1.0f, 1.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
+        {{-1.0f, 1.0f, -1.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
+        {{-1.0f, 1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
+        {{1.0f, 1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
+        {{1.0f, 1.0f, -1.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
+        {{-1.0f, -1.0f, 1.0f}, {0.0f, -1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
+        {{-1.0f, -1.0f, -1.0f}, {0.0f, -1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
+        {{1.0f, -1.0f, -1.0f}, {0.0f, -1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
+        {{1.0f, -1.0f, 1.0f}, {0.0f, -1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
     }};
     constexpr std::array<std::uint16_t, 36> indices = {
         0, 1, 2, 0, 2, 3,
@@ -789,23 +759,17 @@ void D3D12Renderer::CreateGeometry()
                                           const std::wstring_view name) {
         D3D12_HEAP_PROPERTIES heap{};
         heap.Type = D3D12_HEAP_TYPE_UPLOAD;
-        heap.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
-        heap.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
         heap.CreationNodeMask = 1;
         heap.VisibleNodeMask = 1;
 
         D3D12_RESOURCE_DESC description{};
         description.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-        description.Alignment = 0;
         description.Width = static_cast<UINT64>(size);
         description.Height = 1;
         description.DepthOrArraySize = 1;
         description.MipLevels = 1;
-        description.Format = DXGI_FORMAT_UNKNOWN;
         description.SampleDesc.Count = 1;
-        description.SampleDesc.Quality = 0;
         description.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-        description.Flags = D3D12_RESOURCE_FLAG_NONE;
 
         ThrowIfFailed(
             device_->CreateCommittedResource(
@@ -825,20 +789,12 @@ void D3D12Renderer::CreateGeometry()
         resource->Unmap(0, nullptr);
     };
 
-    create_upload_buffer(
-        vertices.data(),
-        sizeof(vertices),
-        vertex_buffer_,
-        L"MARSTHEGAME Cube Vertex Buffer");
+    create_upload_buffer(vertices.data(), sizeof(vertices), vertex_buffer_, L"MARSTHEGAME Cube Vertices");
     vertex_buffer_view_.BufferLocation = vertex_buffer_->GetGPUVirtualAddress();
     vertex_buffer_view_.StrideInBytes = static_cast<UINT>(sizeof(Vertex));
     vertex_buffer_view_.SizeInBytes = static_cast<UINT>(sizeof(vertices));
 
-    create_upload_buffer(
-        indices.data(),
-        sizeof(indices),
-        index_buffer_,
-        L"MARSTHEGAME Cube Index Buffer");
+    create_upload_buffer(indices.data(), sizeof(indices), index_buffer_, L"MARSTHEGAME Cube Indices");
     index_buffer_view_.BufferLocation = index_buffer_->GetGPUVirtualAddress();
     index_buffer_view_.SizeInBytes = static_cast<UINT>(sizeof(indices));
     index_buffer_view_.Format = DXGI_FORMAT_R16_UINT;
@@ -854,11 +810,10 @@ void D3D12Renderer::CreateSceneConstants()
 
     D3D12_RESOURCE_DESC description{};
     description.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-    description.Width = sizeof(SceneConstants) * kFrameCount;
+    description.Width = sizeof(SceneConstants) * kMaxInstances * kFrameCount;
     description.Height = 1;
     description.DepthOrArraySize = 1;
     description.MipLevels = 1;
-    description.Format = DXGI_FORMAT_UNKNOWN;
     description.SampleDesc.Count = 1;
     description.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 
@@ -881,31 +836,47 @@ void D3D12Renderer::CreateSceneConstants()
     mapped_scene_constants_ = static_cast<std::byte*>(mapped);
 }
 
-void D3D12Renderer::UpdateSceneConstants()
+void D3D12Renderer::UpdateSceneConstants(const RenderScene& scene)
 {
     using namespace DirectX;
 
-    const float angle = static_cast<float>(presented_frames_) * 0.0125f;
+    instance_count_ = static_cast<std::uint32_t>(scene.instances.size());
+    clear_color_ = {
+        scene.clear_color.x,
+        scene.clear_color.y,
+        scene.clear_color.z,
+        scene.clear_color.w,
+    };
+
     const float aspect = static_cast<float>(width_) / static_cast<float>(height_);
-    const XMMATRIX world = XMMatrixRotationY(angle) * XMMatrixRotationX(angle * 0.47f);
-    const XMMATRIX view = XMMatrixLookAtLH(
-        XMVectorSet(0.0f, 1.3f, -5.2f, 1.0f),
-        XMVectorZero(),
-        XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f));
+    const XMVECTOR eye = XMLoadFloat3(&scene.camera_eye);
+    const XMVECTOR target = XMLoadFloat3(&scene.camera_target);
+    const XMMATRIX view = XMMatrixLookAtLH(eye, target, XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f));
     const XMMATRIX projection = XMMatrixPerspectiveFovLH(
         XMConvertToRadians(58.0f),
         aspect,
         0.1f,
-        100.0f);
+        250.0f);
 
-    SceneConstants constants{};
-    XMStoreFloat4x4(&constants.world, world);
-    XMStoreFloat4x4(&constants.world_view_projection, world * view * projection);
-    constants.light_direction = {-0.35f, -0.78f, -0.52f, 0.0f};
+    for (std::uint32_t index = 0; index < instance_count_; ++index)
+    {
+        const RenderInstance& instance = scene.instances[index];
+        const XMMATRIX world =
+            XMMatrixScaling(instance.scale.x, instance.scale.y, instance.scale.z)
+            * XMMatrixTranslation(instance.position.x, instance.position.y, instance.position.z);
 
-    std::byte* destination =
-        mapped_scene_constants_ + static_cast<std::size_t>(frame_index_) * sizeof(SceneConstants);
-    std::memcpy(destination, &constants, sizeof(constants));
+        SceneConstants constants{};
+        XMStoreFloat4x4(&constants.world, world);
+        XMStoreFloat4x4(&constants.world_view_projection, world * view * projection);
+        constants.light_direction = {-0.45f, -0.82f, -0.35f, 0.0f};
+        constants.tint = instance.tint;
+
+        const std::size_t constant_index =
+            static_cast<std::size_t>(frame_index_) * kMaxInstances + index;
+        std::byte* destination =
+            mapped_scene_constants_ + constant_index * sizeof(SceneConstants);
+        std::memcpy(destination, &constants, sizeof(constants));
+    }
 }
 
 void D3D12Renderer::PopulateCommandList()
@@ -919,11 +890,10 @@ void D3D12Renderer::PopulateCommandList()
     D3D12_CPU_DESCRIPTOR_HANDLE target = rtv_heap_->GetCPUDescriptorHandleForHeapStart();
     target.ptr += static_cast<SIZE_T>(frame_index_) * rtv_descriptor_size_;
 
-    constexpr float clear_color[4] = {0.018f, 0.022f, 0.035f, 1.0f};
     command_list_->RSSetViewports(1, &viewport_);
     command_list_->RSSetScissorRects(1, &scissor_rect_);
     command_list_->OMSetRenderTargets(1, &target, FALSE, &dsv_handle_);
-    command_list_->ClearRenderTargetView(target, clear_color, 0, nullptr);
+    command_list_->ClearRenderTargetView(target, clear_color_.data(), 0, nullptr);
     command_list_->ClearDepthStencilView(
         dsv_handle_,
         D3D12_CLEAR_FLAG_DEPTH,
@@ -932,14 +902,20 @@ void D3D12Renderer::PopulateCommandList()
         0,
         nullptr);
     command_list_->SetGraphicsRootSignature(root_signature_.Get());
-    command_list_->SetGraphicsRootConstantBufferView(
-        0,
-        scene_constant_buffer_->GetGPUVirtualAddress()
-            + static_cast<UINT64>(frame_index_) * sizeof(SceneConstants));
     command_list_->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     command_list_->IASetVertexBuffers(0, 1, &vertex_buffer_view_);
     command_list_->IASetIndexBuffer(&index_buffer_view_);
-    command_list_->DrawIndexedInstanced(index_count_, 1, 0, 0, 0);
+
+    const D3D12_GPU_VIRTUAL_ADDRESS base_address = scene_constant_buffer_->GetGPUVirtualAddress();
+    for (std::uint32_t index = 0; index < instance_count_; ++index)
+    {
+        const UINT64 constant_index =
+            static_cast<UINT64>(frame_index_) * kMaxInstances + index;
+        command_list_->SetGraphicsRootConstantBufferView(
+            0,
+            base_address + constant_index * sizeof(SceneConstants));
+        command_list_->DrawIndexedInstanced(index_count_, 1, 0, 0, 0);
+    }
 
     if (capture_requested_)
     {
@@ -957,7 +933,6 @@ void D3D12Renderer::PopulateCommandList()
         D3D12_TEXTURE_COPY_LOCATION source{};
         source.pResource = render_targets_[frame_index_].Get();
         source.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
-        source.SubresourceIndex = 0;
         command_list_->CopyTextureRegion(&destination, 0, 0, 0, &source, nullptr);
 
         const D3D12_RESOURCE_BARRIER to_present = TransitionBarrier(
