@@ -1,3 +1,4 @@
+#include "assets/scene_asset.h"
 #include "game/game_state.h"
 #include "game/save_state.h"
 #include "platform/win32_window.h"
@@ -43,6 +44,11 @@ std::filesystem::path ExecutableDirectory()
         throw std::runtime_error("GetModuleFileNameW failed");
     }
     return std::filesystem::path(std::wstring_view(path.data(), length)).parent_path();
+}
+
+std::filesystem::path ScenePath()
+{
+    return ExecutableDirectory() / L"assets" / L"scenes" / L"ares_reach.marscene.bin";
 }
 
 std::filesystem::path SavePath()
@@ -170,7 +176,12 @@ int RunSelfTest()
         std::filesystem::is_regular_file(shader_directory / L"scene.vs.dxil");
     const bool pixel_shader_exists =
         std::filesystem::is_regular_file(shader_directory / L"scene.ps.dxil");
-    return vertex_shader_exists && pixel_shader_exists ? 0 : 2;
+    if (!vertex_shader_exists || !pixel_shader_exists)
+    {
+        return 2;
+    }
+    const mars::assets::SceneDefinition scene = mars::assets::LoadCookedScene(ScenePath());
+    return scene.entities.size() == 18 ? 0 : 5;
 }
 
 void LogFrameStatistics(const mars::renderer::FrameStatistics statistics)
@@ -223,7 +234,8 @@ int RunWarpSmokeTest(const HINSTANCE instance)
             renderer.Resize(width, height);
         });
 
-    mars::game::GameState game;
+    const mars::assets::SceneDefinition scene = mars::assets::LoadCookedScene(ScenePath());
+    mars::game::GameState game(scene);
     mars::game::InputState forward{};
     forward.move_z = 1.0f;
     for (std::uint32_t frame = 0; frame < 4; ++frame)
@@ -319,8 +331,9 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int)
                 renderer.Resize(width, height);
             });
 
+        const mars::assets::SceneDefinition scene = mars::assets::LoadCookedScene(ScenePath());
         const std::filesystem::path save_path = SavePath();
-        mars::game::GameState game;
+        mars::game::GameState game(scene);
         LoadGame(game, save_path, true);
 
         auto previous = std::chrono::steady_clock::now();
