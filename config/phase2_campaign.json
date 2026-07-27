@@ -16,7 +16,7 @@
   "relay_echo_campaign_promotion_verification": "passed",
   "relay_echo_campaign_promotion_run": "30225073774",
   "relay_echo_completed_mission_replay_verification": "pending",
-  "verification_run": null,
+  "verification_run": "requested",
   "implemented_missions": [
     "ares_reach",
     "relay_echo"
