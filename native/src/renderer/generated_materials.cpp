@@ -114,6 +114,40 @@ struct FloatColor
         return 0.27f + noise_a * 0.16f + noise_b * 0.10f
             + broad_ripple * 0.13f + compacted * 0.035f;
     }
+    case GeneratedMaterialSlot::SuitFabric:
+    {
+        const float warp = ((wrapped_x % 4U) == 0U) ? 0.055f : 0.0f;
+        const float weft = ((wrapped_y % 4U) == 0U) ? 0.045f : 0.0f;
+        return 0.48f + warp + weft + (noise_a - 0.5f) * 0.020f;
+    }
+    case GeneratedMaterialSlot::SuitAbrasion:
+    {
+        const bool diagonal = ((wrapped_x + wrapped_y) % 7U) == 0U;
+        const bool cross_thread = ((wrapped_x * 2U + wrapped_y) % 11U) == 0U;
+        return 0.47f + (diagonal ? 0.070f : 0.0f)
+            + (cross_thread ? 0.035f : 0.0f) + (noise_a - 0.5f) * 0.025f;
+    }
+    case GeneratedMaterialSlot::SuitShell:
+    {
+        const bool panel_seam = (wrapped_x % 32U) == 0U || (wrapped_y % 32U) == 0U;
+        const bool shallow_rib = (wrapped_y % 16U) == 7U;
+        return 0.53f - (panel_seam ? 0.075f : 0.0f)
+            + (shallow_rib ? 0.025f : 0.0f) + (noise_a - 0.5f) * 0.012f;
+    }
+    case GeneratedMaterialSlot::SuitMechanism:
+    {
+        const bool machined_groove = (wrapped_x % 8U) == 0U;
+        const bool transverse_ring = (wrapped_y % 24U) == 0U;
+        return 0.50f - (machined_groove ? 0.065f : 0.0f)
+            - (transverse_ring ? 0.035f : 0.0f) + (noise_a - 0.5f) * 0.012f;
+    }
+    case GeneratedMaterialSlot::Visor:
+    {
+        const float broad_curve = std::sin(
+            static_cast<float>(wrapped_x) * 0.049f
+            + static_cast<float>(wrapped_y) * 0.031f) * 0.012f;
+        return 0.50f + broad_curve + (noise_b - 0.5f) * 0.006f;
+    }
     case GeneratedMaterialSlot::Count:
         break;
     }
@@ -167,6 +201,49 @@ struct FloatColor
             0.165f + height * 0.135f + noise * 0.014f,
             0.105f + height * 0.095f,
         };
+    case GeneratedMaterialSlot::SuitFabric:
+    {
+        const float thread = ((x + y) % 4U) == 0U ? 0.018f : 0.0f;
+        return {
+            0.54f + height * 0.065f + thread + noise * 0.012f,
+            0.515f + height * 0.060f + thread + noise * 0.011f,
+            0.455f + height * 0.055f + thread + noise * 0.010f,
+        };
+    }
+    case GeneratedMaterialSlot::SuitAbrasion:
+        return {
+            0.245f + height * 0.075f + noise * 0.010f,
+            0.255f + height * 0.072f + noise * 0.010f,
+            0.250f + height * 0.068f + noise * 0.010f,
+        };
+    case GeneratedMaterialSlot::SuitShell:
+    {
+        const bool safety_insert = y >= 8U && y <= 13U && x >= 41U && x <= 58U;
+        if (safety_insert)
+        {
+            return {0.56f + noise * 0.012f, 0.31f + noise * 0.009f, 0.075f};
+        }
+        return {
+            0.55f + height * 0.105f + noise * 0.008f,
+            0.47f + height * 0.095f + noise * 0.008f,
+            0.285f + height * 0.065f + noise * 0.006f,
+        };
+    }
+    case GeneratedMaterialSlot::SuitMechanism:
+        return {
+            0.095f + height * 0.070f + noise * 0.006f,
+            0.105f + height * 0.072f + noise * 0.006f,
+            0.110f + height * 0.075f + noise * 0.006f,
+        };
+    case GeneratedMaterialSlot::Visor:
+    {
+        const float vertical = static_cast<float>(y) / static_cast<float>(kGeneratedTextureHeight - 1U);
+        return {
+            0.018f + height * 0.020f,
+            0.052f + height * 0.055f + vertical * 0.015f,
+            0.070f + height * 0.075f + vertical * 0.025f,
+        };
+    }
     case GeneratedMaterialSlot::Count:
         break;
     }
@@ -261,6 +338,51 @@ GeneratedMaterialCatalog GenerateMaterialCatalog()
             .metallic = 0.0f,
             .mask_strength = 0.25f,
             .base_color_tint = {0.96f, 0.88f, 0.78f},
+        },
+        {
+            .texture_layer = 4,
+            .texture_scale = 0.75f,
+            .normal_strength = 0.32f,
+            .roughness = 0.88f,
+            .metallic = 0.0f,
+            .mask_strength = 0.18f,
+            .base_color_tint = {0.96f, 0.94f, 0.88f},
+        },
+        {
+            .texture_layer = 5,
+            .texture_scale = 0.65f,
+            .normal_strength = 0.42f,
+            .roughness = 0.92f,
+            .metallic = 0.0f,
+            .mask_strength = 0.25f,
+            .base_color_tint = {0.75f, 0.78f, 0.76f},
+        },
+        {
+            .texture_layer = 6,
+            .texture_scale = 0.38f,
+            .normal_strength = 0.24f,
+            .roughness = 0.46f,
+            .metallic = 0.08f,
+            .mask_strength = 0.30f,
+            .base_color_tint = {1.0f, 0.94f, 0.72f},
+        },
+        {
+            .texture_layer = 7,
+            .texture_scale = 0.42f,
+            .normal_strength = 0.28f,
+            .roughness = 0.34f,
+            .metallic = 0.72f,
+            .mask_strength = 0.25f,
+            .base_color_tint = {0.52f, 0.56f, 0.58f},
+        },
+        {
+            .texture_layer = 8,
+            .texture_scale = 0.20f,
+            .normal_strength = 0.08f,
+            .roughness = 0.16f,
+            .metallic = 0.12f,
+            .mask_strength = 0.10f,
+            .base_color_tint = {0.20f, 0.48f, 0.58f},
         },
     }};
 
