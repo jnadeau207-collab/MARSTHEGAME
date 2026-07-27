@@ -109,7 +109,7 @@ int RunSelfTest()
         return 5;
     }
     const mars::assets::SceneDefinition scene = mars::assets::LoadCookedScene(ScenePath());
-    return scene.entities.size() == 18 ? 0 : 6;
+    return scene.entities.size() == 37 ? 0 : 6;
 }
 
 void LogFrameStatistics(const mars::renderer::FrameStatistics statistics)
