@@ -74,6 +74,23 @@ int main(const int argc, char** argv)
         },
         "scene parser rejects duplicate stable entity identifiers");
 
+    {
+        const mars::assets::SceneDefinition elevated_scene = mars::assets::ParseSceneSource(
+            "mars_scene 1\n"
+            "entity a_checkpoint render,checkpoint 0 0 5 1 0.1 1 0.3 0.3 0.3 1\n"
+            "entity b_objective render,objective 0 3 10 0.5 1 0.5 1 0.6 0.1 1\n"
+            "entity c_wall render,collider 10 0 0 1 1 1 0.2 0.2 0.2 1\n"
+            "entity z_player render,player 0 3 0 0.5 0.75 0.5 0.1 0.6 0.8 1\n");
+        mars::game::GameState elevated_game(elevated_scene);
+        mars::game::GameSnapshot elevated_snapshot = elevated_game.Snapshot();
+        elevated_snapshot.checkpoint_reached = true;
+        elevated_game.Restore(elevated_snapshot);
+        elevated_game.RestoreCheckpoint();
+        Require(
+            Near(elevated_game.PlayerPosition().y, 3.0f),
+            "checkpoint restore height is independent of sorted entity order");
+    }
+
     using mars::game::GameState;
     using mars::game::InputState;
     using mars::game::MissionState;
