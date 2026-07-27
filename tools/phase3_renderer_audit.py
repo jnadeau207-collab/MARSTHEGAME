@@ -76,11 +76,7 @@ def audit_phase3_renderer(manifest: dict[str, Any]) -> dict[str, Any]:
     record(
         "ci_verification_coherent",
         (ci_pending and verification_run in {None, "requested"})
-        or (
-            ci_passed
-            and isinstance(verification_run, str)
-            and verification_run.isdigit()
-        ),
+        or (ci_passed and isinstance(verification_run, str) and verification_run.isdigit()),
         {
             "verification": ci_verification,
             "verification_run": verification_run,
@@ -95,9 +91,7 @@ def audit_phase3_renderer(manifest: dict[str, Any]) -> dict[str, Any]:
         {
             "visual_quality_claim": manifest.get("visual_quality_claim"),
             "aaa_claim": manifest.get("aaa_claim"),
-            "founder_hardware_validation": manifest.get(
-                "founder_hardware_validation"
-            ),
+            "founder_hardware_validation": manifest.get("founder_hardware_validation"),
             "founder_visual_inspection": manifest.get("founder_visual_inspection"),
         },
     )
@@ -106,17 +100,11 @@ def audit_phase3_renderer(manifest: dict[str, Any]) -> dict[str, Any]:
     record("required_files_present", not missing, missing)
 
     cmake = (ROOT / "native/CMakeLists.txt").read_text(encoding="utf-8")
-    renderer = (ROOT / "native/src/renderer/d3d12_renderer.cpp").read_text(
-        encoding="utf-8"
-    )
-    renderer_header = (ROOT / "native/src/renderer/d3d12_renderer.h").read_text(
-        encoding="utf-8"
-    )
+    renderer = (ROOT / "native/src/renderer/d3d12_renderer.cpp").read_text(encoding="utf-8")
+    renderer_header = (ROOT / "native/src/renderer/d3d12_renderer.h").read_text(encoding="utf-8")
     shader = (ROOT / "native/shaders/triangle.hlsl").read_text(encoding="utf-8")
     entrypoint = (ROOT / "native/src/main.cpp").read_text(encoding="utf-8")
-    workflow = (ROOT / ".github/workflows/native-renderer.yml").read_text(
-        encoding="utf-8"
-    )
+    workflow = (ROOT / ".github/workflows/native-renderer.yml").read_text(encoding="utf-8")
     record(
         "native_build_contract",
         "CMAKE_CXX_STANDARD 23" in cmake
@@ -178,17 +166,12 @@ def audit_phase3_renderer(manifest: dict[str, Any]) -> dict[str, Any]:
             "gpu_copy": "CopyTextureRegion" in renderer,
             "pixel_analysis": "non_background_pixels" in renderer,
             "threshold": "capture.non_background_pixels < 1'000" in entrypoint,
-            "ci_warp_run": "Run validation-enabled D3D12 WARP smoke test"
-            in workflow,
+            "ci_warp_run": "Run validation-enabled D3D12 WARP smoke test" in workflow,
         },
     )
 
-    plan = (ROOT / "AUTHORITATIVE_PRODUCTION_PLAN.md").read_text(
-        encoding="utf-8"
-    )
-    decision = (ROOT / "docs/decisions/0016-windows-native-renderer.md").read_text(
-        encoding="utf-8"
-    )
+    plan = (ROOT / "AUTHORITATIVE_PRODUCTION_PLAN.md").read_text(encoding="utf-8")
+    decision = (ROOT / "docs/decisions/0016-windows-native-renderer.md").read_text(encoding="utf-8")
     record(
         "architecture_decision_explicit",
         "C++23" in plan
