@@ -1,30 +1,61 @@
-# AUTHORITATIVE PRODUCTION PLAN V3: MARSTHEGAME
+# AUTHORITATIVE PRODUCTION PLAN V4: MARSTHEGAME
 
-## 1. Authority and reality
+## 1. Authority and operating reality
 
-This document is the founder-controlled product and engineering authority for transforming the existing Python + Pygame prototype into a commercial, custom-runtime action game with an **AAA-quality target**.
+This document is the founder-controlled product and engineering authority for transforming the existing Python + Pygame prototype into a commercial, Windows-first, custom-runtime action game with an **AAA-quality target**.
 
 The project has exactly one human founder, `jnadeau207-collab`, and one AI software collaborator, ChatGPT. There are no employees, contractors, departments, other human contributors, or implied production seats. Workstreams are categories of work shared by the founder and AI collaborator, not headcount.
 
-The founder may amend, reject, or replace any part of this plan. No AI-generated plan is immutable. Repository evidence outranks aspirational prose.
+The founder may amend, reject, or replace any part of this plan. Repository evidence outranks aspirational prose. No phase, feature, visual-quality level, content quantity, or release state may be claimed without executable or directly reviewable evidence.
 
-## 2. What “AAA” means here
+## 2. What AAA means here
 
-AAA is a quality result, not a budget, team size, marketing label, feature count, or confidence statement. The game may be called AAA-quality only when representative playable content demonstrates all of the following:
+AAA is a quality result, not a budget, team size, engine choice, marketing label, feature count, or confidence statement. The game may be called AAA-quality only when representative shipping content demonstrates all of the following:
 
 - exceptional, responsive movement and combat,
 - coherent high-fidelity visual direction,
+- production-quality character, environment, animation, lighting, material, VFX, camera, and UI work,
 - authored and adaptive audio with reliable mixing,
 - stable frame pacing and measured performance budgets,
-- polished UI, onboarding, controls, and accessibility,
+- polished onboarding, controls, accessibility, and failure recovery,
 - crash-free, recoverable start-to-finish sessions,
 - deterministic replay and save compatibility,
 - professional content and iteration tooling,
-- representative external playtests meeting the committed quantitative and emotional-response gates.
+- representative external playtests meeting committed completion and emotional-response gates.
 
 Until those gates pass, the truthful description is **custom-engine game with an AAA-quality target**.
 
-## 3. Product identity
+## 3. Visual target and current truth
+
+### Target
+
+The visual target is modern cinematic 3D presentation, not merely attractive procedural 2D. Representative content must eventually demonstrate:
+
+- physically coherent materials and lighting,
+- high-density authored environments with readable composition,
+- large-scale terrain and atmospheric depth,
+- stable shadows and reflections,
+- production skeletal animation and motion transitions,
+- GPU-driven particles and authored VFX,
+- HDR-aware post-processing and temporal stability,
+- scalable quality settings without destroying art direction,
+- frame-time, memory, streaming, and hitch evidence on the reference PC.
+
+### Current state
+
+The current Pygame presentation uses procedural 2D surfaces, rectangles, circles, gradients, glows, silhouettes, and text. It is a useful gameplay and systems prototype, but it is **not a candidate shipping renderer and not evidence of AAA graphics**.
+
+The Python runtime remains valuable as:
+
+- the protected Classic Mode compatibility runtime,
+- a deterministic gameplay and progression oracle,
+- a save/replay contract reference,
+- rapid test and content-validation tooling,
+- a migration comparison target.
+
+No further campaign-content expansion should be prioritized in Pygame until the native renderer and migration boundary are established.
+
+## 4. Product identity
 
 ### Permanent design pillars
 
@@ -38,155 +69,258 @@ The emotional target is earnest determination. The work must never collapse into
 
 ### Classic Mode
 
-The existing eight-chapter game remains permanently playable as Classic Mode. New architecture is additive or migratory behind compatibility contracts. Classic Mode chapter IDs, progression, saves, identity switching, and deterministic replay remain protected in CI.
+The existing eight-chapter game remains permanently available as Classic Mode. Its chapter IDs, progression, saves, identity switching, and deterministic replay remain protected in CI. Classic Mode is legacy/prototype content and is not counted as AAA campaign content.
 
 ### Identity and legal boundary
 
 The fictionalized identity track is the default clearance-independent production path. Real-world names, likenesses, and marks may not be publicly marketed, monetized, submitted to platforms, or used in external playtests without written clearance from qualified counsel.
 
-## 4. Technical direction
+## 5. Shipping technical direction
 
-No third-party game engine may replace the project architecture. The custom runtime may use narrowly scoped libraries for OS integration, graphics APIs, codecs, file formats, and development utilities when those libraries do not become the game engine or own gameplay architecture.
+### Primary runtime
 
-Python remains orchestration, data, tools, and rapid-iteration code while it is fit for purpose. Hot paths are profiled before acceleration. Native C, C++, Rust, Cython, or extension modules are introduced only behind deterministic contracts, parity tests, Python fallbacks where practical, and same-runner performance evidence.
+The Windows shipping runtime is:
 
-The current Pygame renderer is a prototype presentation backend, not presumed to be the final shipping renderer. Renderer decisions must be evidence-driven and must preserve gameplay, save, content, replay, and accessibility contracts.
+- **C++23** for platform, engine, renderer, gameplay runtime, memory, asset, animation, audio, and shipping systems,
+- **Direct3D 12** for the primary Windows graphics backend,
+- **HLSL compiled with DXC** for programmable rendering,
+- **CMake** for reproducible configuration and build generation,
+- Windows SDK and narrowly scoped platform libraries where they do not become the game architecture.
 
-## 5. Phase 0 — complete foundation
+Python is not the final renderer or performance-critical shipping gameplay runtime. Python remains an offline tool, test oracle, compatibility runtime, and migration aid until every required contract has native parity.
 
-Phase 0 is complete when CI proves:
+### Explicit non-decisions
+
+- Three.js is not the shipping renderer. It is a browser-oriented 3D library and may be considered later only for optional web tooling or visualization.
+- No third-party game engine may replace the project architecture.
+- No cross-platform renderer abstraction will be built before the Windows Direct3D 12 vertical slice is proven. Premature backend generalization is prohibited.
+- Native migration may not discard deterministic gameplay, save, replay, input, accessibility, and campaign contracts.
+
+### Native migration rule
+
+Every migrated system requires:
+
+1. a stable data or event contract,
+2. a Python reference case where applicable,
+3. native implementation,
+4. parity or intentionally versioned divergence tests,
+5. measured CPU/GPU/memory behavior,
+6. rollback-safe persistence where state is involved.
+
+## 6. Completed foundations
+
+### Phase 0 — repository and truth foundation: complete
+
+Delivered and protected:
 
 - dual real-world and fictionalized identity tracks,
 - stable player-facing content keys,
 - deterministic replay through all eight Classic Mode chapters,
 - save, progression, transition, and credits compatibility,
 - pinned formatting and static-analysis gates,
-- robust performance baselines and same-runner regression thresholds,
+- performance baselines and same-runner regression thresholds,
 - truthful sole-founder plus AI-collaborator operation,
 - architecture, contribution, legal/IP, and decision records.
 
-The machine authority is `tools.phase0_audit` and `docs/PHASE0_COMPLETION.md`.
+### Phase 1 — repository-executable gameplay foundation: complete
 
-## 6. Phase 1 — complete repository-executable vertical-slice boundary
+Delivered and protected:
 
-### Delivered boundary
-
-Phase 1 established:
-
-- a complete fictionalized Mars-landing path separate from Classic Mode,
+- complete fictionalized Ares Reach path separate from Classic Mode,
 - deterministic fixed-step simulation and complete-path replay,
 - transactional saves and checkpoints,
 - crash and frame-pacing diagnostics,
 - accessibility-aware camera and presentation systems,
 - event-driven audio architecture,
-- adaptive combat, retained understanding after failure, meaningful resource interaction, and ascent spectacle,
+- adaptive combat, failure learning, resource interaction, and ascent sequence,
 - machine-readable quality truth that rejects an unearned AAA claim.
 
-### Founder closure decision
+This phase did not deliver final authored visuals, animation, music, sound, mix, packaging, external playtests, or AAA evidence.
 
-On July 26, 2026, the founder explicitly authorized the repository-executable Phase 1 boundary to close and Phase 2 to begin.
+### Phase 2 — campaign and mission-state foundation: architecture boundary complete
 
-This decision does **not** fabricate or waive:
+Delivered and protected:
 
-- founder direct-play approval,
-- final authored art, animation, music, sound design, or mix,
-- keyboard/gamepad end-to-end parity,
-- packaged-build soak evidence,
-- representative external fictionalized-track playtests,
-- the 80% external completion target,
-- the earnest-determination response target,
-- an earned AAA-quality designation.
+- stable acyclic campaign graph,
+- deterministic unlock computation,
+- explicit implemented and planned mission states,
+- transactional campaign attempts and completions,
+- implemented Ares Reach and Relay Echo routes,
+- Relay Echo objective, failure, checkpoint, accessibility, and replay contracts,
+- atomic Relay Echo campaign promotion and Phobos Vector unlock,
+- durable completed-mission replay/reset with preserved campaign history,
+- deterministic replay and audit evidence across every implemented route.
 
-Those remain product and release gates carried forward across later development. The machine-readable AAA claim remains `target_not_achieved` until the evidence genuinely changes.
+The campaign itself is not complete. Phobos Vector and Frontier Burn remain planned and non-playable.
 
-## 7. Phase 2 — scalable fictionalized campaign foundation
+## 7. Remaining production phases
+
+Exactly six major phases remain after the Phase 2 architecture boundary.
+
+## Phase 3 — Windows native renderer foundation
 
 ### Goal
 
-Transform the Phase 1 mission and runtime into a scalable, validated fictionalized campaign architecture without pretending that planned missions are already playable.
+Create the smallest production-shaped Direct3D 12 runtime that can render a deterministic native scene and report trustworthy GPU/CPU evidence.
 
-Phase 2 begins with one implemented campaign mission, `ares_reach`, backed by the Phase 1 Mars slice. Additional missions are authorized as planned nodes and become playable only when their runtime entrypoints, content, tests, replay evidence, and progression contracts exist.
+### Required systems
 
-### Campaign architecture
+- Win32 window and message loop,
+- Direct3D 12 device, command queue, swap chain, descriptor heaps, command allocators, command list, fences, and frame resources,
+- debug layer, validation, device-removal diagnostics, and named GPU objects,
+- DXC HLSL compilation with reproducible shader inputs,
+- explicit resource ownership and lifetime rules,
+- render-pass or frame-graph boundary capable of later expansion,
+- deterministic camera and transform data,
+- native logging, crash boundary, and frame-timing output,
+- Windows CI build using the supported Visual Studio toolchain.
 
-Phase 2 must provide:
+### Exit gate
 
-- stable campaign and mission IDs,
-- an acyclic prerequisite graph,
-- deterministic mission ordering and unlock computation,
-- explicit `implemented` versus `planned` mission states,
-- fail-closed runtime routing that launches only implemented unlocked missions,
-- transactional campaign attempts, completion, and save migration,
-- deterministic transition evidence,
-- campaign diagnostics and audit output,
-- a player-facing campaign navigator that never markets planned content as finished.
+A packaged native executable must open a window, render a stable indexed mesh through HLSL, resize correctly, survive repeated startup/shutdown, report frame timing, pass validation without errors, and build in CI. Pygame remains unchanged except for compatibility fixes.
 
-### Mission lifecycle
+## Phase 4 — scene, asset, animation, and gameplay migration
 
-Every implemented mission must eventually define:
+### Goal
 
-- entry and exit contracts,
-- objective and failure state machines,
-- checkpoint and persistence boundaries,
-- rewards and downstream unlock effects,
-- deterministic reference replay,
-- accessibility and input parity evidence,
-- CPU, draw, allocation, and hitch budgets,
-- required authored and procedural content packages.
+Turn the renderer kernel into a real 3D game runtime while retaining deterministic gameplay authority.
 
-A mission may exist in the graph as `planned`, but it may not declare a runtime entrypoint or become launchable until those requirements are implemented.
+### Required systems
 
-### Content and platform expansion
+- versioned scene and entity model,
+- glTF 2.0 or equivalently explicit authored-asset ingestion,
+- mesh, texture, material, sampler, and shader-variant management,
+- physically based metallic/roughness material path,
+- skeletal hierarchy, skinning, animation clips, blending, state transitions, and root-motion policy,
+- native camera, input, collision, locomotion, combat, and interaction contracts,
+- save, replay, campaign, accessibility, and settings bridge,
+- asset cooker with hashes, dependency tracking, and deterministic outputs,
+- editor/debug visualization sufficient to author the next phase.
 
-Phase 2 authorizes incremental work on:
+### Exit gate
 
-- additional fictionalized campaign missions,
-- mission and encounter authoring tools,
-- localization-ready content keys and text packages,
-- renderer/backend abstraction supported by profiling evidence,
-- packaged desktop builds and reference-machine soak testing,
-- platform services behind optional interfaces,
-- broader accessibility, settings, and remapping UX.
+A native graybox of Ares Reach must be playable from start to finish with deterministic progression parity, native save/replay compatibility, keyboard/gamepad completion, and no dependence on Pygame for the active run.
 
-Cloud saves, console certification, public real-world identity use, and large content-production promises remain unauthorized as claims until their prerequisites and evidence exist.
+## Phase 5 — AAA visual vertical slice
 
-### Phase 2 measurable gates
+### Goal
 
-The Phase 2 campaign foundation may be declared complete only when CI proves:
+Make one representative native Ares Reach segment visually and aurally credible against modern high-end action-game references.
 
-- Classic Mode remains exactly chapters 1–8 and passes its deterministic replay,
-- the Phase 1 mission remains deterministically replayable,
-- the campaign catalog has no duplicate IDs, missing references, self-dependencies, or cycles,
-- unlocks are derived from prerequisites rather than trusted from save data,
-- planned missions cannot claim entrypoints or launch,
-- campaign save migration and corruption recovery pass adversarial tests,
-- every implemented mission has a valid runtime route,
-- campaign attempts and completions emit deterministic transition evidence,
-- the Phase 2 audit passes without claiming that the full campaign or AAA target is complete.
+### Required systems
 
-### Phase 2 execution order
+- HDR linear-light rendering and tone mapping,
+- image-based lighting and production PBR materials,
+- stable direct shadows and local-light solution,
+- atmosphere, fog, dust, sky, and distance treatment,
+- terrain and environment composition with authored detail hierarchy,
+- temporal anti-aliasing or equivalent temporal-stability solution,
+- scalable reflections, ambient occlusion, bloom, exposure, depth of field, and motion treatment,
+- GPU particle/VFX pipeline,
+- production character model, rig, animation, impact, and camera presentation,
+- authored music, ambience, sound design, dialogue/subtitle treatment, and mix,
+- capture workflow and automated image/performance comparisons.
 
-1. Establish the stable campaign graph and truthful mission-status model.
-2. Migrate transactional saves to deterministic campaign progression.
-3. Add the campaign navigator and fail-closed runtime routing.
-4. Connect `ares_reach` completion to campaign unlock progression.
-5. Add campaign audit, replay, and CI evidence.
-6. Define the next mission’s data and contracts before implementing its content.
-7. Expand authoring, localization, renderer, packaging, and accessibility systems only behind measured requirements.
-8. Repeat mission by mission without lowering the AAA-quality target or pretending planned content is complete.
+### Exit gate
 
-## 8. Permanent risk rules
+The founder must directly play and approve the native slice. Representative captures must satisfy the committed visual-reference rubric. Frame-time, memory, hitch, accessibility, and crash evidence must pass on the reference PC. The slice may still not be called AAA until external evidence passes.
+
+## Phase 6 — campaign content production
+
+### Goal
+
+Build the smallest complete campaign that preserves quality rather than maximizing mission count.
+
+### Required work
+
+- migrate the complete Ares Reach and Relay Echo experiences into the native runtime,
+- implement Phobos Vector only after its contract, art plan, technical risks, and replay path are approved,
+- implement Frontier Burn only if the quality budget supports it,
+- create reusable encounter, dialogue, objective, checkpoint, cinematic, and environment authoring tools,
+- produce final fictionalized narrative and localization-ready content,
+- retain Classic Mode as a separate compatibility mode.
+
+### Exit gate
+
+Every shipping mission must be complete, replayable, accessible, persist correctly, and meet the visual/audio/performance bar. Scope is reduced before quality.
+
+## Phase 7 — optimization, tooling, packaging, and soak
+
+### Goal
+
+Turn the complete campaign into a robust Windows product.
+
+### Required systems
+
+- GPU/CPU profiling and budgets by pass and subsystem,
+- asset streaming, residency, LOD, culling, and loading policy,
+- shader and pipeline caching,
+- memory budgets and leak detection,
+- packaged builds, installer/update strategy, logs, crash reports, and save migration,
+- long-run soak, suspend/resume, display-mode, controller, audio-device, and corruption testing,
+- reference-PC and lower-spec scalability evidence,
+- reproducible release builds and artifact provenance.
+
+### Exit gate
+
+The packaged build must complete repeated start-to-finish runs without crashes or save loss and meet committed frame-time, hitch, load-time, and memory thresholds.
+
+## Phase 8 — external validation and release evidence
+
+### Goal
+
+Earn, rather than assert, the final quality designation.
+
+### Required evidence
+
+- founder direct-play approval of the shipping candidate,
+- representative external fictionalized-track playtests,
+- at least 80% completion of the committed test path unless the founder replaces that threshold with a stricter one,
+- strong-majority evidence of the intended earnest-determination emotional response,
+- accessibility-path and keyboard/gamepad parity on packaged builds,
+- final authored asset, audio, UI, legal, and platform checklist completion,
+- zero unresolved severity-one defects,
+- release-candidate soak and crash evidence.
+
+Only after these gates pass may the repository change `aaa_claim` from `target_not_achieved`.
+
+## 8. Visual reference rubric
+
+Every Phase 5 review must compare captured gameplay against a fixed rubric rather than subjective optimism:
+
+- **lighting:** direction, bounce impression, exposure, shadow stability, night/interior readability,
+- **materials:** roughness separation, normal detail, scale consistency, weathering, contact response,
+- **environment:** foreground/midground/background composition, density, landmarks, traversal readability,
+- **atmosphere:** depth cues, fog/dust integration, sky coherence, silhouette preservation,
+- **character:** model quality, deformation, locomotion, facial/upper-body intent where visible,
+- **VFX:** timing, scale, integration, overdraw discipline, gameplay readability,
+- **camera:** composition, motion, impact, accessibility scaling, temporal stability,
+- **UI:** hierarchy, typography, controller navigation, subtitle presentation, visual consistency,
+- **performance:** frame time, hitches, GPU memory, CPU cost, scalability.
+
+A visually impressive still is insufficient. The target must survive motion, interaction, failure, camera changes, and sustained play.
+
+## 9. Permanent risk rules
 
 - Scope is cut before quality.
 - Evidence is strengthened before standards are lowered.
+- The Pygame renderer is compatibility-only after Phase 3 begins.
+- Three.js is not introduced into the shipping runtime without a new founder-approved decision record.
 - Native rewrites require parity and measured benefit.
 - Accessibility is designed with gameplay, not appended later.
 - Real-world identity remains legally gated.
 - Planned campaign nodes are not playable content.
-- The repository must never invent people, staffing, legal clearance, playtest results, campaign completion, or AAA status.
+- The repository must never invent people, staffing, legal clearance, playtest results, campaign completion, visual quality, or AAA status.
 
-## 9. Execution directive
+## 10. Immediate execution order
 
-Build the smallest complete system that can honestly support the next larger claim. Preserve Classic Mode. Keep the custom architecture. Measure everything important. Treat mission status, campaign progress, and quality claims as validated data rather than prose.
+1. Establish the Windows C++23/Direct3D 12 build and validation boundary.
+2. Render a deterministic native mesh with HLSL and trustworthy frame/device diagnostics.
+3. Define versioned scene, transform, camera, material, and asset contracts.
+4. Build the native Ares Reach graybox before adding more campaign missions.
+5. Produce the AAA visual slice before large-scale content production.
+6. Continue through Phases 6–8 without treating infrastructure as finished game content.
+
+Build the smallest complete system that can honestly support the next larger claim. Preserve Classic Mode. Keep the custom architecture. Measure everything important.
 
 Failure is progress. The frontier is open.
