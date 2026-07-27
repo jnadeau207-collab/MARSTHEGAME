@@ -57,11 +57,13 @@ CharacterPose EvaluateCharacterPose(
     const float counter_stride = -stride;
     const float bob = std::abs(std::sin(phase)) * 0.075f * movement_weight;
     const float completion_lift = mission_complete ? 0.10f + std::sin(safe_time * 2.4f) * 0.04f : 0.0f;
-    const RigColor suit{0.56f, 0.24f, 0.12f, 1.0f};
-    const RigColor trim{0.12f, 0.16f, 0.19f, 1.0f};
+    const RigColor suit{0.78f, 0.50f, 0.24f, 1.0f};
+    const RigColor trim{0.24f, 0.29f, 0.34f, 1.0f};
+    const RigColor helmet{0.52f, 0.56f, 0.60f, 1.0f};
+    const RigColor pack{0.17f, 0.21f, 0.25f, 1.0f};
     const RigColor visor = mission_complete
-        ? RigColor{0.18f, 1.0f, 0.56f, 1.0f}
-        : RigColor{0.12f, 0.72f, 1.0f, 1.0f};
+        ? RigColor{0.18f, 1.0f, 0.56f, 6.0f}
+        : RigColor{0.12f, 0.72f, 1.0f, 5.0f};
 
     CharacterPose pose{};
     pose.gait_phase = phase;
@@ -69,11 +71,11 @@ CharacterPose EvaluateCharacterPose(
     pose.parts[static_cast<std::size_t>(CharacterPart::Torso)] = MakePart(
         {0.0f, 1.18f + bob + completion_lift, 0.0f},
         {0.02f * std::sin(phase * 0.5f), 0.0f, stride * 0.055f},
-        {0.48f, 0.62f, 0.30f}, suit, 0U);
+        {0.50f, 0.62f, 0.30f}, suit, 0U);
     pose.parts[static_cast<std::size_t>(CharacterPart::Head)] = MakePart(
         {0.0f, 2.02f + bob + completion_lift, 0.0f},
         {0.0f, std::sin(safe_time * 0.55f) * 0.12f, 0.0f},
-        {0.34f, 0.34f, 0.34f}, trim, 1U);
+        {0.34f, 0.34f, 0.34f}, helmet, 1U);
     pose.parts[static_cast<std::size_t>(CharacterPart::Pelvis)] = MakePart(
         {0.0f, 0.67f + bob + completion_lift, 0.0f},
         {0.0f, 0.0f, -stride * 0.035f},
@@ -95,9 +97,9 @@ CharacterPose EvaluateCharacterPose(
         {counter_stride, 0.0f, 0.0f},
         {0.18f, 0.62f, 0.20f}, trim, 2U);
     pose.parts[static_cast<std::size_t>(CharacterPart::Backpack)] = MakePart(
-        {0.0f, 1.28f + bob + completion_lift, -0.37f},
+        {0.0f, 1.30f + bob + completion_lift, -0.33f},
         {0.0f, 0.0f, 0.0f},
-        {0.36f, 0.48f, 0.18f}, trim, 0U);
+        {0.30f, 0.38f, 0.13f}, pack, 0U);
     pose.parts[static_cast<std::size_t>(CharacterPart::Visor)] = MakePart(
         {0.0f, 2.04f + bob + completion_lift, 0.29f},
         {0.0f, 0.0f, 0.0f},
