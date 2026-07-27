@@ -70,7 +70,8 @@ private:
     std::vector<renderer::RenderInstance> base_instances_{};
     std::vector<renderer::RenderInstance> instances_{};
     std::vector<CollisionBox> collision_boxes_{};
-    std::array<std::size_t, kCharacterPartCount> character_instance_indices_{};
+    std::array<renderer::RenderInstance, kCharacterPartCount - 1U>
+        supplemental_character_instances_{};
     DirectX::XMFLOAT3 landing_position_{};
     DirectX::XMFLOAT3 checkpoint_position_{};
     DirectX::XMFLOAT3 objective_position_{};
