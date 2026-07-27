@@ -8,9 +8,23 @@
 #include <array>
 #include <cstdint>
 #include <filesystem>
+#include <string_view>
 
 namespace mars::renderer
 {
+enum class AdapterPreference
+{
+    Hardware,
+    Warp,
+};
+
+struct FrameStatistics
+{
+    std::uint64_t presented_frames = 0;
+    double last_cpu_frame_ms = 0.0;
+    double max_cpu_frame_ms = 0.0;
+};
+
 class D3D12Renderer final
 {
 public:
@@ -21,13 +35,18 @@ public:
     D3D12Renderer& operator=(const D3D12Renderer&) = delete;
     ~D3D12Renderer();
 
-    void Initialize(HWND window, std::uint32_t width, std::uint32_t height);
+    void Initialize(
+        HWND window,
+        std::uint32_t width,
+        std::uint32_t height,
+        AdapterPreference adapter_preference = AdapterPreference::Hardware);
     void Render();
     void Resize(std::uint32_t width, std::uint32_t height);
     void Shutdown();
 
     [[nodiscard]] bool IsInitialized() const noexcept;
     [[nodiscard]] std::uint64_t PresentedFrameCount() const noexcept;
+    [[nodiscard]] FrameStatistics Statistics() const noexcept;
 
 private:
     struct Vertex
@@ -37,7 +56,7 @@ private:
     };
 
     void EnableDebugLayer();
-    void CreateFactoryAndDevice();
+    void CreateFactoryAndDevice(AdapterPreference adapter_preference);
     void CreateCommandObjects();
     void CreateSwapChain(HWND window);
     void CreateRenderTargetViews();
@@ -48,10 +67,12 @@ private:
     void WaitForGpu();
     void ReleaseRenderTargets();
     void UpdateViewportAndScissor();
+    void ThrowIfDeviceFailed(HRESULT result, std::string_view operation) const;
 
     [[nodiscard]] std::filesystem::path ExecutableDirectory() const;
     [[nodiscard]] static Microsoft::WRL::ComPtr<IDXGIAdapter1> ChooseAdapter(
-        IDXGIFactory6& factory);
+        IDXGIFactory6& factory,
+        AdapterPreference adapter_preference);
 
     Microsoft::WRL::ComPtr<IDXGIFactory6> factory_{};
     Microsoft::WRL::ComPtr<ID3D12Device> device_{};
@@ -79,6 +100,8 @@ private:
     std::uint32_t width_ = 0;
     std::uint32_t height_ = 0;
     std::uint64_t presented_frames_ = 0;
+    double last_cpu_frame_ms_ = 0.0;
+    double max_cpu_frame_ms_ = 0.0;
     bool initialized_ = false;
 };
 } // namespace mars::renderer
