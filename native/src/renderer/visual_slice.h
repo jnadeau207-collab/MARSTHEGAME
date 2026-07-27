@@ -7,17 +7,17 @@ namespace mars::renderer
 {
 struct VisualSliceConfiguration
 {
-    float minimum_exposure = 0.45f;
-    float maximum_exposure = 2.4f;
-    float exposure_adaptation_rate = 1.8f;
-    float temporal_history_weight = 0.88f;
-    float fog_density = 0.024f;
-    float bloom_threshold = 1.05f;
-    float motion_blur_strength = 0.34f;
-    float focus_distance = 13.0f;
-    float focus_range = 8.0f;
+    float minimum_exposure = 0.55f;
+    float maximum_exposure = 2.8f;
+    float exposure_adaptation_rate = 2.2f;
+    float temporal_history_weight = 0.86f;
+    float fog_density = 0.019f;
+    float bloom_threshold = 0.78f;
+    float motion_blur_strength = 0.26f;
+    float focus_distance = 8.5f;
+    float focus_range = 10.0f;
     std::uint32_t shadow_resolution = 2048;
-    std::uint32_t particle_count = 384;
+    std::uint32_t particle_count = 256;
 };
 
 struct TemporalJitter
