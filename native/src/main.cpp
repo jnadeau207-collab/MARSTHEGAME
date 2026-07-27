@@ -1,9 +1,11 @@
+#include "game/game_state.h"
 #include "platform/win32_window.h"
 #include "renderer/d3d12_renderer.h"
 
 #include <Windows.h>
 
 #include <array>
+#include <chrono>
 #include <cstdint>
 #include <cwchar>
 #include <filesystem>
@@ -31,13 +33,33 @@ bool HasArgument(const std::wstring_view argument)
         && std::wstring_view(command_line).find(argument) != std::wstring_view::npos;
 }
 
+bool KeyDown(const int virtual_key)
+{
+    return (GetAsyncKeyState(virtual_key) & 0x8000) != 0;
+}
+
+float Axis(const bool negative, const bool positive)
+{
+    return static_cast<float>(positive) - static_cast<float>(negative);
+}
+
+mars::game::InputState PollInput()
+{
+    return {
+        .move_x = Axis(KeyDown('A') || KeyDown(VK_LEFT), KeyDown('D') || KeyDown(VK_RIGHT)),
+        .move_z = Axis(KeyDown('S') || KeyDown(VK_DOWN), KeyDown('W') || KeyDown(VK_UP)),
+        .sprint = KeyDown(VK_LSHIFT) || KeyDown(VK_RSHIFT),
+        .reset = KeyDown('R'),
+    };
+}
+
 int RunSelfTest()
 {
     const std::filesystem::path shader_directory = ExecutableDirectory() / L"shaders";
     const bool vertex_shader_exists =
-        std::filesystem::is_regular_file(shader_directory / L"triangle.vs.dxil");
+        std::filesystem::is_regular_file(shader_directory / L"scene.vs.dxil");
     const bool pixel_shader_exists =
-        std::filesystem::is_regular_file(shader_directory / L"triangle.ps.dxil");
+        std::filesystem::is_regular_file(shader_directory / L"scene.ps.dxil");
     return vertex_shader_exists && pixel_shader_exists ? 0 : 2;
 }
 
@@ -77,7 +99,7 @@ void LogFrameCapture(const mars::renderer::FrameCaptureEvidence capture)
 int RunWarpSmokeTest(const HINSTANCE instance)
 {
     mars::platform::Win32Window window;
-    window.Create(instance, 640, 360, L"MARSTHEGAME WARP Smoke Test", false);
+    window.Create(instance, 640, 360, L"MARSTHEGAME Native WARP Test", false);
 
     mars::renderer::D3D12Renderer renderer;
     renderer.Initialize(
@@ -91,27 +113,26 @@ int RunWarpSmokeTest(const HINSTANCE instance)
             renderer.Resize(width, height);
         });
 
-    for (std::uint32_t frame = 0; frame < 3; ++frame)
+    mars::game::GameState game;
+    mars::game::InputState forward{};
+    forward.move_z = 1.0f;
+    for (std::uint32_t frame = 0; frame < 4; ++frame)
     {
         if (!window.PumpMessages())
         {
-            throw std::runtime_error("WARP smoke window closed before the first render sequence");
+            throw std::runtime_error("WARP smoke window closed before rendering");
         }
-        renderer.Render();
+        game.Update(forward, mars::game::GameState::kFixedStepSeconds);
+        renderer.Render(game.Scene());
     }
 
     renderer.Resize(800, 450);
-    for (std::uint32_t frame = 0; frame < 2; ++frame)
-    {
-        if (!window.PumpMessages())
-        {
-            throw std::runtime_error("WARP smoke window closed before the resize render sequence");
-        }
-        renderer.Render();
-    }
-
+    game.Update(forward, mars::game::GameState::kFixedStepSeconds);
+    renderer.Render(game.Scene());
     renderer.RequestFrameCapture();
-    renderer.Render();
+    game.Update(forward, mars::game::GameState::kFixedStepSeconds);
+    renderer.Render(game.Scene());
+
     const mars::renderer::FrameCaptureEvidence capture = renderer.ConsumeFrameCapture();
     const mars::renderer::FrameStatistics statistics = renderer.Statistics();
     LogFrameStatistics(statistics);
@@ -123,7 +144,7 @@ int RunWarpSmokeTest(const HINSTANCE instance)
         return 3;
     }
     if (capture.width != 800 || capture.height != 450 || capture.checksum == 0
-        || capture.non_background_pixels < 1'000)
+        || capture.non_background_pixels < 12'000)
     {
         return 4;
     }
@@ -175,7 +196,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int)
         }
 
         mars::platform::Win32Window window;
-        window.Create(instance, 1600, 900, L"MARSTHEGAME — Native Renderer Foundation");
+        window.Create(instance, 1600, 900, L"MARSTHEGAME — Ares Reach Native Graybox");
 
         mars::renderer::D3D12Renderer renderer;
         renderer.Initialize(window.Handle(), window.Width(), window.Height());
@@ -184,9 +205,34 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int)
                 renderer.Resize(width, height);
             });
 
+        mars::game::GameState game;
+        auto previous = std::chrono::steady_clock::now();
+        mars::game::MissionState displayed_state = game.Mission();
+
         while (window.PumpMessages())
         {
-            renderer.Render();
+            if (KeyDown(VK_ESCAPE))
+            {
+                PostMessageW(window.Handle(), WM_CLOSE, 0, 0);
+                continue;
+            }
+
+            const auto now = std::chrono::steady_clock::now();
+            const float delta_seconds =
+                std::chrono::duration<float>(now - previous).count();
+            previous = now;
+
+            game.Update(PollInput(), delta_seconds);
+            renderer.Render(game.Scene());
+
+            if (game.Mission() != displayed_state)
+            {
+                displayed_state = game.Mission();
+                const wchar_t* title = displayed_state == mars::game::MissionState::Complete
+                    ? L"MARSTHEGAME — Ares Reach Complete — Press R to reset"
+                    : L"MARSTHEGAME — Reach the beacon — WASD / arrows, Shift sprint";
+                SetWindowTextW(window.Handle(), title);
+            }
             if (renderer.PresentedFrameCount() % 120 == 0)
             {
                 LogFrameStatistics(renderer.Statistics());
