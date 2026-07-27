@@ -61,7 +61,8 @@ int main(const int argc, char** argv)
     const std::filesystem::path scene_path(argv[1]);
     const mars::assets::SceneDefinition scene_definition =
         mars::assets::LoadCookedScene(scene_path);
-    Require(scene_definition.entities.size() == 18, "cooked Ares Reach scene contains 18 entities");
+    Require(scene_definition.entities.size() == 37,
+        "cooked Relay 03 recovery scene contains 37 entities");
     Require(scene_definition.source_hash != 0, "cooked scene retains source provenance hash");
 
     RequireThrows(
@@ -114,7 +115,8 @@ int main(const int argc, char** argv)
     GameState game(scene_definition);
     Require(game.Mission() == MissionState::Traverse, "mission starts in traverse state");
     Require(!game.CheckpointReached(), "checkpoint starts unreached");
-    Require(Near(game.PlayerPosition().z, -8.0f), "player spawn comes from cooked scene data");
+    Require(Near(game.PlayerPosition().z, -7.5f),
+        "player spawn comes from the Relay 03 landing shelter");
 
     const auto start = game.PlayerPosition();
     InputState forward{};
@@ -124,7 +126,7 @@ int main(const int argc, char** argv)
     Require(advanced.z > start.z + 3.0f, "forward input advances deterministically");
 
     Advance(game, forward, 180);
-    Require(game.CheckpointReached(), "crossing the relay line records checkpoint progress");
+    Require(game.CheckpointReached(), "crossing the service route records checkpoint progress");
     const mars::game::GameSnapshot checkpoint_snapshot = game.Snapshot();
     Require(checkpoint_snapshot.checkpoint_reached, "checkpoint persists in snapshots");
 
@@ -140,11 +142,12 @@ int main(const int argc, char** argv)
     checkpoint_restore.restore_checkpoint = true;
     game.Update(checkpoint_restore, GameState::kFixedStepSeconds);
     Require(
-        Near(game.PlayerPosition().z, 5.0f),
-        "checkpoint restore uses the cooked checkpoint entity");
+        Near(game.PlayerPosition().z, 5.2f),
+        "checkpoint restore uses the cooked service-route checkpoint entity");
 
     Advance(game, forward, 300);
-    Require(game.Mission() == MissionState::Complete, "cooked objective beacon completes mission");
+    Require(game.Mission() == MissionState::Complete,
+        "reaching the physical Relay 03 coupling completes the mission");
     const auto completed = game.PlayerPosition();
     Advance(game, forward, 60);
     const auto stopped = game.PlayerPosition();
@@ -218,10 +221,11 @@ int main(const int argc, char** argv)
     reset.reset = true;
     game.Update(reset, GameState::kFixedStepSeconds);
     Require(game.Mission() == MissionState::Traverse, "reset restores active mission state");
-    Require(game.PlayerPosition().z < -7.5f, "reset restores cooked player spawn");
+    Require(Near(game.PlayerPosition().z, -7.5f), "reset restores cooked player spawn");
 
     const auto render_scene = game.Scene();
-    Require(render_scene.instances.size() == 18, "cooked scene exposes all render instances");
-    std::cout << "MARSTHEGAME native scene cooker and gameplay tests passed\n";
+    Require(render_scene.instances.size() == 37,
+        "cooked recovery scene exposes all render instances");
+    std::cout << "MARSTHEGAME Relay 03 scene cooker and gameplay tests passed\n";
     return 0;
 }
