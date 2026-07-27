@@ -153,6 +153,7 @@ set(MARS_GAME_SOURCES
   src/game/save_state.h
   src/renderer/render_scene.h
   ${MARS_PROCEDURAL_GEOMETRY_SOURCES}
+  ${MARS_SCENE_ASSET_SOURCES}
 )
 
 set(MARS_INPUT_SOURCES
@@ -170,7 +171,6 @@ add_executable(
   src/renderer/d3d12_renderer.h
   ${MARS_GAME_SOURCES}
   ${MARS_INPUT_SOURCES}
-  ${MARS_SCENE_ASSET_SOURCES}
 )
 
 add_dependencies(mars_native mars_shaders mars_assets)
@@ -205,7 +205,6 @@ add_executable(
   mars_native_game_tests
   tests/game_state_tests.cpp
   ${MARS_GAME_SOURCES}
-  ${MARS_SCENE_ASSET_SOURCES}
 )
 add_dependencies(mars_native_game_tests mars_assets)
 target_include_directories(mars_native_game_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
@@ -217,6 +216,22 @@ target_compile_definitions(
 )
 mars_strict_warnings(mars_native_game_tests)
 add_test(NAME native_game_state COMMAND mars_native_game_tests "${COOKED_SCENE}")
+
+add_executable(
+  mars_scene_mesh_tests
+  tests/scene_mesh_tests.cpp
+  ${MARS_GAME_SOURCES}
+)
+add_dependencies(mars_scene_mesh_tests mars_assets)
+target_include_directories(mars_scene_mesh_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
+target_compile_definitions(
+  mars_scene_mesh_tests
+  PRIVATE
+    WIN32_LEAN_AND_MEAN
+    NOMINMAX
+)
+mars_strict_warnings(mars_scene_mesh_tests)
+add_test(NAME cooked_procedural_mesh_contract COMMAND mars_scene_mesh_tests "${COOKED_SCENE}")
 
 add_executable(
   mars_native_input_tests
@@ -235,22 +250,6 @@ target_link_libraries(mars_native_input_tests PRIVATE user32 xinput9_1_0)
 add_test(NAME native_input_parity COMMAND mars_native_input_tests)
 
 add_executable(
-  mars_scene_mesh_tests
-  tests/scene_mesh_tests.cpp
-  ${MARS_SCENE_ASSET_SOURCES}
-)
-add_dependencies(mars_scene_mesh_tests mars_assets)
-target_include_directories(mars_scene_mesh_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
-target_compile_definitions(
-  mars_scene_mesh_tests
-  PRIVATE
-    WIN32_LEAN_AND_MEAN
-    NOMINMAX
-)
-mars_strict_warnings(mars_scene_mesh_tests)
-add_test(NAME native_scene_mesh_identity COMMAND mars_scene_mesh_tests "${COOKED_SCENE}")
-
-add_executable(
   mars_procedural_content_tests
   tests/procedural_geometry_tests.cpp
   ${MARS_PROCEDURAL_GEOMETRY_SOURCES}
@@ -266,7 +265,7 @@ target_compile_definitions(
     NOMINMAX
 )
 mars_strict_warnings(mars_procedural_content_tests)
-add_test(NAME native_procedural_content COMMAND mars_procedural_content_tests)
+add_test(NAME procedural_content_generation COMMAND mars_procedural_content_tests)
 
 add_executable(
   mars_native_mesh_tests
