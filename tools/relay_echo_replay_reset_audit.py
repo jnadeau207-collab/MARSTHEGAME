@@ -61,8 +61,7 @@ def audit_relay_replay_reset(
         and manifest.get("phase") == "Phase 2"
         and manifest.get("status") == "in_progress"
         and manifest.get("current_tranche") == "relay_echo_campaign_promotion"
-        and manifest.get("active_subtranche")
-        == "relay_echo_completed_mission_replay"
+        and manifest.get("active_subtranche") == "relay_echo_completed_mission_replay"
         and manifest.get("relay_echo_contract_verification") == "passed"
         and manifest.get("relay_echo_runtime_state_verification") == "passed"
         and manifest.get("relay_echo_playable_candidate_verification") == "passed"
@@ -108,12 +107,8 @@ def audit_relay_replay_reset(
 
     engine_source = (ROOT / "game/core/replay_engine.py").read_text(encoding="utf-8")
     save_source = (ROOT / "game/core/relay_echo_save.py").read_text(encoding="utf-8")
-    campaign_source = (ROOT / "game/scenes/campaign_replay.py").read_text(
-        encoding="utf-8"
-    )
-    promoted_source = (ROOT / "game/scenes/relay_echo_promoted.py").read_text(
-        encoding="utf-8"
-    )
+    campaign_source = (ROOT / "game/scenes/campaign_replay.py").read_text(encoding="utf-8")
+    promoted_source = (ROOT / "game/scenes/relay_echo_promoted.py").read_text(encoding="utf-8")
     entrypoint_source = (ROOT / "main.py").read_text(encoding="utf-8")
     record(
         "runtime_replay_routed",

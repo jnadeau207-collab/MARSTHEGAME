@@ -92,9 +92,7 @@ def normalize_relay_echo_replay(value: Any) -> dict[str, Any]:
             "run_id": run_id,
             "attempts": _positive_int(item.get("attempts"), "completed_runs.attempts"),
             "revision": _positive_int(item.get("revision"), "completed_runs.revision"),
-            "failures": _non_negative_int(
-                item.get("failures"), "completed_runs.failures"
-            ),
+            "failures": _non_negative_int(item.get("failures"), "completed_runs.failures"),
             "telemetry_insight": _non_negative_int(
                 item.get("telemetry_insight"), "completed_runs.telemetry_insight"
             ),
@@ -111,9 +109,7 @@ def normalize_relay_echo_replay(value: Any) -> dict[str, Any]:
             raise RelayEchoReplayError(
                 "completed run objectives must match the Relay Echo contract"
             )
-        if summary["checkpoint_history"] != list(
-            range(len(RELAY_ECHO_RUNTIME.objectives) + 1)
-        ):
+        if summary["checkpoint_history"] != list(range(len(RELAY_ECHO_RUNTIME.objectives) + 1)):
             raise RelayEchoReplayError("completed run checkpoints must be contiguous")
         if summary["signal_fragments"] < 3:
             raise RelayEchoReplayError("completed run requires three signal fragments")
@@ -130,9 +126,7 @@ def normalize_relay_echo_replay(value: Any) -> dict[str, Any]:
         "relay_echo_replay.current_run_id",
     )
     if current_run_id != len(completed_runs) + 1:
-        raise RelayEchoReplayError(
-            "current_run_id must immediately follow archived completed runs"
-        )
+        raise RelayEchoReplayError("current_run_id must immediately follow archived completed runs")
     return {
         "schema_version": RELAY_ECHO_REPLAY_SCHEMA_VERSION,
         "mission_id": RELAY_ECHO_MISSION_ID,
@@ -171,9 +165,7 @@ def prepare_relay_echo_replay(save: ReplaySave) -> dict[str, Any]:
     archive["current_run_id"] += 1
     archive = normalize_relay_echo_replay(archive)
 
-    relay, relay_transition = RELAY_ECHO_RUNTIME.begin_attempt(
-        RELAY_ECHO_RUNTIME.default_state()
-    )
+    relay, relay_transition = RELAY_ECHO_RUNTIME.begin_attempt(RELAY_ECHO_RUNTIME.default_state())
     campaign, campaign_transition = CAMPAIGN_GRAPH.record_attempt(
         campaign_before,
         RELAY_ECHO_MISSION_ID,

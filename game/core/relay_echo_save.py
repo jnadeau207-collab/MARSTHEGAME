@@ -34,13 +34,9 @@ class RelayEchoSaveData(SaveData):
 
     def _apply_state(self, state: dict[str, Any]) -> None:
         super()._apply_state(state)
-        self.relay_echo_replay = normalize_relay_echo_replay(
-            state.get("relay_echo_replay")
-        )
+        self.relay_echo_replay = normalize_relay_echo_replay(state.get("relay_echo_replay"))
 
     def to_dict(self) -> dict[str, Any]:
         payload = super().to_dict()
-        payload["relay_echo_replay"] = normalize_relay_echo_replay(
-            self.relay_echo_replay
-        )
+        payload["relay_echo_replay"] = normalize_relay_echo_replay(self.relay_echo_replay)
         return payload

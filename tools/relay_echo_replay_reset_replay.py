@@ -121,8 +121,7 @@ def run_replay() -> dict[str, Any]:
         pygame.quit()
     if first != second:
         raise AssertionError(
-            "Relay Echo replay/reset evidence is nondeterministic:\n"
-            f"first={first}\nsecond={second}"
+            f"Relay Echo replay/reset evidence is nondeterministic:\nfirst={first}\nsecond={second}"
         )
     return {
         "schema_version": 1,

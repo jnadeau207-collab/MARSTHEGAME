@@ -56,9 +56,7 @@ class RelayEchoReplayResetAuditTests(unittest.TestCase):
     def test_corrupt_replay_evidence_fails(self) -> None:
         replay = copy.deepcopy(self.replay_report)
         replay["phobos_unlock_preserved"] = False
-        replay["reference"]["replay_completion"]["campaign"]["completed_missions"] = [
-            "ares_reach"
-        ]
+        replay["reference"]["replay_completion"]["campaign"]["completed_missions"] = ["ares_reach"]
         report = self.audit(self.manifest, replay)
         self.assertEqual(report["status"], "fail")
         self.assertIn("replay_evidence", report["failures"])
