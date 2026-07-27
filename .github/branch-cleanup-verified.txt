@@ -1,2 +1,0 @@
-Verified by GitHub Actions: main is the only remote branch.
-Audit source commit: a120a244c8441bbc1355a8fe9596eb3d41c9fce6
