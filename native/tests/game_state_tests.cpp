@@ -1,3 +1,4 @@
+#include "assets/scene_asset.h"
 #include "game/collision.h"
 #include "game/game_state.h"
 #include "game/replay.h"
@@ -9,6 +10,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <span>
 #include <stdexcept>
 
 namespace
@@ -53,8 +55,25 @@ bool Near(const float first, const float second, const float tolerance = 0.001f)
 }
 } // namespace
 
-int main()
+int main(const int argc, char** argv)
 {
+    Require(argc == 2, "native tests require the cooked Ares Reach scene path");
+    const std::filesystem::path scene_path(argv[1]);
+    const mars::assets::SceneDefinition scene_definition =
+        mars::assets::LoadCookedScene(scene_path);
+    Require(scene_definition.entities.size() == 18, "cooked Ares Reach scene contains 18 entities");
+    Require(scene_definition.source_hash != 0, "cooked scene retains source provenance hash");
+
+    RequireThrows(
+        []() {
+            static_cast<void>(mars::assets::ParseSceneSource(
+                "mars_scene 1\n"
+                "entity duplicate render,player 0 0 0 1 1 1 1 1 1 1\n"
+                "entity duplicate render,checkpoint 0 0 1 1 1 1 1 1 1 1\n"
+                "entity objective render,objective 0 0 2 1 1 1 1 1 1 1\n"));
+        },
+        "scene parser rejects duplicate stable entity identifiers");
+
     using mars::game::GameState;
     using mars::game::InputState;
     using mars::game::MissionState;
@@ -75,9 +94,10 @@ int main()
         Require(Near(blocked.x, -2.0f), "collision resolution blocks penetration");
     }
 
-    GameState game;
+    GameState game(scene_definition);
     Require(game.Mission() == MissionState::Traverse, "mission starts in traverse state");
     Require(!game.CheckpointReached(), "checkpoint starts unreached");
+    Require(Near(game.PlayerPosition().z, -8.0f), "player spawn comes from cooked scene data");
 
     const auto start = game.PlayerPosition();
     InputState forward{};
@@ -104,10 +124,10 @@ int main()
     game.Update(checkpoint_restore, GameState::kFixedStepSeconds);
     Require(
         Near(game.PlayerPosition().z, 5.0f),
-        "checkpoint restore returns to the native relay position");
+        "checkpoint restore uses the cooked checkpoint entity");
 
     Advance(game, forward, 300);
-    Require(game.Mission() == MissionState::Complete, "objective beacon completes the mission");
+    Require(game.Mission() == MissionState::Complete, "cooked objective beacon completes mission");
     const auto completed = game.PlayerPosition();
     Advance(game, forward, 60);
     const auto stopped = game.PlayerPosition();
@@ -123,8 +143,8 @@ int main()
         tape.Append(sprint_forward, 240);
         Require(tape.Hash() != 0, "native replay produces a stable non-zero hash");
 
-        GameState first;
-        GameState second;
+        GameState first(scene_definition);
+        GameState second(scene_definition);
         tape.Play(first);
         tape.Play(second);
         const auto first_snapshot = first.Snapshot();
@@ -181,10 +201,10 @@ int main()
     reset.reset = true;
     game.Update(reset, GameState::kFixedStepSeconds);
     Require(game.Mission() == MissionState::Traverse, "reset restores active mission state");
-    Require(game.PlayerPosition().z < -7.5f, "reset restores landing position");
+    Require(game.PlayerPosition().z < -7.5f, "reset restores cooked player spawn");
 
-    const auto scene = game.Scene();
-    Require(scene.instances.size() == 18, "native graybox exposes the complete scene instance set");
-    std::cout << "MARSTHEGAME native collision, save, and replay tests passed\n";
+    const auto render_scene = game.Scene();
+    Require(render_scene.instances.size() == 18, "cooked scene exposes all render instances");
+    std::cout << "MARSTHEGAME native scene cooker and gameplay tests passed\n";
     return 0;
 }
