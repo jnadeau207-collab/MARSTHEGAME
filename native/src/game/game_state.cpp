@@ -78,6 +78,7 @@ renderer::RenderInstance RigInstance(
         .scale = {part.scale.x, part.scale.y, part.scale.z},
         .tint = {part.tint.r, part.tint.g, part.tint.b, part.tint.a},
         .mesh = ToRenderMeshKind(part.mesh_slot),
+        .material_slot = part.material_slot,
     };
 }
 } // namespace
@@ -106,13 +107,15 @@ void GameState::InitializeScene(const assets::SceneDefinition& scene)
         std::size_t render_index = kInvalidIndex;
         if (assets::HasFlag(entity, assets::SceneEntityRender))
         {
+            const assets::SceneMeshKind scene_mesh = assets::MeshKindForEntity(entity);
             render_index = base_instances_.size();
             base_instances_.push_back({
                 .position = entity.position,
                 .rotation_radians = {},
                 .scale = entity.scale,
                 .tint = entity.tint,
-                .mesh = ToRenderMeshKind(assets::MeshKindForEntity(entity)),
+                .mesh = ToRenderMeshKind(scene_mesh),
+                .material_slot = static_cast<std::uint32_t>(scene_mesh),
             });
         }
         if (assets::HasFlag(entity, assets::SceneEntityCollider))
