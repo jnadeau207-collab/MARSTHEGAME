@@ -10,6 +10,12 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+option(
+  MARS_ENABLE_D3D12_VALIDATION
+  "Enable the Direct3D 12 debug layer and validation failures"
+  ON
+)
+
 set(WINDOWS_SDK_DIR "$ENV{WindowsSdkDir}")
 set(WINDOWS_SDK_VERSION "$ENV{WindowsSDKVersion}")
 string(REGEX REPLACE "[/\\\\]+$" "" WINDOWS_SDK_DIR "${WINDOWS_SDK_DIR}")
@@ -74,6 +80,11 @@ target_compile_definitions(
     WIN32_LEAN_AND_MEAN
     NOMINMAX
 )
+if(MARS_ENABLE_D3D12_VALIDATION)
+  target_compile_definitions(mars_native PRIVATE MARS_ENABLE_D3D12_VALIDATION=1)
+else()
+  target_compile_definitions(mars_native PRIVATE MARS_ENABLE_D3D12_VALIDATION=0)
+endif()
 target_compile_options(
   mars_native
   PRIVATE
