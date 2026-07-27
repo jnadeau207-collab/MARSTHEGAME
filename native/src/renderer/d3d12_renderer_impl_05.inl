@@ -176,8 +176,18 @@ void D3D12Renderer::UpdateConstants(const RenderScene& scene)
     clear_color_ = {scene.clear_color.x, scene.clear_color.y, scene.clear_color.z, scene.clear_color.w};
     active_history_write_index_ = 1U - history_read_index_;
 
-    const XMVECTOR eye = XMLoadFloat3(&scene.camera_eye);
-    const XMVECTOR target = XMLoadFloat3(&scene.camera_target);
+    const XMFLOAT3 cinematic_eye_values{
+        scene.camera_eye.x,
+        scene.camera_eye.y - 2.15f,
+        scene.camera_eye.z + 3.0f,
+    };
+    const XMFLOAT3 cinematic_target_values{
+        scene.camera_target.x,
+        scene.camera_target.y + 0.15f,
+        scene.camera_target.z + 1.1f,
+    };
+    const XMVECTOR eye = XMLoadFloat3(&cinematic_eye_values);
+    const XMVECTOR target = XMLoadFloat3(&cinematic_target_values);
     const XMVECTOR up_axis = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
     const XMMATRIX view = XMMatrixLookAtLH(eye, target, up_axis);
     XMMATRIX projection = XMMatrixPerspectiveFovLH(
@@ -208,7 +218,7 @@ void D3D12Renderer::UpdateConstants(const RenderScene& scene)
 
     const float scene_delta = (std::clamp)(scene.elapsed_seconds - previous_scene_time_, 0.0f, 0.25f);
     const float target_exposure = (std::clamp)(
-        scene.target_exposure,
+        scene.target_exposure * 1.22f,
         visual_configuration_.minimum_exposure,
         visual_configuration_.maximum_exposure);
     current_exposure_ = AdaptExposure(
