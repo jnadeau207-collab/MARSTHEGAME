@@ -58,11 +58,12 @@ private:
         float color[3];
     };
 
-    struct alignas(256) SceneConstants
+    struct SceneConstants
     {
         DirectX::XMFLOAT4X4 world{};
         DirectX::XMFLOAT4X4 world_view_projection{};
         DirectX::XMFLOAT4 light_direction{};
+        std::array<float, 28> padding{};
     };
 
     static_assert(sizeof(SceneConstants) == 256);
