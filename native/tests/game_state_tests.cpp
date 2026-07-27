@@ -1,9 +1,11 @@
+#include "assets/mesh_asset.h"
 #include "assets/scene_asset.h"
 #include "game/collision.h"
 #include "game/game_state.h"
 #include "game/replay.h"
 #include "game/save_state.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>
@@ -12,6 +14,7 @@
 #include <iostream>
 #include <span>
 #include <stdexcept>
+#include <vector>
 
 namespace
 {
@@ -57,31 +60,39 @@ bool Near(const float first, const float second, const float tolerance = 0.001f)
 
 int main(const int argc, char** argv)
 {
-    Require(argc == 2, "native tests require the cooked Ares Reach scene path");
+    Require(argc == 3, "native tests require cooked scene and beacon mesh paths");
     const std::filesystem::path scene_path(argv[1]);
+    const std::filesystem::path beacon_path(argv[2]);
     const mars::assets::SceneDefinition scene_definition =
         mars::assets::LoadCookedScene(scene_path);
+    std::vector<mars::assets::StaticMesh> meshes;
+    meshes.push_back(mars::assets::MakeCubeMesh());
+    meshes.push_back(mars::assets::LoadCookedMesh(beacon_path));
+    const std::size_t cube_index = mars::assets::FindMeshIndex(meshes, "cube");
+    const std::size_t beacon_index = mars::assets::FindMeshIndex(meshes, "beacon");
+
     Require(scene_definition.entities.size() == 18, "cooked Ares Reach scene contains 18 entities");
     Require(scene_definition.source_hash != 0, "cooked scene retains source provenance hash");
+    Require(cube_index != beacon_index, "mesh catalog contains distinct cube and beacon assets");
 
     RequireThrows(
         []() {
             static_cast<void>(mars::assets::ParseSceneSource(
-                "mars_scene 1\n"
-                "entity duplicate render,player 0 0 0 1 1 1 1 1 1 1\n"
-                "entity duplicate render,checkpoint 0 0 1 1 1 1 1 1 1 1\n"
-                "entity objective render,objective 0 0 2 1 1 1 1 1 1 1\n"));
+                "mars_scene 2\n"
+                "entity duplicate render,player cube 0 0 0 1 1 1 1 1 1 1\n"
+                "entity duplicate render,checkpoint cube 0 0 1 1 1 1 1 1 1 1\n"
+                "entity objective render,objective beacon 0 0 2 1 1 1 1 1 1 1\n"));
         },
         "scene parser rejects duplicate stable entity identifiers");
 
     {
         const mars::assets::SceneDefinition elevated_scene = mars::assets::ParseSceneSource(
-            "mars_scene 1\n"
-            "entity a_checkpoint render,checkpoint 0 0 5 1 0.1 1 0.3 0.3 0.3 1\n"
-            "entity b_objective render,objective 0 3 10 0.5 1 0.5 1 0.6 0.1 1\n"
-            "entity c_wall render,collider 10 0 0 1 1 1 0.2 0.2 0.2 1\n"
-            "entity z_player render,player 0 3 0 0.5 0.75 0.5 0.1 0.6 0.8 1\n");
-        mars::game::GameState elevated_game(elevated_scene);
+            "mars_scene 2\n"
+            "entity a_checkpoint render,checkpoint cube 0 0 5 1 0.1 1 0.3 0.3 0.3 1\n"
+            "entity b_objective render,objective beacon 0 3 10 0.5 1 0.5 1 0.6 0.1 1\n"
+            "entity c_wall render,collider cube 10 0 0 1 1 1 0.2 0.2 0.2 1\n"
+            "entity z_player render,player cube 0 3 0 0.5 0.75 0.5 0.1 0.6 0.8 1\n");
+        mars::game::GameState elevated_game(elevated_scene, meshes);
         mars::game::GameSnapshot elevated_snapshot = elevated_game.Snapshot();
         elevated_snapshot.checkpoint_reached = true;
         elevated_game.Restore(elevated_snapshot);
@@ -111,7 +122,7 @@ int main(const int argc, char** argv)
         Require(Near(blocked.x, -2.0f), "collision resolution blocks penetration");
     }
 
-    GameState game(scene_definition);
+    GameState game(scene_definition, meshes);
     Require(game.Mission() == MissionState::Traverse, "mission starts in traverse state");
     Require(!game.CheckpointReached(), "checkpoint starts unreached");
     Require(Near(game.PlayerPosition().z, -8.0f), "player spawn comes from cooked scene data");
@@ -160,8 +171,8 @@ int main(const int argc, char** argv)
         tape.Append(sprint_forward, 240);
         Require(tape.Hash() != 0, "native replay produces a stable non-zero hash");
 
-        GameState first(scene_definition);
-        GameState second(scene_definition);
+        GameState first(scene_definition, meshes);
+        GameState second(scene_definition, meshes);
         tape.Play(first);
         tape.Play(second);
         const auto first_snapshot = first.Snapshot();
@@ -222,6 +233,14 @@ int main(const int argc, char** argv)
 
     const auto render_scene = game.Scene();
     Require(render_scene.instances.size() == 18, "cooked scene exposes all render instances");
-    std::cout << "MARSTHEGAME native scene cooker and gameplay tests passed\n";
+    const std::size_t beacon_instances = static_cast<std::size_t>(std::count_if(
+        render_scene.instances.begin(),
+        render_scene.instances.end(),
+        [beacon_index](const mars::renderer::RenderInstance& instance) {
+            return instance.mesh_index == beacon_index;
+        }));
+    Require(beacon_instances == 1, "scene resolves exactly one authored beacon mesh instance");
+
+    std::cout << "MARSTHEGAME native scene, mesh binding, and gameplay tests passed\n";
     return 0;
 }
