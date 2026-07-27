@@ -24,6 +24,9 @@ namespace
 {
 using Microsoft::WRL::ComPtr;
 
+constexpr std::uint64_t kFnvOffsetBasis = 1'469'598'103'934'665'603ULL;
+constexpr std::uint64_t kFnvPrime = 1'099'511'628'211ULL;
+
 std::string FormatHresult(const HRESULT result)
 {
     std::ostringstream value;
@@ -58,7 +61,7 @@ std::vector<std::uint8_t> ReadBinaryFile(const std::filesystem::path& path)
         throw std::runtime_error("Could not open shader: " + path.string());
     }
 
-    const std::streampos end = stream.tellg();
+    const std::streamoff end = stream.tellg();
     if (end <= 0)
     {
         throw std::runtime_error("Shader is empty: " + path.string());
@@ -105,7 +108,8 @@ void D3D12Renderer::Initialize(
     const HWND window,
     const std::uint32_t width,
     const std::uint32_t height,
-    const AdapterPreference adapter_preference)
+    const AdapterPreference adapter_preference,
+    const bool enable_frame_capture)
 {
     if (initialized_)
     {
@@ -121,6 +125,9 @@ void D3D12Renderer::Initialize(
     presented_frames_ = 0;
     last_cpu_frame_ms_ = 0.0;
     max_cpu_frame_ms_ = 0.0;
+    frame_capture_enabled_ = enable_frame_capture;
+    capture_requested_ = false;
+    capture_submitted_ = false;
     initialized_ = true;
 
     try
@@ -131,6 +138,10 @@ void D3D12Renderer::Initialize(
         CreateSwapChain(window);
         CreateRenderTargetViews();
         CreateDepthBuffer();
+        if (frame_capture_enabled_)
+        {
+            CreateCaptureBuffer();
+        }
         CreatePipeline();
         CreateGeometry();
         CreateSceneConstants();
@@ -151,6 +162,7 @@ void D3D12Renderer::Render()
     }
 
     const auto started = std::chrono::steady_clock::now();
+    const bool capture_this_frame = capture_requested_;
     ThrowIfFailed(
         command_allocators_[frame_index_]->Reset(),
         "ID3D12CommandAllocator::Reset");
@@ -167,6 +179,11 @@ void D3D12Renderer::Render()
     ThrowIfDeviceFailed(swap_chain_->Present(1, 0), "IDXGISwapChain::Present");
     ++presented_frames_;
     MoveToNextFrame();
+    if (capture_this_frame)
+    {
+        capture_requested_ = false;
+        capture_submitted_ = true;
+    }
 
     const auto elapsed = std::chrono::steady_clock::now() - started;
     last_cpu_frame_ms_ = std::chrono::duration<double, std::milli>(elapsed).count();
@@ -179,8 +196,13 @@ void D3D12Renderer::Resize(const std::uint32_t width, const std::uint32_t height
     {
         return;
     }
+    if (capture_requested_ || capture_submitted_)
+    {
+        throw std::logic_error("Cannot resize while a frame capture is pending");
+    }
 
     WaitForGpu();
+    ReleaseCaptureBuffer();
     ReleaseRenderTargets();
     ReleaseDepthBuffer();
 
@@ -202,6 +224,10 @@ void D3D12Renderer::Resize(const std::uint32_t width, const std::uint32_t height
     fence_values_.fill(next_fence_value);
     CreateRenderTargetViews();
     CreateDepthBuffer();
+    if (frame_capture_enabled_)
+    {
+        CreateCaptureBuffer();
+    }
     UpdateViewportAndScissor();
 }
 
@@ -237,6 +263,7 @@ void D3D12Renderer::Shutdown()
     {
         allocator.Reset();
     }
+    ReleaseCaptureBuffer();
     ReleaseDepthBuffer();
     ReleaseRenderTargets();
     dsv_heap_.Reset();
@@ -246,6 +273,77 @@ void D3D12Renderer::Shutdown()
     fence_.Reset();
     device_.Reset();
     factory_.Reset();
+    frame_capture_enabled_ = false;
+}
+
+void D3D12Renderer::RequestFrameCapture()
+{
+    if (!initialized_)
+    {
+        throw std::logic_error("Cannot capture a frame before renderer initialization");
+    }
+    if (!frame_capture_enabled_ || capture_buffer_ == nullptr)
+    {
+        throw std::logic_error("Frame capture was not enabled for this renderer");
+    }
+    if (capture_requested_ || capture_submitted_)
+    {
+        throw std::logic_error("A frame capture is already pending");
+    }
+    capture_requested_ = true;
+}
+
+FrameCaptureEvidence D3D12Renderer::ConsumeFrameCapture()
+{
+    if (!initialized_ || !capture_submitted_ || capture_buffer_ == nullptr)
+    {
+        throw std::logic_error("No completed frame capture is available");
+    }
+
+    WaitForGpu();
+    const D3D12_RANGE read_range{0, static_cast<SIZE_T>(capture_total_bytes_)};
+    void* mapped = nullptr;
+    ThrowIfFailed(capture_buffer_->Map(0, &read_range, &mapped), "ID3D12Resource::Map(capture)");
+
+    const auto* bytes = static_cast<const std::uint8_t*>(mapped);
+    const std::array<std::uint8_t, 4> background = {
+        bytes[0],
+        bytes[1],
+        bytes[2],
+        bytes[3],
+    };
+    std::uint64_t checksum = kFnvOffsetBasis;
+    std::uint64_t non_background_pixels = 0;
+    const std::size_t row_size = static_cast<std::size_t>(capture_row_size_bytes_);
+    const std::size_t row_pitch = capture_footprint_.Footprint.RowPitch;
+
+    for (std::uint32_t y = 0; y < capture_row_count_; ++y)
+    {
+        const std::uint8_t* row = bytes + static_cast<std::size_t>(y) * row_pitch;
+        for (std::size_t offset = 0; offset < row_size; ++offset)
+        {
+            checksum ^= row[offset];
+            checksum *= kFnvPrime;
+        }
+        for (std::size_t offset = 0; offset + 3 < row_size; offset += 4)
+        {
+            if (row[offset] != background[0] || row[offset + 1] != background[1]
+                || row[offset + 2] != background[2] || row[offset + 3] != background[3])
+            {
+                ++non_background_pixels;
+            }
+        }
+    }
+
+    const D3D12_RANGE written_range{0, 0};
+    capture_buffer_->Unmap(0, &written_range);
+    capture_submitted_ = false;
+    return {
+        .checksum = checksum,
+        .non_background_pixels = non_background_pixels,
+        .width = width_,
+        .height = height_,
+    };
 }
 
 bool D3D12Renderer::IsInitialized() const noexcept
@@ -473,6 +571,58 @@ void D3D12Renderer::CreateDepthBuffer()
     view.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
     view.Flags = D3D12_DSV_FLAG_NONE;
     device_->CreateDepthStencilView(depth_buffer_.Get(), &view, dsv_handle_);
+}
+
+void D3D12Renderer::CreateCaptureBuffer()
+{
+    ReleaseCaptureBuffer();
+    if (!frame_capture_enabled_ || render_targets_[0] == nullptr)
+    {
+        return;
+    }
+
+    const D3D12_RESOURCE_DESC source_description = render_targets_[0]->GetDesc();
+    UINT row_count = 0;
+    UINT64 row_size = 0;
+    UINT64 total_bytes = 0;
+    device_->GetCopyableFootprints(
+        &source_description,
+        0,
+        1,
+        0,
+        &capture_footprint_,
+        &row_count,
+        &row_size,
+        &total_bytes);
+    capture_row_count_ = row_count;
+    capture_row_size_bytes_ = row_size;
+    capture_total_bytes_ = total_bytes;
+
+    D3D12_HEAP_PROPERTIES heap{};
+    heap.Type = D3D12_HEAP_TYPE_READBACK;
+    heap.CreationNodeMask = 1;
+    heap.VisibleNodeMask = 1;
+
+    D3D12_RESOURCE_DESC description{};
+    description.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+    description.Width = capture_total_bytes_;
+    description.Height = 1;
+    description.DepthOrArraySize = 1;
+    description.MipLevels = 1;
+    description.Format = DXGI_FORMAT_UNKNOWN;
+    description.SampleDesc.Count = 1;
+    description.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+
+    ThrowIfFailed(
+        device_->CreateCommittedResource(
+            &heap,
+            D3D12_HEAP_FLAG_NONE,
+            &description,
+            D3D12_RESOURCE_STATE_COPY_DEST,
+            nullptr,
+            IID_PPV_ARGS(&capture_buffer_)),
+        "ID3D12Device::CreateCommittedResource(capture)");
+    NameObject(capture_buffer_.Get(), L"MARSTHEGAME Frame Capture Buffer");
 }
 
 void D3D12Renderer::CreatePipeline()
@@ -791,11 +941,39 @@ void D3D12Renderer::PopulateCommandList()
     command_list_->IASetIndexBuffer(&index_buffer_view_);
     command_list_->DrawIndexedInstanced(index_count_, 1, 0, 0, 0);
 
-    const D3D12_RESOURCE_BARRIER to_present = TransitionBarrier(
-        render_targets_[frame_index_].Get(),
-        D3D12_RESOURCE_STATE_RENDER_TARGET,
-        D3D12_RESOURCE_STATE_PRESENT);
-    command_list_->ResourceBarrier(1, &to_present);
+    if (capture_requested_)
+    {
+        const D3D12_RESOURCE_BARRIER to_copy_source = TransitionBarrier(
+            render_targets_[frame_index_].Get(),
+            D3D12_RESOURCE_STATE_RENDER_TARGET,
+            D3D12_RESOURCE_STATE_COPY_SOURCE);
+        command_list_->ResourceBarrier(1, &to_copy_source);
+
+        D3D12_TEXTURE_COPY_LOCATION destination{};
+        destination.pResource = capture_buffer_.Get();
+        destination.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+        destination.PlacedFootprint = capture_footprint_;
+
+        D3D12_TEXTURE_COPY_LOCATION source{};
+        source.pResource = render_targets_[frame_index_].Get();
+        source.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+        source.SubresourceIndex = 0;
+        command_list_->CopyTextureRegion(&destination, 0, 0, 0, &source, nullptr);
+
+        const D3D12_RESOURCE_BARRIER to_present = TransitionBarrier(
+            render_targets_[frame_index_].Get(),
+            D3D12_RESOURCE_STATE_COPY_SOURCE,
+            D3D12_RESOURCE_STATE_PRESENT);
+        command_list_->ResourceBarrier(1, &to_present);
+    }
+    else
+    {
+        const D3D12_RESOURCE_BARRIER to_present = TransitionBarrier(
+            render_targets_[frame_index_].Get(),
+            D3D12_RESOURCE_STATE_RENDER_TARGET,
+            D3D12_RESOURCE_STATE_PRESENT);
+        command_list_->ResourceBarrier(1, &to_present);
+    }
 }
 
 void D3D12Renderer::MoveToNextFrame()
@@ -845,6 +1023,17 @@ void D3D12Renderer::ReleaseRenderTargets()
 void D3D12Renderer::ReleaseDepthBuffer()
 {
     depth_buffer_.Reset();
+}
+
+void D3D12Renderer::ReleaseCaptureBuffer()
+{
+    capture_buffer_.Reset();
+    capture_footprint_ = {};
+    capture_total_bytes_ = 0;
+    capture_row_size_bytes_ = 0;
+    capture_row_count_ = 0;
+    capture_requested_ = false;
+    capture_submitted_ = false;
 }
 
 void D3D12Renderer::UpdateViewportAndScissor()
