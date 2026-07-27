@@ -32,6 +32,18 @@
         6U,
         D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
         L"MARSTHEGAME Generated Martian Environment Cube");
+    const GeneratedSubtitleAtlas subtitle_atlas = GenerateSubtitleAtlas();
+    if (!ValidateSubtitleAtlas(subtitle_atlas))
+    {
+        throw std::runtime_error("Generated subtitle atlas failed validation");
+    }
+    subtitle_texture_ = upload_context_.UploadTexture2DArrayRgba8(
+        std::span<const std::uint8_t>(subtitle_atlas.rgba8),
+        subtitle_atlas.width,
+        subtitle_atlas.height,
+        subtitle_atlas.layers,
+        D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+        L"MARSTHEGAME Generated Subtitle Atlas");
     const std::uint64_t upload_fence = upload_context_.Submit();
     upload_context_.Wait(upload_fence);
     upload_statistics_ = upload_context_.Statistics();
@@ -183,6 +195,18 @@ void D3D12Renderer::WriteShaderResourceViews()
     environment_view.TextureCube.MipLevels = 1;
     environment_view.TextureCube.ResourceMinLODClamp = 0.0f;
     device_->CreateShaderResourceView(environment_texture_.Get(), &environment_view, descriptor);
+    advance();
+
+    D3D12_SHADER_RESOURCE_VIEW_DESC subtitle_view{};
+    subtitle_view.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+    subtitle_view.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    subtitle_view.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2DARRAY;
+    subtitle_view.Texture2DArray.MostDetailedMip = 0;
+    subtitle_view.Texture2DArray.MipLevels = 1;
+    subtitle_view.Texture2DArray.FirstArraySlice = 0;
+    subtitle_view.Texture2DArray.ArraySize = 2U;
+    subtitle_view.Texture2DArray.ResourceMinLODClamp = 0.0f;
+    device_->CreateShaderResourceView(subtitle_texture_.Get(), &subtitle_view, descriptor);
 }
 
 void D3D12Renderer::UpdateConstants(const RenderScene& scene)
