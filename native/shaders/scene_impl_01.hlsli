@@ -1,3 +1,28 @@
+TextureCube<float4> environmentTexture : register(t8);
+
+float3 SampleGeneratedEnvironment(float3 direction)
+{
+    return environmentTexture.SampleLevel(linearClampSampler, normalize(direction), 0.0f).rgb;
+}
+
+float SampleShadow(float4 lightClip)
+{
+    const float3 projected = lightClip.xyz / max(lightClip.w, 0.0001f);
+    const float2 uv = float2(projected.x * 0.5f + 0.5f, -projected.y * 0.5f + 0.5f);
+    if (uv.x <= 0.0f || uv.x >= 1.0f || uv.y <= 0.0f || uv.y >= 1.0f || projected.z <= 0.0f || projected.z >= 1.0f)
+    {
+        return 1.0f;
+    }
+    uint shadowWidth = 0;
+    uint shadowHeight = 0;
+    shadowTexture.GetDimensions(shadowWidth, shadowHeight);
+    const float2 texel = 1.0f / float2(shadowWidth, shadowHeight);
+    float visibility = 0.0f;
+    [unroll]
+    for (int y = -1; y <= 1; ++y)
+    {
+        [unroll]
+        for (int x = -1; x <= 1; ++x)
         {
             visibility += shadowTexture.SampleCmpLevelZero(
                 shadowSampler,
@@ -88,7 +113,14 @@ float4 ScenePS(ScenePixelInput input) : SV_TARGET
 
     const float skyAmount = saturate(normal.y * 0.5f + 0.5f);
     const float3 ambientSky = lerp(horizonColorBloom.rgb, skyZenithHistory.rgb, skyAmount);
-    color += ambientSky * albedo * (0.08f + 0.17f * occlusion) * (1.0f - metallic * 0.65f);
+    const float3 reflectedDirection = reflect(-viewDirection, normal);
+    const float3 generatedEnvironment = SampleGeneratedEnvironment(reflectedDirection);
+    const float3 environmentDiffuse = SampleGeneratedEnvironment(normal);
+    const float3 f0 = lerp(float3(0.04f, 0.04f, 0.04f), albedo, metallic);
+    const float3 environmentFresnel = FresnelSchlick(saturate(dot(normal, viewDirection)), f0);
+    color += (ambientSky * 0.45f + environmentDiffuse * 0.55f)
+        * albedo * (0.08f + 0.17f * occlusion) * (1.0f - metallic * 0.65f);
+    color += generatedEnvironment * environmentFresnel * lerp(0.22f, 0.055f, roughness);
     color += albedo * authoredMask * float3(0.20f, 0.055f, 0.012f);
     color += albedo * input.emissive * (1.4f + authoredMask * 2.0f);
 
