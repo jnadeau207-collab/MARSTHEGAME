@@ -85,7 +85,10 @@ FrameCaptureEvidence D3D12Renderer::ConsumeFrameCapture()
             {
                 ++dark_pixels;
             }
-            if (luminance > 0.82)
+            // This is a display-referred bright-region integrity measure, not a demand for
+            // clipped white pixels. The rejected candidate's 0.82 threshold incentivized
+            // excessive emissives and bloom instead of a controlled early-morning grade.
+            if (luminance > 0.67)
             {
                 ++highlight_pixels;
             }
