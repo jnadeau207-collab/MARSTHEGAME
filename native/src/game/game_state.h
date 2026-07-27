@@ -1,12 +1,15 @@
 #pragma once
 
+#include "assets/scene_asset.h"
+#include "game/collision.h"
 #include "renderer/render_scene.h"
 
 #include <DirectXMath.h>
 
-#include <array>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
+#include <vector>
 
 namespace mars::game
 {
@@ -30,7 +33,7 @@ struct GameSnapshot
     static constexpr std::uint32_t kSchemaVersion = 1;
 
     std::uint32_t schema_version = kSchemaVersion;
-    DirectX::XMFLOAT3 player_position{0.0f, 0.0f, -8.0f};
+    DirectX::XMFLOAT3 player_position{};
     DirectX::XMFLOAT3 player_velocity{};
     float elapsed_seconds = 0.0f;
     MissionState mission_state = MissionState::Traverse;
@@ -42,7 +45,7 @@ class GameState final
 public:
     static constexpr float kFixedStepSeconds = 1.0f / 60.0f;
 
-    GameState();
+    explicit GameState(const assets::SceneDefinition& scene);
 
     void Reset();
     void RestoreCheckpoint();
@@ -56,14 +59,23 @@ public:
     [[nodiscard]] renderer::RenderScene Scene() const noexcept;
 
 private:
-    static constexpr std::size_t kInstanceCount = 18;
+    static constexpr std::size_t kInvalidIndex = (std::numeric_limits<std::size_t>::max)();
 
+    void InitializeScene(const assets::SceneDefinition& scene);
     void RebuildScene();
     void IntegrateFixedStep(const InputState& input);
 
-    std::array<renderer::RenderInstance, kInstanceCount> instances_{};
-    DirectX::XMFLOAT3 player_position_{0.0f, 0.0f, -8.0f};
+    std::vector<renderer::RenderInstance> base_instances_{};
+    std::vector<renderer::RenderInstance> instances_{};
+    std::vector<CollisionBox> collision_boxes_{};
+    DirectX::XMFLOAT3 landing_position_{};
+    DirectX::XMFLOAT3 checkpoint_position_{};
+    DirectX::XMFLOAT3 objective_position_{};
+    DirectX::XMFLOAT3 player_position_{};
     DirectX::XMFLOAT3 player_velocity_{};
+    std::size_t player_instance_index_ = kInvalidIndex;
+    std::size_t checkpoint_instance_index_ = kInvalidIndex;
+    std::size_t objective_instance_index_ = kInvalidIndex;
     float accumulator_seconds_ = 0.0f;
     float elapsed_seconds_ = 0.0f;
     bool reset_latched_ = false;
