@@ -1,5 +1,6 @@
 #pragma once
 
+#include "assets/mesh_asset.h"
 #include "renderer/render_scene.h"
 
 #include <Windows.h>
@@ -12,7 +13,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <span>
 #include <string_view>
+#include <vector>
 
 namespace mars::renderer
 {
@@ -42,6 +45,7 @@ class D3D12Renderer final
 public:
     static constexpr std::uint32_t kFrameCount = 2;
     static constexpr std::uint32_t kMaxInstances = 64;
+    static constexpr std::uint32_t kMaxMeshes = 64;
 
     D3D12Renderer() = default;
     D3D12Renderer(const D3D12Renderer&) = delete;
@@ -52,6 +56,7 @@ public:
         HWND window,
         std::uint32_t width,
         std::uint32_t height,
+        std::span<const assets::StaticMesh> meshes,
         AdapterPreference adapter_preference = AdapterPreference::Hardware,
         bool enable_frame_capture = false);
     void Render(const RenderScene& scene);
@@ -65,13 +70,6 @@ public:
     [[nodiscard]] FrameStatistics Statistics() const noexcept;
 
 private:
-    struct Vertex
-    {
-        float position[3];
-        float normal[3];
-        float color[3];
-    };
-
     struct SceneConstants
     {
         DirectX::XMFLOAT4X4 world{};
@@ -79,6 +77,13 @@ private:
         DirectX::XMFLOAT4 light_direction{};
         DirectX::XMFLOAT4 tint{};
         std::array<float, 24> padding{};
+    };
+
+    struct MeshRange
+    {
+        std::uint32_t index_count = 0;
+        std::uint32_t start_index = 0;
+        std::int32_t base_vertex = 0;
     };
 
     static_assert(sizeof(SceneConstants) == 256);
@@ -91,10 +96,10 @@ private:
     void CreateDepthBuffer();
     void CreateCaptureBuffer();
     void CreatePipeline();
-    void CreateGeometry();
+    void CreateGeometry(std::span<const assets::StaticMesh> meshes);
     void CreateSceneConstants();
     void UpdateSceneConstants(const RenderScene& scene);
-    void PopulateCommandList();
+    void PopulateCommandList(const RenderScene& scene);
     void MoveToNextFrame();
     void WaitForGpu();
     void ReleaseRenderTargets();
@@ -134,6 +139,7 @@ private:
     D3D12_VIEWPORT viewport_{};
     D3D12_RECT scissor_rect_{};
     std::array<float, 4> clear_color_{0.018f, 0.022f, 0.035f, 1.0f};
+    std::vector<MeshRange> mesh_ranges_{};
     std::byte* mapped_scene_constants_ = nullptr;
     HANDLE fence_event_ = nullptr;
     std::array<std::uint64_t, kFrameCount> fence_values_{};
@@ -144,7 +150,6 @@ private:
     std::uint32_t rtv_descriptor_size_ = 0;
     std::uint32_t width_ = 0;
     std::uint32_t height_ = 0;
-    std::uint32_t index_count_ = 0;
     std::uint32_t instance_count_ = 0;
     std::uint64_t presented_frames_ = 0;
     double last_cpu_frame_ms_ = 0.0;
