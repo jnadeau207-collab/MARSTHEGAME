@@ -50,60 +50,66 @@ CharacterPose EvaluateCharacterPose(
 {
     const float safe_time = Finite(elapsed_seconds) ? (std::max)(elapsed_seconds, 0.0f) : 0.0f;
     const float safe_speed = Finite(planar_speed) ? (std::clamp)(planar_speed, 0.0f, 12.0f) : 0.0f;
-    const float movement_weight = (std::clamp)(safe_speed / 8.0f, 0.0f, 1.0f);
-    const float cadence = 2.1f + safe_speed * 0.62f;
+    const float movement_weight = (std::clamp)(safe_speed / 7.0f, 0.0f, 1.0f);
+    const float cadence = 1.85f + safe_speed * 0.48f;
     const float phase = safe_time * cadence;
-    const float stride = std::sin(phase) * 0.68f * movement_weight;
+    const float stride = std::sin(phase) * 0.44f * movement_weight;
     const float counter_stride = -stride;
-    const float bob = std::abs(std::sin(phase)) * 0.075f * movement_weight;
-    const float completion_lift = mission_complete ? 0.10f + std::sin(safe_time * 2.4f) * 0.04f : 0.0f;
-    const RigColor suit{0.78f, 0.50f, 0.24f, 1.0f};
-    const RigColor trim{0.24f, 0.29f, 0.34f, 1.0f};
-    const RigColor helmet{0.52f, 0.56f, 0.60f, 1.0f};
-    const RigColor pack{0.17f, 0.21f, 0.25f, 1.0f};
+    const float bob = std::abs(std::sin(phase)) * 0.026f * movement_weight;
+    const float completion_lift = mission_complete ? 0.018f : 0.0f;
+
+    // Recovery previsualization palette: human-scale field engineer rather than toy-orange blocks.
+    const RigColor suit_fabric{0.46f, 0.43f, 0.37f, 1.0f};
+    const RigColor hard_shell{0.62f, 0.54f, 0.34f, 1.0f};
+    const RigColor mechanisms{0.105f, 0.12f, 0.13f, 1.0f};
+    const RigColor helmet{0.52f, 0.53f, 0.50f, 1.0f};
+    const RigColor pack{0.095f, 0.105f, 0.115f, 1.0f};
     const RigColor visor = mission_complete
-        ? RigColor{0.18f, 1.0f, 0.56f, 6.0f}
-        : RigColor{0.12f, 0.72f, 1.0f, 5.0f};
+        ? RigColor{0.055f, 0.22f, 0.18f, 1.45f}
+        : RigColor{0.025f, 0.075f, 0.10f, 1.12f};
 
     CharacterPose pose{};
     pose.gait_phase = phase;
     pose.animation_weight = movement_weight;
+
+    // Approximately seven-head adult silhouette. These primitives remain a previsualization
+    // fixture only; the approval build requires a dedicated skinned character mesh.
     pose.parts[static_cast<std::size_t>(CharacterPart::Torso)] = MakePart(
-        {0.0f, 1.18f + bob + completion_lift, 0.0f},
-        {0.02f * std::sin(phase * 0.5f), 0.0f, stride * 0.055f},
-        {0.50f, 0.62f, 0.30f}, suit, 0U);
+        {0.0f, 1.48f + bob + completion_lift, 0.0f},
+        {0.018f * std::sin(phase * 0.5f), 0.0f, stride * 0.035f},
+        {0.34f, 0.34f, 0.22f}, hard_shell, 0U);
     pose.parts[static_cast<std::size_t>(CharacterPart::Head)] = MakePart(
-        {0.0f, 2.02f + bob + completion_lift, 0.0f},
-        {0.0f, std::sin(safe_time * 0.55f) * 0.12f, 0.0f},
-        {0.34f, 0.34f, 0.34f}, helmet, 1U);
+        {0.0f, 2.00f + bob + completion_lift, 0.0f},
+        {0.0f, std::sin(safe_time * 0.42f) * 0.055f, 0.0f},
+        {0.20f, 0.15f, 0.20f}, helmet, 2U);
     pose.parts[static_cast<std::size_t>(CharacterPart::Pelvis)] = MakePart(
-        {0.0f, 0.67f + bob + completion_lift, 0.0f},
-        {0.0f, 0.0f, -stride * 0.035f},
-        {0.43f, 0.25f, 0.29f}, trim, 0U);
+        {0.0f, 1.04f + bob + completion_lift, 0.0f},
+        {0.0f, 0.0f, -stride * 0.025f},
+        {0.30f, 0.16f, 0.21f}, mechanisms, 0U);
     pose.parts[static_cast<std::size_t>(CharacterPart::LeftArm)] = MakePart(
-        {-0.62f, 1.27f + bob + completion_lift, 0.0f},
-        {counter_stride, 0.0f, -0.07f},
-        {0.16f, 0.56f, 0.16f}, suit, 2U);
+        {-0.47f, 1.43f + bob + completion_lift, 0.0f},
+        {counter_stride, 0.0f, -0.055f},
+        {0.115f, 0.38f, 0.115f}, suit_fabric, 2U);
     pose.parts[static_cast<std::size_t>(CharacterPart::RightArm)] = MakePart(
-        {0.62f, 1.27f + bob + completion_lift, 0.0f},
-        {stride, 0.0f, 0.07f},
-        {0.16f, 0.56f, 0.16f}, suit, 2U);
+        {0.47f, 1.43f + bob + completion_lift, 0.0f},
+        {stride, 0.0f, 0.055f},
+        {0.115f, 0.38f, 0.115f}, suit_fabric, 2U);
     pose.parts[static_cast<std::size_t>(CharacterPart::LeftLeg)] = MakePart(
-        {-0.23f, 0.10f + completion_lift, 0.0f},
+        {-0.18f, 0.48f + completion_lift, 0.0f},
         {stride, 0.0f, 0.0f},
-        {0.18f, 0.62f, 0.20f}, trim, 2U);
+        {0.135f, 0.48f, 0.15f}, mechanisms, 2U);
     pose.parts[static_cast<std::size_t>(CharacterPart::RightLeg)] = MakePart(
-        {0.23f, 0.10f + completion_lift, 0.0f},
+        {0.18f, 0.48f + completion_lift, 0.0f},
         {counter_stride, 0.0f, 0.0f},
-        {0.18f, 0.62f, 0.20f}, trim, 2U);
+        {0.135f, 0.48f, 0.15f}, mechanisms, 2U);
     pose.parts[static_cast<std::size_t>(CharacterPart::Backpack)] = MakePart(
-        {0.0f, 1.30f + bob + completion_lift, -0.33f},
+        {0.0f, 1.48f + bob + completion_lift, -0.27f},
         {0.0f, 0.0f, 0.0f},
-        {0.30f, 0.38f, 0.13f}, pack, 0U);
+        {0.25f, 0.32f, 0.105f}, pack, 0U);
     pose.parts[static_cast<std::size_t>(CharacterPart::Visor)] = MakePart(
-        {0.0f, 2.04f + bob + completion_lift, 0.29f},
+        {0.0f, 2.00f + bob + completion_lift, 0.205f},
         {0.0f, 0.0f, 0.0f},
-        {0.26f, 0.15f, 0.07f}, visor, 0U);
+        {0.165f, 0.085f, 0.040f}, visor, 0U);
     return pose;
 }
 
