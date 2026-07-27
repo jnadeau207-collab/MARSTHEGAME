@@ -2,6 +2,7 @@
 
 #include <d3d12sdklayers.h>
 
+#include <algorithm>
 #include <array>
 #include <chrono>
 #include <cstring>
@@ -120,17 +121,26 @@ void D3D12Renderer::Initialize(
     presented_frames_ = 0;
     last_cpu_frame_ms_ = 0.0;
     max_cpu_frame_ms_ = 0.0;
-
-    EnableDebugLayer();
-    CreateFactoryAndDevice(adapter_preference);
-    CreateCommandObjects();
-    CreateSwapChain(window);
-    CreateRenderTargetViews();
-    CreatePipeline();
-    CreateGeometry();
-    UpdateViewportAndScissor();
-
     initialized_ = true;
+
+    try
+    {
+        EnableDebugLayer();
+        CreateFactoryAndDevice(adapter_preference);
+        CreateCommandObjects();
+        CreateSwapChain(window);
+        CreateRenderTargetViews();
+        CreateDepthBuffer();
+        CreatePipeline();
+        CreateGeometry();
+        CreateSceneConstants();
+        UpdateViewportAndScissor();
+    }
+    catch (...)
+    {
+        Shutdown();
+        throw;
+    }
 }
 
 void D3D12Renderer::Render()
@@ -148,6 +158,7 @@ void D3D12Renderer::Render()
         command_list_->Reset(command_allocators_[frame_index_].Get(), pipeline_state_.Get()),
         "ID3D12GraphicsCommandList::Reset");
 
+    UpdateSceneConstants();
     PopulateCommandList();
     ThrowIfFailed(command_list_->Close(), "ID3D12GraphicsCommandList::Close");
 
@@ -171,6 +182,7 @@ void D3D12Renderer::Resize(const std::uint32_t width, const std::uint32_t height
 
     WaitForGpu();
     ReleaseRenderTargets();
+    ReleaseDepthBuffer();
 
     DXGI_SWAP_CHAIN_DESC description{};
     ThrowIfFailed(swap_chain_->GetDesc(&description), "IDXGISwapChain::GetDesc");
@@ -189,6 +201,7 @@ void D3D12Renderer::Resize(const std::uint32_t width, const std::uint32_t height
     const std::uint64_t next_fence_value = fence_->GetCompletedValue() + 1;
     fence_values_.fill(next_fence_value);
     CreateRenderTargetViews();
+    CreateDepthBuffer();
     UpdateViewportAndScissor();
 }
 
@@ -202,12 +215,19 @@ void D3D12Renderer::Shutdown()
     WaitForGpu();
     initialized_ = false;
 
+    if (scene_constant_buffer_ != nullptr && mapped_scene_constants_ != nullptr)
+    {
+        scene_constant_buffer_->Unmap(0, nullptr);
+        mapped_scene_constants_ = nullptr;
+    }
+
     if (fence_event_ != nullptr)
     {
         CloseHandle(fence_event_);
         fence_event_ = nullptr;
     }
 
+    scene_constant_buffer_.Reset();
     index_buffer_.Reset();
     vertex_buffer_.Reset();
     pipeline_state_.Reset();
@@ -217,7 +237,9 @@ void D3D12Renderer::Shutdown()
     {
         allocator.Reset();
     }
+    ReleaseDepthBuffer();
     ReleaseRenderTargets();
+    dsv_heap_.Reset();
     rtv_heap_.Reset();
     swap_chain_.Reset();
     command_queue_.Reset();
@@ -399,6 +421,60 @@ void D3D12Renderer::CreateRenderTargetViews()
     }
 }
 
+void D3D12Renderer::CreateDepthBuffer()
+{
+    if (dsv_heap_ == nullptr)
+    {
+        D3D12_DESCRIPTOR_HEAP_DESC heap_description{};
+        heap_description.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
+        heap_description.NumDescriptors = 1;
+        heap_description.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+        ThrowIfFailed(
+            device_->CreateDescriptorHeap(&heap_description, IID_PPV_ARGS(&dsv_heap_)),
+            "ID3D12Device::CreateDescriptorHeap(DSV)");
+        NameObject(dsv_heap_.Get(), L"MARSTHEGAME DSV Heap");
+        dsv_handle_ = dsv_heap_->GetCPUDescriptorHandleForHeapStart();
+    }
+
+    D3D12_HEAP_PROPERTIES heap{};
+    heap.Type = D3D12_HEAP_TYPE_DEFAULT;
+    heap.CreationNodeMask = 1;
+    heap.VisibleNodeMask = 1;
+
+    D3D12_RESOURCE_DESC description{};
+    description.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+    description.Width = width_;
+    description.Height = height_;
+    description.DepthOrArraySize = 1;
+    description.MipLevels = 1;
+    description.Format = DXGI_FORMAT_D32_FLOAT;
+    description.SampleDesc.Count = 1;
+    description.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+    description.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
+
+    D3D12_CLEAR_VALUE clear_value{};
+    clear_value.Format = DXGI_FORMAT_D32_FLOAT;
+    clear_value.DepthStencil.Depth = 1.0f;
+    clear_value.DepthStencil.Stencil = 0;
+
+    ThrowIfFailed(
+        device_->CreateCommittedResource(
+            &heap,
+            D3D12_HEAP_FLAG_NONE,
+            &description,
+            D3D12_RESOURCE_STATE_DEPTH_WRITE,
+            &clear_value,
+            IID_PPV_ARGS(&depth_buffer_)),
+        "ID3D12Device::CreateCommittedResource(depth)");
+    NameObject(depth_buffer_.Get(), L"MARSTHEGAME Depth Buffer");
+
+    D3D12_DEPTH_STENCIL_VIEW_DESC view{};
+    view.Format = DXGI_FORMAT_D32_FLOAT;
+    view.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
+    view.Flags = D3D12_DSV_FLAG_NONE;
+    device_->CreateDepthStencilView(depth_buffer_.Get(), &view, dsv_handle_);
+}
+
 void D3D12Renderer::CreatePipeline()
 {
     const std::filesystem::path shader_directory = ExecutableDirectory() / L"shaders";
@@ -407,9 +483,15 @@ void D3D12Renderer::CreatePipeline()
     const std::vector<std::uint8_t> pixel_shader =
         ReadBinaryFile(shader_directory / L"triangle.ps.dxil");
 
+    D3D12_ROOT_PARAMETER root_parameter{};
+    root_parameter.ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+    root_parameter.Descriptor.ShaderRegister = 0;
+    root_parameter.Descriptor.RegisterSpace = 0;
+    root_parameter.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+
     D3D12_ROOT_SIGNATURE_DESC root_description{};
-    root_description.NumParameters = 0;
-    root_description.pParameters = nullptr;
+    root_description.NumParameters = 1;
+    root_description.pParameters = &root_parameter;
     root_description.NumStaticSamplers = 0;
     root_description.pStaticSamplers = nullptr;
     root_description.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
@@ -439,16 +521,18 @@ void D3D12Renderer::CreatePipeline()
         "ID3D12Device::CreateRootSignature");
     NameObject(root_signature_.Get(), L"MARSTHEGAME Root Signature");
 
-    const std::array<D3D12_INPUT_ELEMENT_DESC, 2> input_layout = {{
+    const std::array<D3D12_INPUT_ELEMENT_DESC, 3> input_layout = {{
         {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0,
          D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
-        {"COLOR", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12,
+        {"NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12,
+         D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
+        {"COLOR", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 24,
          D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
     }};
 
     D3D12_RASTERIZER_DESC rasterizer{};
     rasterizer.FillMode = D3D12_FILL_MODE_SOLID;
-    rasterizer.CullMode = D3D12_CULL_MODE_BACK;
+    rasterizer.CullMode = D3D12_CULL_MODE_NONE;
     rasterizer.FrontCounterClockwise = FALSE;
     rasterizer.DepthBias = D3D12_DEFAULT_DEPTH_BIAS;
     rasterizer.DepthBiasClamp = D3D12_DEFAULT_DEPTH_BIAS_CLAMP;
@@ -475,9 +559,9 @@ void D3D12Renderer::CreatePipeline()
     target_blend.RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
 
     D3D12_DEPTH_STENCIL_DESC depth_stencil{};
-    depth_stencil.DepthEnable = FALSE;
-    depth_stencil.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;
-    depth_stencil.DepthFunc = D3D12_COMPARISON_FUNC_ALWAYS;
+    depth_stencil.DepthEnable = TRUE;
+    depth_stencil.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
+    depth_stencil.DepthFunc = D3D12_COMPARISON_FUNC_LESS;
     depth_stencil.StencilEnable = FALSE;
 
     D3D12_GRAPHICS_PIPELINE_STATE_DESC pipeline_description{};
@@ -496,7 +580,7 @@ void D3D12Renderer::CreatePipeline()
     pipeline_description.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
     pipeline_description.NumRenderTargets = 1;
     pipeline_description.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
-    pipeline_description.DSVFormat = DXGI_FORMAT_UNKNOWN;
+    pipeline_description.DSVFormat = DXGI_FORMAT_D32_FLOAT;
     pipeline_description.SampleDesc.Count = 1;
     pipeline_description.SampleDesc.Quality = 0;
     pipeline_description.NodeMask = 0;
@@ -508,17 +592,45 @@ void D3D12Renderer::CreatePipeline()
             &pipeline_description,
             IID_PPV_ARGS(&pipeline_state_)),
         "ID3D12Device::CreateGraphicsPipelineState");
-    NameObject(pipeline_state_.Get(), L"MARSTHEGAME Triangle Pipeline");
+    NameObject(pipeline_state_.Get(), L"MARSTHEGAME Lit 3D Pipeline");
 }
 
 void D3D12Renderer::CreateGeometry()
 {
-    constexpr std::array<Vertex, 3> vertices = {{
-        {{0.0f, 0.65f, 0.0f}, {0.92f, 0.31f, 0.16f}},
-        {{0.62f, -0.55f, 0.0f}, {0.95f, 0.74f, 0.20f}},
-        {{-0.62f, -0.55f, 0.0f}, {0.20f, 0.48f, 0.95f}},
+    constexpr std::array<Vertex, 24> vertices = {{
+        {{-1.0f, -1.0f, -1.0f}, {0.0f, 0.0f, -1.0f}, {0.90f, 0.28f, 0.14f}},
+        {{-1.0f, 1.0f, -1.0f}, {0.0f, 0.0f, -1.0f}, {0.90f, 0.28f, 0.14f}},
+        {{1.0f, 1.0f, -1.0f}, {0.0f, 0.0f, -1.0f}, {0.90f, 0.28f, 0.14f}},
+        {{1.0f, -1.0f, -1.0f}, {0.0f, 0.0f, -1.0f}, {0.90f, 0.28f, 0.14f}},
+        {{1.0f, -1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {0.95f, 0.68f, 0.18f}},
+        {{1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {0.95f, 0.68f, 0.18f}},
+        {{-1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {0.95f, 0.68f, 0.18f}},
+        {{-1.0f, -1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {0.95f, 0.68f, 0.18f}},
+        {{-1.0f, -1.0f, 1.0f}, {-1.0f, 0.0f, 0.0f}, {0.20f, 0.45f, 0.92f}},
+        {{-1.0f, 1.0f, 1.0f}, {-1.0f, 0.0f, 0.0f}, {0.20f, 0.45f, 0.92f}},
+        {{-1.0f, 1.0f, -1.0f}, {-1.0f, 0.0f, 0.0f}, {0.20f, 0.45f, 0.92f}},
+        {{-1.0f, -1.0f, -1.0f}, {-1.0f, 0.0f, 0.0f}, {0.20f, 0.45f, 0.92f}},
+        {{1.0f, -1.0f, -1.0f}, {1.0f, 0.0f, 0.0f}, {0.35f, 0.76f, 0.46f}},
+        {{1.0f, 1.0f, -1.0f}, {1.0f, 0.0f, 0.0f}, {0.35f, 0.76f, 0.46f}},
+        {{1.0f, 1.0f, 1.0f}, {1.0f, 0.0f, 0.0f}, {0.35f, 0.76f, 0.46f}},
+        {{1.0f, -1.0f, 1.0f}, {1.0f, 0.0f, 0.0f}, {0.35f, 0.76f, 0.46f}},
+        {{-1.0f, 1.0f, -1.0f}, {0.0f, 1.0f, 0.0f}, {0.76f, 0.34f, 0.86f}},
+        {{-1.0f, 1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}, {0.76f, 0.34f, 0.86f}},
+        {{1.0f, 1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}, {0.76f, 0.34f, 0.86f}},
+        {{1.0f, 1.0f, -1.0f}, {0.0f, 1.0f, 0.0f}, {0.76f, 0.34f, 0.86f}},
+        {{-1.0f, -1.0f, 1.0f}, {0.0f, -1.0f, 0.0f}, {0.18f, 0.74f, 0.82f}},
+        {{-1.0f, -1.0f, -1.0f}, {0.0f, -1.0f, 0.0f}, {0.18f, 0.74f, 0.82f}},
+        {{1.0f, -1.0f, -1.0f}, {0.0f, -1.0f, 0.0f}, {0.18f, 0.74f, 0.82f}},
+        {{1.0f, -1.0f, 1.0f}, {0.0f, -1.0f, 0.0f}, {0.18f, 0.74f, 0.82f}},
     }};
-    constexpr std::array<std::uint16_t, 3> indices = {0, 1, 2};
+    constexpr std::array<std::uint16_t, 36> indices = {
+        0, 1, 2, 0, 2, 3,
+        4, 5, 6, 4, 6, 7,
+        8, 9, 10, 8, 10, 11,
+        12, 13, 14, 12, 14, 15,
+        16, 17, 18, 16, 18, 19,
+        20, 21, 22, 20, 22, 23,
+    };
 
     const auto create_upload_buffer = [this](
                                           const void* source,
@@ -567,7 +679,7 @@ void D3D12Renderer::CreateGeometry()
         vertices.data(),
         sizeof(vertices),
         vertex_buffer_,
-        L"MARSTHEGAME Triangle Vertex Buffer");
+        L"MARSTHEGAME Cube Vertex Buffer");
     vertex_buffer_view_.BufferLocation = vertex_buffer_->GetGPUVirtualAddress();
     vertex_buffer_view_.StrideInBytes = static_cast<UINT>(sizeof(Vertex));
     vertex_buffer_view_.SizeInBytes = static_cast<UINT>(sizeof(vertices));
@@ -576,10 +688,74 @@ void D3D12Renderer::CreateGeometry()
         indices.data(),
         sizeof(indices),
         index_buffer_,
-        L"MARSTHEGAME Triangle Index Buffer");
+        L"MARSTHEGAME Cube Index Buffer");
     index_buffer_view_.BufferLocation = index_buffer_->GetGPUVirtualAddress();
     index_buffer_view_.SizeInBytes = static_cast<UINT>(sizeof(indices));
     index_buffer_view_.Format = DXGI_FORMAT_R16_UINT;
+    index_count_ = static_cast<std::uint32_t>(indices.size());
+}
+
+void D3D12Renderer::CreateSceneConstants()
+{
+    D3D12_HEAP_PROPERTIES heap{};
+    heap.Type = D3D12_HEAP_TYPE_UPLOAD;
+    heap.CreationNodeMask = 1;
+    heap.VisibleNodeMask = 1;
+
+    D3D12_RESOURCE_DESC description{};
+    description.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+    description.Width = sizeof(SceneConstants) * kFrameCount;
+    description.Height = 1;
+    description.DepthOrArraySize = 1;
+    description.MipLevels = 1;
+    description.Format = DXGI_FORMAT_UNKNOWN;
+    description.SampleDesc.Count = 1;
+    description.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+
+    ThrowIfFailed(
+        device_->CreateCommittedResource(
+            &heap,
+            D3D12_HEAP_FLAG_NONE,
+            &description,
+            D3D12_RESOURCE_STATE_GENERIC_READ,
+            nullptr,
+            IID_PPV_ARGS(&scene_constant_buffer_)),
+        "ID3D12Device::CreateCommittedResource(scene constants)");
+    NameObject(scene_constant_buffer_.Get(), L"MARSTHEGAME Scene Constant Buffer");
+
+    const D3D12_RANGE read_range{0, 0};
+    void* mapped = nullptr;
+    ThrowIfFailed(
+        scene_constant_buffer_->Map(0, &read_range, &mapped),
+        "ID3D12Resource::Map(scene constants)");
+    mapped_scene_constants_ = static_cast<std::byte*>(mapped);
+}
+
+void D3D12Renderer::UpdateSceneConstants()
+{
+    using namespace DirectX;
+
+    const float angle = static_cast<float>(presented_frames_) * 0.0125f;
+    const float aspect = static_cast<float>(width_) / static_cast<float>(height_);
+    const XMMATRIX world = XMMatrixRotationY(angle) * XMMatrixRotationX(angle * 0.47f);
+    const XMMATRIX view = XMMatrixLookAtLH(
+        XMVectorSet(0.0f, 1.3f, -5.2f, 1.0f),
+        XMVectorZero(),
+        XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f));
+    const XMMATRIX projection = XMMatrixPerspectiveFovLH(
+        XMConvertToRadians(58.0f),
+        aspect,
+        0.1f,
+        100.0f);
+
+    SceneConstants constants{};
+    XMStoreFloat4x4(&constants.world, world);
+    XMStoreFloat4x4(&constants.world_view_projection, world * view * projection);
+    constants.light_direction = {-0.35f, -0.78f, -0.52f, 0.0f};
+
+    std::byte* destination =
+        mapped_scene_constants_ + static_cast<std::size_t>(frame_index_) * sizeof(SceneConstants);
+    std::memcpy(destination, &constants, sizeof(constants));
 }
 
 void D3D12Renderer::PopulateCommandList()
@@ -596,13 +772,24 @@ void D3D12Renderer::PopulateCommandList()
     constexpr float clear_color[4] = {0.018f, 0.022f, 0.035f, 1.0f};
     command_list_->RSSetViewports(1, &viewport_);
     command_list_->RSSetScissorRects(1, &scissor_rect_);
-    command_list_->OMSetRenderTargets(1, &target, FALSE, nullptr);
+    command_list_->OMSetRenderTargets(1, &target, FALSE, &dsv_handle_);
     command_list_->ClearRenderTargetView(target, clear_color, 0, nullptr);
+    command_list_->ClearDepthStencilView(
+        dsv_handle_,
+        D3D12_CLEAR_FLAG_DEPTH,
+        1.0f,
+        0,
+        0,
+        nullptr);
     command_list_->SetGraphicsRootSignature(root_signature_.Get());
+    command_list_->SetGraphicsRootConstantBufferView(
+        0,
+        scene_constant_buffer_->GetGPUVirtualAddress()
+            + static_cast<UINT64>(frame_index_) * sizeof(SceneConstants));
     command_list_->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     command_list_->IASetVertexBuffers(0, 1, &vertex_buffer_view_);
     command_list_->IASetIndexBuffer(&index_buffer_view_);
-    command_list_->DrawIndexedInstanced(3, 1, 0, 0, 0);
+    command_list_->DrawIndexedInstanced(index_count_, 1, 0, 0, 0);
 
     const D3D12_RESOURCE_BARRIER to_present = TransitionBarrier(
         render_targets_[frame_index_].Get(),
@@ -653,6 +840,11 @@ void D3D12Renderer::ReleaseRenderTargets()
     {
         target.Reset();
     }
+}
+
+void D3D12Renderer::ReleaseDepthBuffer()
+{
+    depth_buffer_.Reset();
 }
 
 void D3D12Renderer::UpdateViewportAndScissor()
