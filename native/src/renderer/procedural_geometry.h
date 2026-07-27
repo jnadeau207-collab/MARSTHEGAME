@@ -34,6 +34,17 @@ struct MeshData
     float width = 24.0f,
     float depth = 32.0f,
     float height_scale = 1.15f);
+
+// Project-owned hero-character topology. These meshes are deterministic and
+// independent from relay/terrain topology and material identity.
+[[nodiscard]] MeshData GenerateFieldEngineerTorso(std::uint32_t segments = 28);
+[[nodiscard]] MeshData GenerateFieldEngineerHelmet(
+    std::uint32_t rings = 14,
+    std::uint32_t segments = 28);
+[[nodiscard]] MeshData GenerateFieldEngineerLimb(
+    std::uint32_t rings = 12,
+    std::uint32_t segments = 20);
+
 [[nodiscard]] std::uint64_t HashMesh(const MeshData& mesh) noexcept;
 [[nodiscard]] bool ValidateMesh(const MeshData& mesh) noexcept;
 } // namespace mars::renderer
