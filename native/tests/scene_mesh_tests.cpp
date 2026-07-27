@@ -111,17 +111,17 @@ int main(const int argc, char** argv)
         "Phase 5 recovery scene must not restore the featureless perimeter walls");
     Require(found_relay_coupling,
         "Phase 5 recovery scene must contain the Relay 03 physical coupling objective");
-    Require(authored_counts[0] == 15, "recovery scene must contain fifteen hard-surface cube entities");
-    Require(authored_counts[1] == 12, "recovery scene must contain twelve geological rock entities");
-    Require(authored_counts[2] == 9, "recovery scene must contain nine structural column entities");
+    Require(authored_counts[0] == 15, "recovery scene must contain fifteen hard-surface entities");
+    Require(authored_counts[1] == 12, "recovery scene must contain twelve geological outcrop entities");
+    Require(authored_counts[2] == 9, "recovery scene must contain nine rounded structural entities");
     Require(authored_counts[3] == 1, "recovery scene must contain one generated terrain entity");
 
     const mars::game::GameState game(definition);
     const mars::renderer::RenderScene scene = game.Scene();
     Require(scene.instances.size() == definition.entities.size(),
         "runtime scene must preserve all thirty-seven authored instance slots");
-    Require(scene.supplemental_character_count == 8,
-        "runtime scene must expose eight supplemental generated character parts");
+    Require(scene.supplemental_character_count == 20,
+        "runtime scene must expose twenty supplemental field-engineer parts");
 
     std::array<std::size_t, static_cast<std::size_t>(mars::renderer::MeshKind::Count)> authored_runtime_counts{};
     for (const mars::renderer::RenderInstance& instance : scene.instances)
@@ -132,11 +132,11 @@ int main(const int argc, char** argv)
         ++authored_runtime_counts[mesh_index];
     }
     Require(authored_runtime_counts[static_cast<std::size_t>(mars::renderer::MeshKind::Cube)] == 16,
-        "runtime scene must replace the authored player column with the generated torso cube");
+        "runtime scene must replace the authored player column with the generated torso shell");
     Require(authored_runtime_counts[static_cast<std::size_t>(mars::renderer::MeshKind::MarsRock)] == 12,
-        "runtime scene must preserve twelve authored geological rock instances");
+        "runtime scene must preserve twelve authored geological outcrop instances");
     Require(authored_runtime_counts[static_cast<std::size_t>(mars::renderer::MeshKind::BeaconColumn)] == 8,
-        "runtime scene must preserve eight non-player authored structural columns");
+        "runtime scene must preserve eight non-player authored rounded structural instances");
     Require(authored_runtime_counts[static_cast<std::size_t>(mars::renderer::MeshKind::TerrainPatch)] == 1,
         "runtime scene must preserve one authored generated terrain instance");
 
@@ -146,17 +146,17 @@ int main(const int argc, char** argv)
         const mars::renderer::RenderInstance& instance = scene.supplemental_character_instances[index];
         const std::size_t mesh_index = static_cast<std::size_t>(instance.mesh);
         Require(mesh_index < supplemental_counts.size(),
-            "supplemental character must reject invalid generated mesh kinds");
+            "supplemental field engineer must reject invalid generated mesh kinds");
         ++supplemental_counts[mesh_index];
     }
-    Require(supplemental_counts[static_cast<std::size_t>(mars::renderer::MeshKind::Cube)] == 3,
-        "supplemental character must contain pelvis backpack and visor cube parts");
+    Require(supplemental_counts[static_cast<std::size_t>(mars::renderer::MeshKind::Cube)] == 8,
+        "field engineer must contain shell plates shoulders pelvis boots pack and visor parts");
     Require(supplemental_counts[static_cast<std::size_t>(mars::renderer::MeshKind::MarsRock)] == 0,
-        "field-engineer previsualization must not use a generated rock as the helmet");
-    Require(supplemental_counts[static_cast<std::size_t>(mars::renderer::MeshKind::BeaconColumn)] == 5,
-        "supplemental character must contain a cylindrical helmet and four limb parts");
+        "field engineer must never reuse geological geometry as anatomy");
+    Require(supplemental_counts[static_cast<std::size_t>(mars::renderer::MeshKind::BeaconColumn)] == 12,
+        "field engineer must contain rounded helmet limb and life-support canister parts");
     Require(supplemental_counts[static_cast<std::size_t>(mars::renderer::MeshKind::TerrainPatch)] == 0,
-        "supplemental character must not misuse terrain geometry");
+        "field engineer must not misuse terrain geometry");
 
     RequireThrows(
         []() {
@@ -168,6 +168,6 @@ int main(const int argc, char** argv)
         },
         "scene parser must reject multiple generated mesh selections");
 
-    std::cout << "MARSTHEGAME Relay 03 previsualization mesh contract tests passed\n";
+    std::cout << "MARSTHEGAME Relay 03 articulated silhouette mesh contract tests passed\n";
     return 0;
 }
