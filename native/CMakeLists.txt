@@ -86,6 +86,14 @@ set(MARS_MESH_ASSET_SOURCES
   src/assets/mesh_asset.h
 )
 
+set(MARS_RENDERER_SOURCES
+  src/platform/win32_window.cpp
+  src/platform/win32_window.h
+  src/renderer/d3d12_renderer.cpp
+  src/renderer/d3d12_renderer.h
+  src/renderer/render_scene.h
+)
+
 add_executable(
   mars_scene_cooker
   tools/scene_cooker_main.cpp
@@ -160,10 +168,7 @@ add_executable(
   mars_native
   WIN32
   src/main.cpp
-  src/platform/win32_window.cpp
-  src/platform/win32_window.h
-  src/renderer/d3d12_renderer.cpp
-  src/renderer/d3d12_renderer.h
+  ${MARS_RENDERER_SOURCES}
   ${MARS_GAME_SOURCES}
   ${MARS_INPUT_SOURCES}
 )
@@ -250,6 +255,40 @@ add_test(
   COMMAND mars_native_mesh_tests "${SOURCE_BEACON_MESH}" "${COOKED_BEACON_MESH}"
 )
 
+add_executable(
+  mars_native_renderer_mesh_tests
+  tests/renderer_mesh_tests.cpp
+  ${MARS_RENDERER_SOURCES}
+  ${MARS_MESH_ASSET_SOURCES}
+)
+add_dependencies(mars_native_renderer_mesh_tests mars_shaders mars_assets)
+target_include_directories(
+  mars_native_renderer_mesh_tests
+  PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src"
+)
+target_compile_definitions(
+  mars_native_renderer_mesh_tests
+  PRIVATE
+    UNICODE
+    _UNICODE
+    WIN32_LEAN_AND_MEAN
+    NOMINMAX
+    MARS_ENABLE_D3D12_VALIDATION=1
+)
+mars_strict_warnings(mars_native_renderer_mesh_tests)
+target_link_libraries(
+  mars_native_renderer_mesh_tests
+  PRIVATE
+    d3d12
+    dxgi
+    dxguid
+    user32
+)
+add_test(
+  NAME native_renderer_mesh_selection
+  COMMAND mars_native_renderer_mesh_tests "${COOKED_BEACON_MESH}"
+)
+
 add_custom_command(
   TARGET mars_native
   POST_BUILD
@@ -268,4 +307,17 @@ add_custom_command(
   COMMAND "${CMAKE_COMMAND}" -E copy_if_different
           "${COOKED_BEACON_MESH}"
           "$<TARGET_FILE_DIR:mars_native>/assets/meshes/beacon.marsmesh.bin"
+)
+
+add_custom_command(
+  TARGET mars_native_renderer_mesh_tests
+  POST_BUILD
+  COMMAND "${CMAKE_COMMAND}" -E make_directory
+          "$<TARGET_FILE_DIR:mars_native_renderer_mesh_tests>/shaders"
+  COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+          "${VERTEX_SHADER}"
+          "$<TARGET_FILE_DIR:mars_native_renderer_mesh_tests>/shaders/scene.vs.dxil"
+  COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+          "${PIXEL_SHADER}"
+          "$<TARGET_FILE_DIR:mars_native_renderer_mesh_tests>/shaders/scene.ps.dxil"
 )
