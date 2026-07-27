@@ -56,9 +56,18 @@ cmake --build build/native --parallel
 
 The packaging self-test proves that the executable and compiled DXIL payload were delivered together. The WARP smoke test proves that the validation-enabled software D3D12 device can execute the 3D draw, resize, synchronize, present, and return meaningful pixels. Neither test claims founder hardware behavior or human visual approval.
 
+## Verified CI boundary
+
+At exact head `85ebd4d28a504988818e00d052fc2be445ecc649`:
+
+- native renderer run `30230916130` passed strict MSVC `/W4 /WX`, DXC, packaging, validation-enabled WARP, resize, presentation, GPU readback, and artifact upload,
+- compatibility run `30230916160` passed Python 3.11/3.12 quality, the complete test suite, all protected replays and audits, and the same-runner performance guard.
+
+A later README-only commit does not change this native implementation evidence; its exact-head verification remains required before the tranche advances.
+
 ## Live founder-PC verification
 
-After the Windows CI build is clean, run:
+After the latest branch head is green, run:
 
 ```powershell
 .\build\native\mars_native.exe
