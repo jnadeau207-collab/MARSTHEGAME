@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdlib>
 #include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <stdexcept>
 
@@ -37,8 +38,59 @@ void RequireThrows(Callable&& callable, const char* message)
 int main(const int argc, char** argv)
 {
     Require(argc == 2, "scene mesh tests require the cooked Ares Reach scene path");
+    const std::filesystem::path cooked_path(argv[1]);
     const mars::assets::SceneDefinition definition =
-        mars::assets::LoadCookedScene(std::filesystem::path(argv[1]));
+        mars::assets::LoadCookedScene(cooked_path);
+
+    const mars::assets::ContentManifest rebuilt_manifest =
+        mars::assets::BuildContentManifest(definition);
+    Require(definition.content_manifest == rebuilt_manifest,
+        "cooked scene must expose its verified aggregate content manifest");
+    Require(rebuilt_manifest.scene_source_hash == definition.source_hash,
+        "content manifest must bind the authored scene source hash");
+    Require(rebuilt_manifest.mesh_catalog_hash != 0 && rebuilt_manifest.composition_hash != 0
+            && rebuilt_manifest.aggregate_hash != 0,
+        "content manifest hashes must be non-zero");
+    for (const std::uint64_t mesh_hash : rebuilt_manifest.mesh_hashes)
+    {
+        Require(mesh_hash != 0, "content manifest must bind every canonical generated mesh");
+    }
+
+    mars::assets::SceneDefinition changed_definition = definition;
+    changed_definition.entities.front().position.x += 0.125f;
+    const mars::assets::ContentManifest changed_manifest =
+        mars::assets::BuildContentManifest(changed_definition);
+    Require(changed_manifest.mesh_hashes == rebuilt_manifest.mesh_hashes,
+        "scene composition changes must not alter canonical mesh identity");
+    Require(changed_manifest.composition_hash != rebuilt_manifest.composition_hash,
+        "scene composition changes must alter the composition hash");
+    Require(changed_manifest.aggregate_hash != rebuilt_manifest.aggregate_hash,
+        "scene composition changes must alter the aggregate content hash");
+
+    const std::filesystem::path corrupt_path = cooked_path.parent_path()
+        / "ares_reach.manifest-corrupt-test.bin";
+    std::filesystem::copy_file(
+        cooked_path,
+        corrupt_path,
+        std::filesystem::copy_options::overwrite_existing);
+    {
+        std::fstream corrupt(corrupt_path, std::ios::binary | std::ios::in | std::ios::out);
+        Require(static_cast<bool>(corrupt), "manifest corruption fixture must open");
+        corrupt.seekg(95, std::ios::beg);
+        char byte = 0;
+        corrupt.read(&byte, 1);
+        Require(static_cast<bool>(corrupt), "manifest corruption fixture must read header byte");
+        byte = static_cast<char>(static_cast<unsigned char>(byte) ^ 0x5AU);
+        corrupt.seekp(95, std::ios::beg);
+        corrupt.write(&byte, 1);
+        Require(static_cast<bool>(corrupt), "manifest corruption fixture must write header byte");
+    }
+    RequireThrows(
+        [&corrupt_path]() {
+            static_cast<void>(mars::assets::LoadCookedScene(corrupt_path));
+        },
+        "runtime must reject a cooked package with a corrupted aggregate manifest");
+    std::filesystem::remove(corrupt_path);
 
     std::array<std::size_t, 4> authored_counts{};
     for (const mars::assets::SceneEntity& entity : definition.entities)

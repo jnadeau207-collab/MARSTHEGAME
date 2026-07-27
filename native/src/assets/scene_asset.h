@@ -2,6 +2,8 @@
 
 #include <DirectXMath.h>
 
+#include <array>
+#include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <string>
@@ -31,6 +33,21 @@ enum class SceneMeshKind : std::uint32_t
     TerrainPatch = 3,
 };
 
+struct ContentManifest
+{
+    static constexpr std::uint32_t kSchemaVersion = 1;
+    static constexpr std::size_t kMeshCount = 4;
+
+    std::uint32_t schema_version = kSchemaVersion;
+    std::uint64_t scene_source_hash = 0;
+    std::array<std::uint64_t, kMeshCount> mesh_hashes{};
+    std::uint64_t mesh_catalog_hash = 0;
+    std::uint64_t composition_hash = 0;
+    std::uint64_t aggregate_hash = 0;
+
+    bool operator==(const ContentManifest&) const = default;
+};
+
 struct SceneEntity
 {
     std::string id{};
@@ -46,11 +63,13 @@ struct SceneDefinition
 
     std::uint32_t schema_version = kSchemaVersion;
     std::uint64_t source_hash = 0;
+    ContentManifest content_manifest{};
     std::vector<SceneEntity> entities{};
 };
 
 [[nodiscard]] bool HasFlag(const SceneEntity& entity, SceneEntityFlag flag) noexcept;
 [[nodiscard]] SceneMeshKind MeshKindForEntity(const SceneEntity& entity) noexcept;
+[[nodiscard]] ContentManifest BuildContentManifest(const SceneDefinition& scene);
 [[nodiscard]] SceneDefinition ParseSceneSource(std::string_view source);
 void WriteCookedScene(const std::filesystem::path& path, const SceneDefinition& scene);
 [[nodiscard]] SceneDefinition LoadCookedScene(const std::filesystem::path& path);

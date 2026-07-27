@@ -1,7 +1,9 @@
 #include "assets/scene_asset.h"
+#include "renderer/procedural_catalog.h"
 
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <cctype>
 #include <cmath>
 #include <cstddef>
@@ -22,8 +24,8 @@ namespace mars::assets
 {
 namespace
 {
-constexpr std::array<char, 8> kMagic = {'M', 'A', 'R', 'S', 'C', 'N', '1', '\0'};
-constexpr std::uint32_t kCookedVersion = 1;
+constexpr std::array<char, 8> kMagic = {'M', 'A', 'R', 'S', 'C', 'N', '2', '\0'};
+constexpr std::uint32_t kCookedVersion = 2;
 constexpr std::uint32_t kMaximumEntities = 512;
 constexpr std::uint32_t kMeshFlags = SceneEntityMeshRock | SceneEntityMeshColumn
     | SceneEntityMeshTerrain;
@@ -39,6 +41,12 @@ struct CookedHeader
     std::uint32_t entity_count = 0;
     std::uint64_t source_hash = 0;
     std::uint64_t payload_hash = 0;
+    std::uint32_t manifest_schema_version = ContentManifest::kSchemaVersion;
+    std::uint32_t reserved = 0;
+    std::array<std::uint64_t, ContentManifest::kMeshCount> mesh_hashes{};
+    std::uint64_t mesh_catalog_hash = 0;
+    std::uint64_t composition_hash = 0;
+    std::uint64_t aggregate_hash = 0;
 };
 
 struct CookedEntity
@@ -52,19 +60,30 @@ struct CookedEntity
 
 static_assert(std::is_trivially_copyable_v<CookedHeader>);
 static_assert(std::is_trivially_copyable_v<CookedEntity>);
-static_assert(sizeof(CookedHeader) == 32);
+static_assert(sizeof(CookedHeader) == 96);
 static_assert(sizeof(CookedEntity) == 92);
 
-std::uint64_t HashBytes(const void* data, const std::size_t size) noexcept
+void HashAppend(std::uint64_t& hash, const void* data, const std::size_t size) noexcept
 {
-    std::uint64_t hash = kFnvOffsetBasis;
     const auto* bytes = static_cast<const std::uint8_t*>(data);
     for (std::size_t index = 0; index < size; ++index)
     {
         hash ^= bytes[index];
         hash *= kFnvPrime;
     }
+}
+
+std::uint64_t HashBytes(const void* data, const std::size_t size) noexcept
+{
+    std::uint64_t hash = kFnvOffsetBasis;
+    HashAppend(hash, data, size);
     return hash;
+}
+
+void HashFloat(std::uint64_t& hash, const float value) noexcept
+{
+    const std::uint32_t bits = std::bit_cast<std::uint32_t>(value);
+    HashAppend(hash, &bits, sizeof(bits));
 }
 
 std::uint64_t HashText(const std::string_view source) noexcept
@@ -224,6 +243,33 @@ void ValidateDefinition(const SceneDefinition& scene)
     }
 }
 
+std::uint64_t HashComposition(const SceneDefinition& scene) noexcept
+{
+    std::uint64_t hash = kFnvOffsetBasis;
+    HashAppend(hash, &scene.schema_version, sizeof(scene.schema_version));
+    HashAppend(hash, &scene.source_hash, sizeof(scene.source_hash));
+    const std::uint64_t entity_count = static_cast<std::uint64_t>(scene.entities.size());
+    HashAppend(hash, &entity_count, sizeof(entity_count));
+    for (const SceneEntity& entity : scene.entities)
+    {
+        const std::uint64_t id_size = static_cast<std::uint64_t>(entity.id.size());
+        HashAppend(hash, &id_size, sizeof(id_size));
+        HashAppend(hash, entity.id.data(), entity.id.size());
+        HashAppend(hash, &entity.flags, sizeof(entity.flags));
+        HashFloat(hash, entity.position.x);
+        HashFloat(hash, entity.position.y);
+        HashFloat(hash, entity.position.z);
+        HashFloat(hash, entity.scale.x);
+        HashFloat(hash, entity.scale.y);
+        HashFloat(hash, entity.scale.z);
+        HashFloat(hash, entity.tint.x);
+        HashFloat(hash, entity.tint.y);
+        HashFloat(hash, entity.tint.z);
+        HashFloat(hash, entity.tint.w);
+    }
+    return hash;
+}
+
 CookedEntity ToCooked(const SceneEntity& entity)
 {
     CookedEntity record{};
@@ -279,6 +325,39 @@ SceneMeshKind MeshKindForEntity(const SceneEntity& entity) noexcept
         return SceneMeshKind::BeaconColumn;
     }
     return SceneMeshKind::Cube;
+}
+
+ContentManifest BuildContentManifest(const SceneDefinition& scene)
+{
+    ValidateDefinition(scene);
+    static_assert(ContentManifest::kMeshCount == renderer::kProceduralMeshCount);
+    static_assert(static_cast<std::size_t>(SceneMeshKind::Cube)
+        == static_cast<std::size_t>(renderer::ProceduralMeshSlot::Cube));
+    static_assert(static_cast<std::size_t>(SceneMeshKind::MarsRock)
+        == static_cast<std::size_t>(renderer::ProceduralMeshSlot::MarsRock));
+    static_assert(static_cast<std::size_t>(SceneMeshKind::BeaconColumn)
+        == static_cast<std::size_t>(renderer::ProceduralMeshSlot::BeaconColumn));
+    static_assert(static_cast<std::size_t>(SceneMeshKind::TerrainPatch)
+        == static_cast<std::size_t>(renderer::ProceduralMeshSlot::TerrainPatch));
+
+    const renderer::ProceduralMeshCatalog catalog = renderer::GenerateProceduralMeshCatalog();
+    ContentManifest manifest{};
+    manifest.scene_source_hash = scene.source_hash;
+    manifest.mesh_hashes = catalog.mesh_hashes;
+    manifest.mesh_catalog_hash = catalog.aggregate_hash;
+    manifest.composition_hash = HashComposition(scene);
+
+    std::uint64_t aggregate = kFnvOffsetBasis;
+    HashAppend(aggregate, &manifest.schema_version, sizeof(manifest.schema_version));
+    HashAppend(aggregate, &manifest.scene_source_hash, sizeof(manifest.scene_source_hash));
+    HashAppend(
+        aggregate,
+        manifest.mesh_hashes.data(),
+        manifest.mesh_hashes.size() * sizeof(manifest.mesh_hashes.front()));
+    HashAppend(aggregate, &manifest.mesh_catalog_hash, sizeof(manifest.mesh_catalog_hash));
+    HashAppend(aggregate, &manifest.composition_hash, sizeof(manifest.composition_hash));
+    manifest.aggregate_hash = aggregate;
+    return manifest;
 }
 
 SceneDefinition ParseSceneSource(const std::string_view source)
@@ -355,12 +434,14 @@ SceneDefinition ParseSceneSource(const std::string_view source)
         scene.entities.end(),
         [](const SceneEntity& left, const SceneEntity& right) { return left.id < right.id; });
     ValidateDefinition(scene);
+    scene.content_manifest = BuildContentManifest(scene);
     return scene;
 }
 
 void WriteCookedScene(const std::filesystem::path& path, const SceneDefinition& scene)
 {
     ValidateDefinition(scene);
+    const ContentManifest manifest = BuildContentManifest(scene);
     if (path.empty())
     {
         throw std::invalid_argument("Cooked scene path cannot be empty");
@@ -382,6 +463,11 @@ void WriteCookedScene(const std::filesystem::path& path, const SceneDefinition& 
     header.entity_count = static_cast<std::uint32_t>(records.size());
     header.source_hash = scene.source_hash;
     header.payload_hash = HashBytes(records.data(), records.size() * sizeof(CookedEntity));
+    header.manifest_schema_version = manifest.schema_version;
+    header.mesh_hashes = manifest.mesh_hashes;
+    header.mesh_catalog_hash = manifest.mesh_catalog_hash;
+    header.composition_hash = manifest.composition_hash;
+    header.aggregate_hash = manifest.aggregate_hash;
 
     const std::filesystem::path temporary = path.string() + ".tmp";
     const std::filesystem::path backup = path.string() + ".bak";
@@ -444,7 +530,8 @@ SceneDefinition LoadCookedScene(const std::filesystem::path& path)
     CookedHeader header{};
     input.read(reinterpret_cast<char*>(&header), sizeof(header));
     if (!input || header.magic != kMagic || header.version != kCookedVersion
-        || header.entity_count == 0U || header.entity_count > kMaximumEntities)
+        || header.entity_count == 0U || header.entity_count > kMaximumEntities
+        || header.reserved != 0U)
     {
         throw std::runtime_error("Cooked scene header is invalid");
     }
@@ -476,6 +563,16 @@ SceneDefinition LoadCookedScene(const std::filesystem::path& path)
         scene.entities.push_back(FromCooked(record));
     }
     ValidateDefinition(scene);
+    const ContentManifest expected_manifest = BuildContentManifest(scene);
+    if (header.manifest_schema_version != expected_manifest.schema_version
+        || header.mesh_hashes != expected_manifest.mesh_hashes
+        || header.mesh_catalog_hash != expected_manifest.mesh_catalog_hash
+        || header.composition_hash != expected_manifest.composition_hash
+        || header.aggregate_hash != expected_manifest.aggregate_hash)
+    {
+        throw std::runtime_error("Cooked scene content manifest mismatch");
+    }
+    scene.content_manifest = expected_manifest;
     return scene;
 }
 

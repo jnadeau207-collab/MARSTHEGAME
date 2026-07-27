@@ -36,6 +36,19 @@ if(NOT DXC_EXECUTABLE)
   message(FATAL_ERROR "DXC was not found. Install a Windows SDK containing dxc.exe.")
 endif()
 
+function(mars_strict_warnings target)
+  target_compile_options(
+    ${target}
+    PRIVATE
+      /W4
+      /WX
+      /permissive-
+      /EHsc
+      /Zc:__cplusplus
+      /utf-8
+  )
+endfunction()
+
 set(SHADER_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/shaders/scene.hlsl")
 set(SHADER_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/shaders")
 set(VERTEX_SHADER "${SHADER_OUTPUT_DIR}/scene.vs.dxil")
@@ -61,51 +74,26 @@ add_custom_command(
 
 add_custom_target(mars_shaders DEPENDS "${VERTEX_SHADER}" "${PIXEL_SHADER}")
 
-function(mars_strict_warnings target)
-  target_compile_options(
-    ${target}
-    PRIVATE
-      /W4
-      /WX
-      /permissive-
-      /EHsc
-      /Zc:__cplusplus
-      /utf-8
-  )
-endfunction()
+set(MARS_PROCEDURAL_CONTENT_SOURCES
+  src/renderer/procedural_catalog.cpp
+  src/renderer/procedural_catalog.h
+  src/renderer/procedural_geometry.cpp
+  src/renderer/procedural_geometry.h
+)
 
 set(MARS_SCENE_ASSET_SOURCES
   src/assets/scene_asset.cpp
   src/assets/scene_asset.h
 )
 
-set(MARS_MESH_ASSET_SOURCES
-  src/assets/json.cpp
-  src/assets/json.h
-  src/assets/mesh_asset.cpp
-  src/assets/mesh_asset.h
-)
-
-set(MARS_PROCEDURAL_GEOMETRY_SOURCES
-  src/renderer/procedural_geometry.cpp
-  src/renderer/procedural_geometry.h
-)
-
 add_executable(
   mars_scene_cooker
   tools/scene_cooker_main.cpp
   ${MARS_SCENE_ASSET_SOURCES}
+  ${MARS_PROCEDURAL_CONTENT_SOURCES}
 )
 target_include_directories(mars_scene_cooker PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
 mars_strict_warnings(mars_scene_cooker)
-
-add_executable(
-  mars_mesh_cooker
-  tools/mesh_cooker_main.cpp
-  ${MARS_MESH_ASSET_SOURCES}
-)
-target_include_directories(mars_mesh_cooker PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
-mars_strict_warnings(mars_mesh_cooker)
 
 set(SOURCE_SCENE "${CMAKE_CURRENT_SOURCE_DIR}/assets/scenes/ares_reach.marscene")
 set(COOKED_SCENE_DIR "${CMAKE_CURRENT_BINARY_DIR}/assets/scenes")
@@ -120,29 +108,11 @@ add_custom_command(
   DEPENDS mars_scene_cooker "${SOURCE_SCENE}"
   VERBATIM
 )
-
-set(SOURCE_BEACON_MESH "${CMAKE_CURRENT_SOURCE_DIR}/assets/meshes/beacon.gltf")
-set(COOKED_MESH_DIR "${CMAKE_CURRENT_BINARY_DIR}/assets/meshes")
-set(COOKED_BEACON_MESH "${COOKED_MESH_DIR}/beacon.marsmesh.bin")
-
-add_custom_command(
-  OUTPUT "${COOKED_BEACON_MESH}"
-  COMMAND "${CMAKE_COMMAND}" -E make_directory "${COOKED_MESH_DIR}"
-  COMMAND "$<TARGET_FILE:mars_mesh_cooker>"
-          --id beacon
-          --input "${SOURCE_BEACON_MESH}"
-          --output "${COOKED_BEACON_MESH}"
-  DEPENDS mars_mesh_cooker "${SOURCE_BEACON_MESH}"
-  VERBATIM
-)
-
-add_custom_target(
-  mars_assets
-  ALL
-  DEPENDS "${COOKED_SCENE}" "${COOKED_BEACON_MESH}"
-)
+add_custom_target(mars_assets ALL DEPENDS "${COOKED_SCENE}")
 
 set(MARS_GAME_SOURCES
+  ${MARS_SCENE_ASSET_SOURCES}
+  ${MARS_PROCEDURAL_CONTENT_SOURCES}
   src/game/collision.cpp
   src/game/collision.h
   src/game/game_state.cpp
@@ -152,8 +122,6 @@ set(MARS_GAME_SOURCES
   src/game/save_state.cpp
   src/game/save_state.h
   src/renderer/render_scene.h
-  ${MARS_PROCEDURAL_GEOMETRY_SOURCES}
-  ${MARS_SCENE_ASSET_SOURCES}
 )
 
 set(MARS_INPUT_SOURCES
@@ -252,12 +220,9 @@ add_test(NAME native_input_parity COMMAND mars_native_input_tests)
 add_executable(
   mars_procedural_content_tests
   tests/procedural_geometry_tests.cpp
-  ${MARS_PROCEDURAL_GEOMETRY_SOURCES}
+  ${MARS_PROCEDURAL_CONTENT_SOURCES}
 )
-target_include_directories(
-  mars_procedural_content_tests
-  PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src"
-)
+target_include_directories(mars_procedural_content_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
 target_compile_definitions(
   mars_procedural_content_tests
   PRIVATE
@@ -266,25 +231,6 @@ target_compile_definitions(
 )
 mars_strict_warnings(mars_procedural_content_tests)
 add_test(NAME procedural_content_generation COMMAND mars_procedural_content_tests)
-
-add_executable(
-  mars_native_mesh_tests
-  tests/mesh_asset_tests.cpp
-  ${MARS_MESH_ASSET_SOURCES}
-)
-add_dependencies(mars_native_mesh_tests mars_assets)
-target_include_directories(mars_native_mesh_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
-target_compile_definitions(
-  mars_native_mesh_tests
-  PRIVATE
-    WIN32_LEAN_AND_MEAN
-    NOMINMAX
-)
-mars_strict_warnings(mars_native_mesh_tests)
-add_test(
-  NAME native_gltf_mesh_pipeline
-  COMMAND mars_native_mesh_tests "${SOURCE_BEACON_MESH}" "${COOKED_BEACON_MESH}"
-)
 
 add_custom_command(
   TARGET mars_native
@@ -300,8 +246,4 @@ add_custom_command(
   COMMAND "${CMAKE_COMMAND}" -E copy_if_different
           "${COOKED_SCENE}"
           "$<TARGET_FILE_DIR:mars_native>/assets/scenes/ares_reach.marscene.bin"
-  COMMAND "${CMAKE_COMMAND}" -E make_directory "$<TARGET_FILE_DIR:mars_native>/assets/meshes"
-  COMMAND "${CMAKE_COMMAND}" -E copy_if_different
-          "${COOKED_BEACON_MESH}"
-          "$<TARGET_FILE_DIR:mars_native>/assets/meshes/beacon.marsmesh.bin"
 )
