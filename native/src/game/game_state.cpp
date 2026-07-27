@@ -59,6 +59,27 @@ renderer::MeshKind ToRenderMeshKind(const std::uint32_t slot)
     }
     return static_cast<renderer::MeshKind>(slot);
 }
+
+renderer::RenderInstance RigInstance(
+    const DirectX::XMFLOAT3 player_position,
+    const CharacterPartPose& part)
+{
+    return {
+        .position = {
+            player_position.x + part.offset.x,
+            player_position.y + part.offset.y,
+            player_position.z + part.offset.z,
+        },
+        .rotation_radians = {
+            part.rotation_radians.x,
+            part.rotation_radians.y,
+            part.rotation_radians.z,
+        },
+        .scale = {part.scale.x, part.scale.y, part.scale.z},
+        .tint = {part.tint.r, part.tint.g, part.tint.b, part.tint.a},
+        .mesh = ToRenderMeshKind(part.mesh_slot),
+    };
+}
 } // namespace
 
 GameState::GameState(const assets::SceneDefinition& scene)
@@ -76,7 +97,6 @@ void GameState::InitializeScene(const assets::SceneDefinition& scene)
 
     base_instances_.clear();
     collision_boxes_.clear();
-    character_instance_indices_.fill(kInvalidIndex);
     player_instance_index_ = kInvalidIndex;
     checkpoint_instance_index_ = kInvalidIndex;
     objective_instance_index_ = kInvalidIndex;
@@ -138,21 +158,6 @@ void GameState::InitializeScene(const assets::SceneDefinition& scene)
     {
         throw std::invalid_argument("Scene is missing required gameplay entities or collision");
     }
-
-    character_instance_indices_[static_cast<std::size_t>(CharacterPart::Torso)] =
-        player_instance_index_;
-    for (std::size_t part = 1; part < kCharacterPartCount; ++part)
-    {
-        character_instance_indices_[part] = base_instances_.size();
-        base_instances_.push_back({
-            .position = landing_position_,
-            .rotation_radians = {},
-            .scale = {0.2f, 0.2f, 0.2f},
-            .tint = {0.4f, 0.4f, 0.4f, 1.0f},
-            .mesh = renderer::MeshKind::Cube,
-        });
-    }
-
     checkpoint_position_.y = landing_position_.y;
     instances_ = base_instances_;
 }
@@ -340,6 +345,8 @@ renderer::RenderScene GameState::Scene() const noexcept
         .player_velocity = player_velocity_,
         .target_exposure = mission_state_ == MissionState::Complete ? 1.12f : 0.92f,
         .mission_complete = mission_state_ == MissionState::Complete,
+        .supplemental_character_instances = supplemental_character_instances_,
+        .supplemental_character_count = static_cast<std::uint32_t>(supplemental_character_instances_.size()),
         .instances = std::span<const renderer::RenderInstance>(instances_),
     };
 }
@@ -420,23 +427,14 @@ void GameState::RebuildScene()
         elapsed_seconds_,
         planar_speed,
         mission_state_ == MissionState::Complete);
-    for (std::size_t part_index = 0; part_index < kCharacterPartCount; ++part_index)
+    instances_[player_instance_index_] = RigInstance(
+        player_position_,
+        pose.parts[static_cast<std::size_t>(CharacterPart::Torso)]);
+    for (std::size_t part_index = 1; part_index < kCharacterPartCount; ++part_index)
     {
-        const CharacterPartPose& part = pose.parts[part_index];
-        renderer::RenderInstance& instance = instances_[character_instance_indices_[part_index]];
-        instance.position = {
-            player_position_.x + part.offset.x,
-            player_position_.y + part.offset.y,
-            player_position_.z + part.offset.z,
-        };
-        instance.rotation_radians = {
-            part.rotation_radians.x,
-            part.rotation_radians.y,
-            part.rotation_radians.z,
-        };
-        instance.scale = {part.scale.x, part.scale.y, part.scale.z};
-        instance.tint = {part.tint.r, part.tint.g, part.tint.b, part.tint.a};
-        instance.mesh = ToRenderMeshKind(part.mesh_slot);
+        supplemental_character_instances_[part_index - 1U] = RigInstance(
+            player_position_,
+            pose.parts[part_index]);
     }
 
     const float pulse = 1.0f + std::sin(elapsed_seconds_ * 4.0f) * 0.12f;
