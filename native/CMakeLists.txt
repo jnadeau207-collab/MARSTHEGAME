@@ -110,6 +110,8 @@ set(MARS_GENERATED_MATERIAL_SOURCES
 set(MARS_VISUAL_SLICE_SOURCES
   src/renderer/generated_environment.cpp
   src/renderer/generated_environment.h
+  src/renderer/generated_subtitles.cpp
+  src/renderer/generated_subtitles.h
   src/renderer/visual_slice.cpp
   src/renderer/visual_slice.h
 )
@@ -285,6 +287,11 @@ add_executable(mars_generated_environment_tests tests/generated_environment_test
 target_include_directories(mars_generated_environment_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
 mars_strict_warnings(mars_generated_environment_tests)
 add_test(NAME phase5_generated_environment_ibl COMMAND mars_generated_environment_tests)
+
+add_executable(mars_generated_subtitle_tests tests/generated_subtitle_tests.cpp src/renderer/generated_subtitles.cpp src/renderer/generated_subtitles.h)
+target_include_directories(mars_generated_subtitle_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
+mars_strict_warnings(mars_generated_subtitle_tests)
+add_test(NAME phase5_generated_subtitles COMMAND mars_generated_subtitle_tests)
 
 add_executable(mars_character_rig_tests tests/character_rig_tests.cpp ${MARS_CHARACTER_SOURCES})
 target_include_directories(mars_character_rig_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
