@@ -46,18 +46,18 @@ jobs:
           cmake --build build/native --parallel 2>&1 |
             Tee-Object -FilePath build/native-build.log
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Run deterministic native gameplay, input, scene, and mesh tests
+      - name: Run deterministic native gameplay, input, asset, and GPU mesh tests
         shell: pwsh
         run: |
           ctest --test-dir build/native --output-on-failure 2>&1 |
             Tee-Object -FilePath build/native-tests.log
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Verify packaged shader and scene payloads
+      - name: Verify packaged shaders, scene, and mesh catalog
         shell: pwsh
         run: |
           .\build\native\mars_native.exe --self-test
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Render cooked Ares Reach scene under D3D12 validation
+      - name: Render authored Ares Reach meshes under D3D12 validation
         timeout-minutes: 2
         shell: pwsh
         run: |
@@ -74,6 +74,7 @@ jobs:
             build/native/mars_native_game_tests.exe
             build/native/mars_native_input_tests.exe
             build/native/mars_native_mesh_tests.exe
+            build/native/mars_native_renderer_mesh_tests.exe
             build/native/mars_scene_cooker.exe
             build/native/mars_mesh_cooker.exe
             build/native/shaders/*.dxil
