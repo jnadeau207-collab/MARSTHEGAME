@@ -25,6 +25,13 @@
         material_catalog.surface.layers,
         D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
         L"MARSTHEGAME Generated Roughness Metallic Mask Array");
+    environment_texture_ = upload_context_.UploadTexture2DArrayRgba8(
+        std::span<const std::uint8_t>(environment.rgba8),
+        environment.face_size,
+        environment.face_size,
+        6U,
+        D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+        L"MARSTHEGAME Generated Martian Environment Cube");
     const std::uint64_t upload_fence = upload_context_.Submit();
     upload_context_.Wait(upload_fence);
     upload_statistics_ = upload_context_.Statistics();
@@ -166,6 +173,16 @@ void D3D12Renderer::WriteShaderResourceViews()
     device_->CreateShaderResourceView(history_targets_[1].Get(), &hdr_view, descriptor);
     advance();
     device_->CreateShaderResourceView(depth_buffer_.Get(), &scalar_view, descriptor);
+    advance();
+
+    D3D12_SHADER_RESOURCE_VIEW_DESC environment_view{};
+    environment_view.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+    environment_view.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    environment_view.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBE;
+    environment_view.TextureCube.MostDetailedMip = 0;
+    environment_view.TextureCube.MipLevels = 1;
+    environment_view.TextureCube.ResourceMinLODClamp = 0.0f;
+    device_->CreateShaderResourceView(environment_texture_.Get(), &environment_view, descriptor);
 }
 
 void D3D12Renderer::UpdateConstants(const RenderScene& scene)
