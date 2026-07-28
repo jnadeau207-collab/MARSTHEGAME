@@ -1,4 +1,4 @@
-# AUTHORITATIVE PRODUCTION PLAN V7: MARSTHEGAME
+# AUTHORITATIVE PRODUCTION PLAN V8: MARSTHEGAME
 
 ## 1. Authority
 
@@ -7,6 +7,8 @@ This document is the founder-controlled product and engineering authority for MA
 The project has exactly one human founder, `jnadeau207-collab`, and one AI software collaborator, ChatGPT. There are no employees, contractors, departments, other human contributors, or implied production seats.
 
 Repository evidence outranks aspirational prose. No phase, feature, content quantity, visual-quality level, or release state may be claimed without executable or directly reviewable evidence.
+
+Founder direct visual rejection outranks automated image thresholds. A rendered frame may be technically valid and still fail the product standard.
 
 ## 2. Product standard
 
@@ -57,6 +59,8 @@ The emotional target is earnest determination. The work must not collapse into p
 ### Identity and legal boundary
 
 The fictionalized identity track is the default production path. Real-world names, likenesses, and marks may not be publicly marketed, monetized, submitted to platforms, or used in external playtests without written clearance from qualified counsel.
+
+External game screenshots, presentations, and production breakdowns may be used for study. Their protected characters, environments, marks, UI, assets, and distinctive designs may not be copied into the project.
 
 ## 5. Completed foundations
 
@@ -147,18 +151,18 @@ The code-authored content and renderer path now contain:
 - a dedicated upload command path with explicit copy transitions, upload-fence synchronization, monotonic fence retirement, and staging-resource lifetime tracking,
 - a persistently mapped upload heap reserved for per-frame CPU-written scene constants rather than immutable content,
 - startup verification and diagnostics proving completed staging batches are retired before first render,
-- an Ares Reach composition containing generated terrain, six rocks, six radial elements, and five explicit hard-surface cube elements,
-- strict topology, seed-divergence, density, elevation, cooked-scene, aggregate-manifest, generated-material determinism, material-corruption rejection, fence-retirement ordering, runtime-composition, DXIL-package, D3D12 validation, resize, and GPU-readback evidence,
-- exact Windows verification by Native Game CI run #253 on the project-generated-material and default-heap-residency implementation head.
+- an Ares Reach technical composition containing generated terrain, rocks, radial elements, and hard-surface elements,
+- strict topology, seed-divergence, density, elevation, cooked-scene, aggregate-manifest, generated-material determinism, material-corruption rejection, fence-retirement ordering, runtime-composition, DXIL-package, D3D12 validation, resize, and GPU-readback evidence.
 
 ### Remaining Phase 4 systems
 
 - scalable mesh, texture, material, sampler, descriptor, mip, streaming, and shader-variant management,
-- physically based metallic/roughness material path,
+- physically based metallic/roughness material path suitable for authored material families,
 - project-owned skeletal hierarchy, skinning, clips, blending, root-motion policy, and animation state machines,
 - combat, interaction, campaign progression, settings, and accessibility completion,
 - project-owned audio synthesis, procedural ambience, authored sequencing, and runtime mixing,
-- debug visualization and native authoring support sufficient for the visual slice.
+- debug visualization and native authoring support sufficient for the replacement visual slice,
+- deterministic previsualization camera and screenshot-viewpoint support.
 
 ### Phase 4 exit gate
 
@@ -173,6 +177,8 @@ A native Ares Reach graybox must be playable from start to finish with:
 - validation-clean rendering,
 - measured CPU, GPU, memory, and hitch behavior.
 
+A Phase 4 exit proves engine and gameplay infrastructure. It does not imply production art.
+
 ## 7. Remaining production phases
 
 Exactly five major phases remain.
@@ -181,29 +187,65 @@ Exactly five major phases remain.
 
 Status: **in progress**.
 
-## Phase 5 — AAA visual vertical slice
+## Phase 5 — art-directed AAA visual hero sequence
 
-### Goal
+Status: **previous candidate invalidated; recovery in progress**.
 
-Make one representative Ares Reach segment visually and aurally credible against modern high-end action-game references using project-owned runtime and content-generation technology.
+### Invalidation record
+
+On 2026-07-27 the founder directly launched and visually rejected the previous Phase 5 candidate. The build and automated tests proved renderer and runtime function, but the visible result remained a technical graybox with primitive character construction, arena-like environment composition, weak material identity, undirected lighting/post-processing, and prototype UI.
+
+The prior candidate may not be represented as Phase 5 complete or visually approved. See:
+
+- `docs/PHASE5_INVALIDATION_AND_RECOVERY.md`
+- `docs/PHASE5_REFERENCE_BOARD.md`
+- `docs/PHASE5_HERO_SEQUENCE_ART_DIRECTION.md`
+- `docs/PHASE5_SCREENSHOT_APPROVAL_GATE.md`
+
+### Replacement goal
+
+Produce one continuous, playable Ares Reach hero sequence — **First Light at Relay 03** — that is visually and aurally credible against modern high-end action-game references while remaining original, project-owned, native, deterministic, performant, accessible, and legally distinct.
+
+The sequence must establish:
+
+- a professional human-scale field-engineer character,
+- an authored Mars basin with foreground, route, worksite, and vista layers,
+- a functionally legible relay installation,
+- deliberate continuous camera staging,
+- calibrated material families rather than universal procedural noise,
+- restrained lighting, atmosphere, exposure, bloom, focus, and motion treatment,
+- minimal accessible UI subordinate to the world,
+- a physical relay-restoration payoff with authored VFX and audio.
 
 ### Required systems
 
-- HDR linear-light rendering and tone mapping,
+- deterministic previsualization and screenshot viewpoints,
+- HDR linear-light rendering and controlled tone mapping,
 - image-based lighting and production PBR materials,
-- stable direct shadows and local lighting,
-- atmosphere, fog, dust, sky, and distance treatment,
-- generated terrain plus deliberately composed environment structure,
-- temporal anti-aliasing or equivalent temporal stability,
-- reflections, ambient occlusion, bloom, exposure, depth of field, and motion treatment,
-- GPU particles and project-authored VFX,
-- project-generated character geometry, rig, animation, impacts, and camera presentation,
-- project-authored or synthesized music, ambience, sound design, dialogue/subtitles, and mix,
-- capture workflow and automated image/performance comparisons.
+- stable direct shadows, sky fill, local practical lights, and authored activation lighting,
+- bounded atmosphere, fog, dust, sky, and distance treatment,
+- deliberately composed terrain, geology, worksite, and vista structures,
+- temporal stability without visible smearing or crawling,
+- configurable exposure, reflections, ambient occlusion, bloom, and motion treatment,
+- project-authored VFX,
+- proportional project-generated or project-authored character geometry, skeleton, skinning, clips, blending, interaction, and camera presentation,
+- project-authored or synthesized ambience, sound design, music, relay signal, and mix,
+- professional scalable text and HUD layout,
+- capture workflow and automated regression comparisons that do not claim aesthetic approval.
 
 ### Exit gate
 
-The founder must directly play and approve the native slice. Captures must satisfy the committed visual-reference rubric. Frame-time, memory, hitch, accessibility, crash, and device-validation evidence must pass on the reference PC.
+The exact candidate head must pass:
+
+- strict native build and automated tests,
+- WARP and reference-hardware rendering,
+- validation, resize, startup/shutdown, save, replay, input, frame-time, memory, and hitch evidence,
+- deterministic H1–H4 captures defined in `docs/PHASE5_SCREENSHOT_APPROVAL_GATE.md`,
+- hostile internal review with no binary veto condition,
+- founder direct play,
+- founder explicit screenshot and visual approval.
+
+Founder approval cannot be inferred from merge authorization, CI, numerical thresholds, assistant confidence, or prose. Any rejection invalidates the candidate and prevents Phase 6 advancement.
 
 ## Phase 6 — campaign production
 
@@ -262,3 +304,5 @@ Earn the right to call the product complete and determine whether the AAA-qualit
 ## 8. Scope law
 
 The project does not reduce quality to preserve feature count. Missions, systems, platforms, and content are cut before the visual, interaction, stability, accessibility, and performance standards are weakened.
+
+Technical infrastructure is retained when useful, but no sunk cost protects rejected art, composition, UI, animation, or presentation from replacement.

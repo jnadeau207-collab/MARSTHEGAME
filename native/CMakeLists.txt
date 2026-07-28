@@ -96,6 +96,7 @@ mars_compile_shader("${FINAL_PIXEL_SHADER}" ps_6_0 FinalPS)
 add_custom_target(mars_shaders DEPENDS ${MARS_SHADER_OUTPUTS})
 
 set(MARS_PROCEDURAL_CONTENT_SOURCES
+  src/renderer/character_geometry.cpp
   src/renderer/procedural_catalog.cpp
   src/renderer/procedural_catalog.h
   src/renderer/procedural_geometry.cpp

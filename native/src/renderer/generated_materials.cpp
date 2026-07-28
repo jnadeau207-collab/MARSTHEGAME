@@ -75,36 +75,78 @@ struct FloatColor
     const std::uint32_t wrapped_x = x % kGeneratedTextureWidth;
     const std::uint32_t wrapped_y = y % kGeneratedTextureHeight;
     const float noise_a = UnitNoise(wrapped_x, wrapped_y, 0x4D415253U);
-    const float noise_b = UnitNoise(wrapped_x / 2U, wrapped_y / 2U, 0xA51E5U);
+    const float noise_b = UnitNoise(wrapped_x / 4U, wrapped_y / 4U, 0xA51E5U);
 
     switch (material)
     {
     case GeneratedMaterialSlot::HardSurface:
     {
-        const bool seam = (wrapped_x % 16U) == 0U || (wrapped_y % 16U) == 0U;
-        const std::uint32_t local_x = wrapped_x % 16U;
-        const std::uint32_t local_y = wrapped_y % 16U;
-        const bool fastener = (local_x == 3U || local_x == 12U)
-            && (local_y == 3U || local_y == 12U);
-        return (seam ? 0.20f : 0.58f) + (fastener ? 0.22f : 0.0f) + noise_a * 0.04f;
+        const bool seam = (wrapped_x % 32U) == 0U || (wrapped_y % 32U) == 0U;
+        const std::uint32_t local_x = wrapped_x % 32U;
+        const std::uint32_t local_y = wrapped_y % 32U;
+        const bool fastener = (local_x == 4U || local_x == 27U)
+            && (local_y == 4U || local_y == 27U);
+        return 0.53f - (seam ? 0.11f : 0.0f) + (fastener ? 0.10f : 0.0f)
+            + (noise_a - 0.5f) * 0.025f;
     }
     case GeneratedMaterialSlot::MarsRock:
     {
-        const float vein = std::abs(std::sin(
-            static_cast<float>(wrapped_x + wrapped_y * 2U) * 0.22f));
-        return 0.25f + noise_a * 0.42f + noise_b * 0.18f + vein * 0.08f;
+        const float strata = std::abs(std::sin(static_cast<float>(wrapped_y) * 0.31f));
+        const float fracture = std::abs(std::sin(
+            static_cast<float>(wrapped_x * 3U + wrapped_y) * 0.17f));
+        return 0.30f + noise_a * 0.24f + noise_b * 0.11f
+            + strata * 0.10f + fracture * 0.055f;
     }
     case GeneratedMaterialSlot::BeaconColumn:
     {
-        const float stripe = ((wrapped_x / 8U) % 2U) == 0U ? 0.62f : 0.38f;
-        const float groove = (wrapped_x % 8U) == 0U ? -0.18f : 0.0f;
-        return stripe + groove + noise_a * 0.03f;
+        const bool longitudinal_seam = (wrapped_x % 24U) == 0U;
+        const bool service_band = wrapped_y >= 27U && wrapped_y <= 36U;
+        return 0.53f - (longitudinal_seam ? 0.10f : 0.0f)
+            + (service_band ? 0.045f : 0.0f) + (noise_a - 0.5f) * 0.018f;
     }
     case GeneratedMaterialSlot::Terrain:
     {
-        const float ridge = std::abs(std::sin(
-            static_cast<float>(wrapped_x) * 0.13f + static_cast<float>(wrapped_y) * 0.09f));
-        return 0.20f + noise_a * 0.34f + noise_b * 0.24f + ridge * 0.12f;
+        const float broad_ripple = std::abs(std::sin(
+            static_cast<float>(wrapped_x) * 0.065f
+            + static_cast<float>(wrapped_y) * 0.042f));
+        const float compacted = std::abs(std::sin(
+            static_cast<float>(wrapped_x + wrapped_y) * 0.19f));
+        return 0.27f + noise_a * 0.16f + noise_b * 0.10f
+            + broad_ripple * 0.13f + compacted * 0.035f;
+    }
+    case GeneratedMaterialSlot::SuitFabric:
+    {
+        const float warp = ((wrapped_x % 4U) == 0U) ? 0.055f : 0.0f;
+        const float weft = ((wrapped_y % 4U) == 0U) ? 0.045f : 0.0f;
+        return 0.48f + warp + weft + (noise_a - 0.5f) * 0.020f;
+    }
+    case GeneratedMaterialSlot::SuitAbrasion:
+    {
+        const bool diagonal = ((wrapped_x + wrapped_y) % 7U) == 0U;
+        const bool cross_thread = ((wrapped_x * 2U + wrapped_y) % 11U) == 0U;
+        return 0.47f + (diagonal ? 0.070f : 0.0f)
+            + (cross_thread ? 0.035f : 0.0f) + (noise_a - 0.5f) * 0.025f;
+    }
+    case GeneratedMaterialSlot::SuitShell:
+    {
+        const bool panel_seam = (wrapped_x % 32U) == 0U || (wrapped_y % 32U) == 0U;
+        const bool shallow_rib = (wrapped_y % 16U) == 7U;
+        return 0.53f - (panel_seam ? 0.075f : 0.0f)
+            + (shallow_rib ? 0.025f : 0.0f) + (noise_a - 0.5f) * 0.012f;
+    }
+    case GeneratedMaterialSlot::SuitMechanism:
+    {
+        const bool machined_groove = (wrapped_x % 8U) == 0U;
+        const bool transverse_ring = (wrapped_y % 24U) == 0U;
+        return 0.50f - (machined_groove ? 0.065f : 0.0f)
+            - (transverse_ring ? 0.035f : 0.0f) + (noise_a - 0.5f) * 0.012f;
+    }
+    case GeneratedMaterialSlot::Visor:
+    {
+        const float broad_curve = std::sin(
+            static_cast<float>(wrapped_x) * 0.049f
+            + static_cast<float>(wrapped_y) * 0.031f) * 0.012f;
+        return 0.50f + broad_curve + (noise_b - 0.5f) * 0.006f;
     }
     case GeneratedMaterialSlot::Count:
         break;
@@ -123,26 +165,85 @@ struct FloatColor
     {
     case GeneratedMaterialSlot::HardSurface:
     {
-        const bool hazard = ((x / 8U) + (y / 8U)) % 5U == 0U;
-        if (hazard)
+        const bool service_mark = y >= 29U && y <= 34U && x >= 4U && x <= 18U;
+        if (service_mark)
         {
-            return {0.52f + noise * 0.05f, 0.24f + noise * 0.03f, 0.08f};
+            return {0.48f + noise * 0.025f, 0.30f + noise * 0.018f, 0.11f};
         }
-        return {0.24f + height * 0.12f, 0.27f + height * 0.10f, 0.30f + height * 0.08f};
+        return {
+            0.205f + height * 0.095f + noise * 0.018f,
+            0.225f + height * 0.090f + noise * 0.018f,
+            0.235f + height * 0.085f + noise * 0.016f,
+        };
     }
     case GeneratedMaterialSlot::MarsRock:
-        return {0.31f + height * 0.28f, 0.11f + height * 0.12f, 0.055f + height * 0.055f};
+        return {
+            0.205f + height * 0.205f + noise * 0.018f,
+            0.135f + height * 0.135f + noise * 0.012f,
+            0.095f + height * 0.090f,
+        };
     case GeneratedMaterialSlot::BeaconColumn:
     {
-        const bool luminous_band = ((x / 8U) % 2U) == 0U;
-        if (luminous_band)
+        const bool service_band = y >= 27U && y <= 36U;
+        if (service_band)
         {
-            return {0.55f + noise * 0.04f, 0.22f, 0.055f};
+            return {0.43f + noise * 0.018f, 0.31f + noise * 0.014f, 0.15f};
         }
-        return {0.19f + noise * 0.03f, 0.21f + noise * 0.03f, 0.23f + noise * 0.03f};
+        return {
+            0.235f + height * 0.085f + noise * 0.012f,
+            0.255f + height * 0.080f + noise * 0.012f,
+            0.265f + height * 0.075f + noise * 0.012f,
+        };
     }
     case GeneratedMaterialSlot::Terrain:
-        return {0.33f + height * 0.22f, 0.115f + height * 0.10f, 0.052f + height * 0.045f};
+        return {
+            0.265f + height * 0.185f + noise * 0.020f,
+            0.165f + height * 0.135f + noise * 0.014f,
+            0.105f + height * 0.095f,
+        };
+    case GeneratedMaterialSlot::SuitFabric:
+    {
+        const float thread = ((x + y) % 4U) == 0U ? 0.018f : 0.0f;
+        return {
+            0.54f + height * 0.065f + thread + noise * 0.012f,
+            0.515f + height * 0.060f + thread + noise * 0.011f,
+            0.455f + height * 0.055f + thread + noise * 0.010f,
+        };
+    }
+    case GeneratedMaterialSlot::SuitAbrasion:
+        return {
+            0.245f + height * 0.075f + noise * 0.010f,
+            0.255f + height * 0.072f + noise * 0.010f,
+            0.250f + height * 0.068f + noise * 0.010f,
+        };
+    case GeneratedMaterialSlot::SuitShell:
+    {
+        const bool safety_insert = y >= 8U && y <= 13U && x >= 41U && x <= 58U;
+        if (safety_insert)
+        {
+            return {0.56f + noise * 0.012f, 0.31f + noise * 0.009f, 0.075f};
+        }
+        return {
+            0.55f + height * 0.105f + noise * 0.008f,
+            0.47f + height * 0.095f + noise * 0.008f,
+            0.285f + height * 0.065f + noise * 0.006f,
+        };
+    }
+    case GeneratedMaterialSlot::SuitMechanism:
+        return {
+            0.095f + height * 0.070f + noise * 0.006f,
+            0.105f + height * 0.072f + noise * 0.006f,
+            0.110f + height * 0.075f + noise * 0.006f,
+        };
+    case GeneratedMaterialSlot::Visor:
+    {
+        const float vertical = static_cast<float>(y) / static_cast<float>(kGeneratedTextureHeight - 1U);
+        return {
+            0.018f + height * 0.020f,
+            0.052f + height * 0.055f + vertical * 0.015f,
+            0.070f + height * 0.075f + vertical * 0.025f,
+        };
+    }
     case GeneratedMaterialSlot::Count:
         break;
     }
@@ -204,39 +305,84 @@ GeneratedMaterialCatalog GenerateMaterialCatalog()
     catalog.materials = {{
         {
             .texture_layer = 0,
-            .texture_scale = 0.42f,
-            .normal_strength = 0.68f,
-            .roughness = 0.58f,
-            .metallic = 0.46f,
-            .mask_strength = 0.72f,
-            .base_color_tint = {0.92f, 0.96f, 1.0f},
+            .texture_scale = 0.30f,
+            .normal_strength = 0.38f,
+            .roughness = 0.62f,
+            .metallic = 0.38f,
+            .mask_strength = 0.36f,
+            .base_color_tint = {0.92f, 0.95f, 0.97f},
         },
         {
             .texture_layer = 1,
-            .texture_scale = 0.78f,
-            .normal_strength = 1.00f,
-            .roughness = 0.91f,
+            .texture_scale = 0.54f,
+            .normal_strength = 0.58f,
+            .roughness = 0.93f,
             .metallic = 0.0f,
-            .mask_strength = 0.42f,
-            .base_color_tint = {1.0f, 0.86f, 0.76f},
+            .mask_strength = 0.32f,
+            .base_color_tint = {0.91f, 0.84f, 0.77f},
         },
         {
             .texture_layer = 2,
-            .texture_scale = 0.50f,
-            .normal_strength = 0.76f,
-            .roughness = 0.49f,
-            .metallic = 0.64f,
-            .mask_strength = 0.88f,
-            .base_color_tint = {1.0f, 0.91f, 0.78f},
+            .texture_scale = 0.34f,
+            .normal_strength = 0.30f,
+            .roughness = 0.50f,
+            .metallic = 0.56f,
+            .mask_strength = 0.44f,
+            .base_color_tint = {0.90f, 0.93f, 0.95f},
         },
         {
             .texture_layer = 3,
-            .texture_scale = 0.18f,
-            .normal_strength = 0.92f,
+            .texture_scale = 0.12f,
+            .normal_strength = 0.46f,
             .roughness = 0.96f,
             .metallic = 0.0f,
-            .mask_strength = 0.35f,
-            .base_color_tint = {1.0f, 0.82f, 0.70f},
+            .mask_strength = 0.25f,
+            .base_color_tint = {0.96f, 0.88f, 0.78f},
+        },
+        {
+            .texture_layer = 4,
+            .texture_scale = 0.75f,
+            .normal_strength = 0.32f,
+            .roughness = 0.88f,
+            .metallic = 0.0f,
+            .mask_strength = 0.18f,
+            .base_color_tint = {0.96f, 0.94f, 0.88f},
+        },
+        {
+            .texture_layer = 5,
+            .texture_scale = 0.65f,
+            .normal_strength = 0.42f,
+            .roughness = 0.92f,
+            .metallic = 0.0f,
+            .mask_strength = 0.25f,
+            .base_color_tint = {0.75f, 0.78f, 0.76f},
+        },
+        {
+            .texture_layer = 6,
+            .texture_scale = 0.38f,
+            .normal_strength = 0.24f,
+            .roughness = 0.46f,
+            .metallic = 0.08f,
+            .mask_strength = 0.30f,
+            .base_color_tint = {1.0f, 0.94f, 0.72f},
+        },
+        {
+            .texture_layer = 7,
+            .texture_scale = 0.42f,
+            .normal_strength = 0.28f,
+            .roughness = 0.34f,
+            .metallic = 0.72f,
+            .mask_strength = 0.25f,
+            .base_color_tint = {0.52f, 0.56f, 0.58f},
+        },
+        {
+            .texture_layer = 8,
+            .texture_scale = 0.20f,
+            .normal_strength = 0.08f,
+            .roughness = 0.16f,
+            .metallic = 0.12f,
+            .mask_strength = 0.10f,
+            .base_color_tint = {0.20f, 0.48f, 0.58f},
         },
     }};
 
@@ -267,8 +413,8 @@ GeneratedMaterialCatalog GenerateMaterialCatalog()
                 const std::uint32_t up_y = (y + 1U) % kGeneratedTextureHeight;
                 const float dx = HeightAt(material, right_x, y) - HeightAt(material, left_x, y);
                 const float dy = HeightAt(material, x, up_y) - HeightAt(material, x, down_y);
-                const float normal_x = -dx * 1.75f;
-                const float normal_y = -dy * 1.75f;
+                const float normal_x = -dx * 1.25f;
+                const float normal_y = -dy * 1.25f;
                 const float normal_z = 1.0f;
                 const float inverse_length = 1.0f / std::sqrt(
                     normal_x * normal_x + normal_y * normal_y + normal_z * normal_z);
@@ -286,11 +432,11 @@ GeneratedMaterialCatalog GenerateMaterialCatalog()
 
                 const GeneratedMaterial& definition = catalog.materials[layer];
                 const float micro_noise = UnitNoise(x, y, 0x5EEDFACEU) - 0.5f;
-                const float roughness = Saturate(definition.roughness + micro_noise * 0.20f);
-                const float metallic = Saturate(definition.metallic + micro_noise * 0.06f);
+                const float roughness = Saturate(definition.roughness + micro_noise * 0.10f);
+                const float metallic = Saturate(definition.metallic + micro_noise * 0.03f);
                 const float mask = Saturate(
-                    definition.mask_strength * (0.35f + height * 0.65f));
-                const float occlusion = Saturate(0.72f + height * 0.28f);
+                    definition.mask_strength * (0.45f + height * 0.55f));
+                const float occlusion = Saturate(0.79f + height * 0.21f);
                 WritePixel(
                     catalog.surface,
                     layer,
@@ -317,10 +463,10 @@ bool ValidateMaterialCatalog(const GeneratedMaterialCatalog& catalog) noexcept
     for (std::size_t index = 0; index < catalog.materials.size(); ++index)
     {
         const GeneratedMaterial& material = catalog.materials[index];
-        if (material.texture_layer != static_cast<std::uint32_t>(index) || !std::isfinite(material.texture_scale)
-            || material.texture_scale <= 0.0f || !IsFiniteUnit(material.normal_strength)
-            || !IsFiniteUnit(material.roughness) || !IsFiniteUnit(material.metallic)
-            || !IsFiniteUnit(material.mask_strength))
+        if (material.texture_layer != static_cast<std::uint32_t>(index)
+            || !std::isfinite(material.texture_scale) || material.texture_scale <= 0.0f
+            || !IsFiniteUnit(material.normal_strength) || !IsFiniteUnit(material.roughness)
+            || !IsFiniteUnit(material.metallic) || !IsFiniteUnit(material.mask_strength))
         {
             return false;
         }

@@ -9,7 +9,7 @@ namespace
 {
 constexpr std::uint64_t kFnvOffsetBasis = 1'469'598'103'934'665'603ULL;
 constexpr std::uint64_t kFnvPrime = 1'099'511'628'211ULL;
-constexpr std::uint32_t kCatalogSchemaVersion = 1;
+constexpr std::uint32_t kCatalogSchemaVersion = 2;
 
 void HashAppend(std::uint64_t& hash, const void* data, const std::size_t size) noexcept
 {
@@ -30,6 +30,9 @@ ProceduralMeshCatalog GenerateProceduralMeshCatalog()
         GenerateMarsRock(0xA51E5U, 12, 20, 0.26f),
         GenerateBeaconColumn(32),
         GenerateTerrainPatch(0x4D415253U, 32, 48, 24.0f, 32.0f, 0.82f),
+        GenerateFieldEngineerTorso(28),
+        GenerateFieldEngineerHelmet(14, 28),
+        GenerateFieldEngineerLimb(12, 20),
     };
 
     std::uint64_t aggregate = kFnvOffsetBasis;

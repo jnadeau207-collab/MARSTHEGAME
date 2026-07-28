@@ -14,7 +14,10 @@ enum class MeshKind : std::uint32_t
     MarsRock = 1,
     BeaconColumn = 2,
     TerrainPatch = 3,
-    Count = 4,
+    FieldEngineerTorso = 4,
+    FieldEngineerHelmet = 5,
+    FieldEngineerLimb = 6,
+    Count = 7,
 };
 
 struct RenderInstance
@@ -24,6 +27,7 @@ struct RenderInstance
     DirectX::XMFLOAT3 scale{1.0f, 1.0f, 1.0f};
     DirectX::XMFLOAT4 tint{1.0f, 1.0f, 1.0f, 1.0f};
     MeshKind mesh = MeshKind::Cube;
+    std::uint32_t material_slot = 0;
 };
 
 struct PointLight
@@ -45,7 +49,7 @@ struct RenderScene
     DirectX::XMFLOAT3 player_velocity{};
     float target_exposure = 1.0f;
     bool mission_complete = false;
-    std::array<RenderInstance, 8> supplemental_character_instances{};
+    std::array<RenderInstance, 20> supplemental_character_instances{};
     std::uint32_t supplemental_character_count = 0;
     std::span<const RenderInstance> instances{};
 };

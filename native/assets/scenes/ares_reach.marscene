@@ -1,21 +1,52 @@
-# MARSTHEGAME authored scene source
+# Ares Reach: First Light at Relay 03 previsualization
+# Phase 5 recovery composition: authored basin, service route, functional relay.
 mars_scene 1
 
-entity ground render,mesh_terrain 0.0 -0.72 5.0 1.0 1.0 1.0 0.34 0.12 0.055 1.0
-entity landing_pad render 0.0 -0.55 -8.0 3.5 0.18 3.5 0.30 0.34 0.38 1.0
-entity west_wall render,collider -11.4 1.5 5.0 0.6 2.7 16.0 0.12 0.095 0.085 1.0
-entity east_wall render,collider 11.4 1.5 5.0 0.6 2.7 16.0 0.12 0.095 0.085 1.0
-entity rock_west_entry render,collider,mesh_rock -6.0 0.0 -1.0 1.4 1.2 1.8 0.12 0.095 0.085 1.0
-entity rock_east_entry render,collider,mesh_rock 6.8 0.2 3.0 1.8 1.4 1.2 0.12 0.095 0.085 1.0
-entity rock_west_mid render,collider,mesh_rock -4.5 0.1 9.0 1.0 1.3 1.0 0.12 0.095 0.085 1.0
-entity rock_east_mid render,collider,mesh_rock 5.0 0.0 12.0 1.2 1.1 1.6 0.12 0.095 0.085 1.0
-entity rock_west_final render,collider,mesh_rock -7.5 0.3 16.0 1.5 1.5 1.1 0.12 0.095 0.085 1.0
-entity rock_east_final render,collider,mesh_rock 7.5 0.2 18.0 1.2 1.4 1.2 0.12 0.095 0.085 1.0
-entity relay_pillar_left render,collider,mesh_column -3.2 0.1 5.0 0.28 1.6 0.28 0.30 0.34 0.38 1.0
-entity relay_pillar_right render,collider,mesh_column 3.2 0.1 5.0 0.28 1.6 0.28 0.30 0.34 0.38 1.0
-entity relay_crossbar render 0.0 1.8 5.0 3.5 0.22 0.22 0.30 0.34 0.38 1.0
-entity objective_post_left render,mesh_column -2.4 0.0 14.5 0.25 1.2 0.25 0.30 0.34 0.38 1.0
-entity objective_post_right render,mesh_column 2.4 0.0 14.5 0.25 1.2 0.25 0.30 0.34 0.38 1.0
-entity objective_beacon render,objective,mesh_column 0.0 1.0 18.0 0.38 2.0 0.38 1.0 0.62 0.08 7.0
-entity player_avatar render,player,mesh_column 0.0 0.0 -8.0 0.45 0.72 0.45 0.12 0.62 0.78 1.0
-entity checkpoint_pad render,checkpoint 0.0 -0.35 5.0 1.8 0.12 1.8 0.30 0.34 0.38 1.0
+# Hero basin and landing shelter
+entity ground render,mesh_terrain 0.0 -0.78 6.5 1.0 1.0 1.0 0.28 0.16 0.10 1.0
+entity landing_pad render -2.6 -0.52 -7.5 2.8 0.10 2.1 0.30 0.32 0.33 1.0
+entity shelter_rear render,collider -6.4 0.75 -9.3 1.5 1.35 0.20 0.20 0.22 0.23 1.0
+entity shelter_roof render -5.4 2.25 -7.9 2.2 0.12 1.15 0.25 0.27 0.28 1.0
+entity shelter_side render,collider -7.65 0.60 -7.4 0.18 1.20 1.55 0.18 0.20 0.21 1.0
+
+# Geological enclosure: overlapping authored clusters instead of perimeter walls
+entity ridge_west_entry render,collider,mesh_rock -9.2 0.45 -5.4 2.4 2.0 3.0 0.10 0.072 0.058 1.0
+entity ridge_east_entry render,collider,mesh_rock 8.9 0.30 -2.8 2.8 1.7 2.1 0.12 0.080 0.060 1.0
+entity ridge_west_mid_a render,collider,mesh_rock -9.4 0.65 1.5 2.5 2.4 2.6 0.11 0.075 0.060 1.0
+entity ridge_west_mid_b render,mesh_rock -7.8 1.10 5.8 2.0 2.8 1.8 0.15 0.095 0.070 1.0
+entity ridge_east_mid_a render,collider,mesh_rock 9.1 0.55 4.8 2.7 2.2 2.8 0.13 0.085 0.065 1.0
+entity ridge_east_mid_b render,mesh_rock 7.6 0.90 8.4 1.8 2.5 1.9 0.16 0.10 0.072 1.0
+entity ridge_west_final_a render,collider,mesh_rock -9.0 0.70 11.0 2.6 2.4 2.7 0.11 0.074 0.058 1.0
+entity ridge_west_final_b render,mesh_rock -7.5 1.20 16.8 2.2 3.1 2.0 0.15 0.092 0.066 1.0
+entity ridge_east_final_a render,collider,mesh_rock 9.0 0.65 13.4 2.8 2.5 2.5 0.12 0.078 0.060 1.0
+entity ridge_east_final_b render,mesh_rock 7.4 1.30 18.3 2.1 3.2 2.0 0.15 0.094 0.067 1.0
+entity vista_left render,mesh_rock -5.3 2.0 21.0 3.7 4.1 2.4 0.12 0.078 0.060 1.0
+entity vista_right render,mesh_rock 4.9 2.3 22.0 4.0 4.5 2.7 0.13 0.083 0.063 1.0
+
+# Compacted service route and checkpoint: staggered path, not an arcade lane
+entity route_plate_entry render -1.8 -0.55 -2.4 1.15 0.055 2.6 0.20 0.18 0.15 1.0
+entity route_plate_mid render 0.3 -0.54 3.2 1.05 0.052 2.4 0.19 0.17 0.14 1.0
+entity route_plate_final render -0.8 -0.53 8.8 1.0 0.050 2.3 0.18 0.16 0.13 1.0
+entity checkpoint_pad render,checkpoint -0.4 -0.49 5.2 0.78 0.045 0.78 0.26 0.29 0.29 1.0
+
+# Relay 03 worksite and structural hierarchy
+entity relay_foundation render,collider 0.0 -0.40 16.8 2.35 0.28 2.0 0.26 0.28 0.29 1.0
+entity relay_apron render 0.0 -0.22 14.7 2.9 0.10 1.45 0.31 0.32 0.31 1.0
+entity relay_leg_left render,mesh_column -1.25 0.75 17.1 0.18 1.15 0.18 0.23 0.25 0.26 1.0
+entity relay_leg_right render,mesh_column 1.25 0.75 17.1 0.18 1.15 0.18 0.23 0.25 0.26 1.0
+entity relay_mast_lower render,collider,mesh_column 0.0 1.65 17.4 0.30 2.15 0.30 0.30 0.32 0.33 1.0
+entity relay_mast_upper render,mesh_column 0.0 4.25 17.4 0.18 1.35 0.18 0.42 0.43 0.42 1.0
+entity relay_array_beam render 0.0 4.85 17.4 2.65 0.16 0.20 0.30 0.32 0.33 1.0
+entity relay_array_left render -1.42 4.95 17.35 1.08 0.72 0.10 0.54 0.49 0.35 1.0
+entity relay_array_right render 1.42 4.95 17.35 1.08 0.72 0.10 0.54 0.49 0.35 1.0
+entity relay_cabinet render,collider -1.55 0.55 15.55 0.52 0.75 0.38 0.31 0.33 0.34 1.0
+entity relay_cable_trunk render -0.72 -0.08 14.1 0.10 0.055 1.45 0.10 0.11 0.115 1.0
+entity objective_coupling render,objective,mesh_column -0.72 0.24 15.18 0.15 0.28 0.15 0.16 0.52 0.72 1.8
+
+# Restrained practical guidance
+entity guide_light_entry render,mesh_column -2.3 0.02 -0.3 0.07 0.24 0.07 0.82 0.38 0.10 1.35
+entity guide_light_mid render,mesh_column 0.9 0.03 6.6 0.07 0.24 0.07 0.82 0.38 0.10 1.35
+entity guide_light_relay render,mesh_column -2.15 0.05 13.3 0.07 0.26 0.07 0.82 0.38 0.10 1.35
+
+# Runtime character anchor; visible primitive rig is temporary and blocked from approval
+entity player_avatar render,player,mesh_column -2.6 0.0 -7.5 0.32 0.70 0.32 0.48 0.46 0.40 1.0

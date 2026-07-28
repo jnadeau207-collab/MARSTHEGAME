@@ -11,11 +11,13 @@ The repository contains one game runtime:
 - **HLSL compiled with DXC** for shaders
 - **CMake + Ninja + MSVC** for builds
 
-The current executable is a native Ares Reach graybox. The player lands inside a Mars traversal arena, navigates collidable terrain and structures, reaches a durable checkpoint, and completes the mission at the objective beacon. The camera follows the player and the scene is rendered as independently transformed, depth-tested, directionally lit geometry.
+The current executable is a native Ares Reach technical graybox. It proves the custom runtime, deterministic mission state, scene cooker, generated-content path, Direct3D 12 renderer, input, collision, saves, replay, capture, and native verification. It does not represent approved production art.
+
+The founder directly reviewed and rejected the previous Phase 5 visual candidate on 2026-07-27. Phase 5 is being rebuilt around the art-directed **First Light at Relay 03** hero sequence. See `docs/PHASE5_INVALIDATION_AND_RECOVERY.md` and `docs/PHASE5_HERO_SEQUENCE_ART_DIRECTION.md`.
 
 Progress is stored in a versioned transactional native save under `%LOCALAPPDATA%\MARSTHEGAME`. Saves use checksums, temporary-file commit, backup rotation, corruption quarantine, and checkpoint restoration.
 
-This is real native gameplay infrastructure, not final art. The AAA-quality target has not yet been achieved.
+The AAA-quality target has not yet been achieved.
 
 ## Controls
 
@@ -61,7 +63,7 @@ ctest --test-dir build/native --output-on-failure
 .\build\native\mars_native.exe --warp-smoke-test
 ```
 
-CTest proves deterministic movement, collision, checkpoint restoration, replay identity, transactional save round-trips, backup rotation, and checksum rejection. The WARP smoke test creates a validation-enabled Direct3D 12 software device, runs the native Ares Reach scene, resizes the swap chain, reads back the rendered frame, and rejects output without a substantial non-background pixel region.
+CTest proves deterministic movement, collision, checkpoint restoration, replay identity, transactional save round-trips, backup rotation, and checksum rejection. The WARP smoke test proves validation-enabled Direct3D 12 rendering, resize, readback, timing, and meaningful output. These checks can reject broken output; they cannot approve art direction or establish AAA quality.
 
 ## Production state
 
@@ -69,9 +71,9 @@ CTest proves deterministic movement, collision, checkpoint restoration, replay i
 - Phase 1 — gameplay-system foundation: complete
 - Phase 2 — campaign and mission-state architecture: complete
 - Phase 3 — Windows native renderer foundation: complete
-- Phase 4 — native scene, asset, animation, and gameplay migration: in progress
-- Phase 5 — AAA visual vertical slice: pending
-- Phase 6 — campaign production: pending
+- Phase 4 — native scene, asset, animation, and gameplay production: in progress
+- Phase 5 — art-directed AAA visual hero sequence: previous candidate invalidated; recovery in progress
+- Phase 6 — campaign production: blocked on Phase 5 approval
 - Phase 7 — optimization, tooling, packaging, and soak: pending
 - Phase 8 — external validation and release evidence: pending
 

@@ -14,7 +14,10 @@ enum class ProceduralMeshSlot : std::size_t
     MarsRock = 1,
     BeaconColumn = 2,
     TerrainPatch = 3,
-    Count = 4,
+    FieldEngineerTorso = 4,
+    FieldEngineerHelmet = 5,
+    FieldEngineerLimb = 6,
+    Count = 7,
 };
 
 inline constexpr std::size_t kProceduralMeshCount =

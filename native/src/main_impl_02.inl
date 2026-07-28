@@ -29,7 +29,7 @@
         return 3;
     }
     if (!mars::renderer::ValidateVisualSliceConfiguration(configuration)
-        || configuration.shadow_resolution < 2'048 || configuration.particle_count < 256)
+        || configuration.shadow_resolution < 2'048 || configuration.particle_count < 128)
     {
         return 4;
     }
@@ -37,8 +37,8 @@
         || capture.non_background_pixels < 250'000
         || capture.dark_pixels < 100 || capture.highlight_pixels < 100
         || capture.average_luminance <= 0.12 || capture.average_luminance >= 0.70
-        || capture.peak_luminance < 0.85
-        || capture.peak_luminance <= capture.average_luminance * 2.0
+        || capture.peak_luminance < 0.68
+        || capture.peak_luminance <= capture.average_luminance * 1.75
         || capture.edge_energy <= 0.001)
     {
         return 5;

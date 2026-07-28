@@ -24,8 +24,8 @@ namespace mars::assets
 {
 namespace
 {
-constexpr std::array<char, 8> kMagic = {'M', 'A', 'R', 'S', 'C', 'N', '2', '\0'};
-constexpr std::uint32_t kCookedVersion = 2;
+constexpr std::array<char, 8> kMagic = {'M', 'A', 'R', 'S', 'C', 'N', '3', '\0'};
+constexpr std::uint32_t kCookedVersion = 3;
 constexpr std::uint32_t kMaximumEntities = 512;
 constexpr std::uint32_t kMeshFlags = SceneEntityMeshRock | SceneEntityMeshColumn
     | SceneEntityMeshTerrain;
@@ -60,7 +60,7 @@ struct CookedEntity
 
 static_assert(std::is_trivially_copyable_v<CookedHeader>);
 static_assert(std::is_trivially_copyable_v<CookedEntity>);
-static_assert(sizeof(CookedHeader) == 96);
+static_assert(sizeof(CookedHeader) == 120);
 static_assert(sizeof(CookedEntity) == 92);
 
 void HashAppend(std::uint64_t& hash, const void* data, const std::size_t size) noexcept

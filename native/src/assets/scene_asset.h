@@ -35,8 +35,8 @@ enum class SceneMeshKind : std::uint32_t
 
 struct ContentManifest
 {
-    static constexpr std::uint32_t kSchemaVersion = 1;
-    static constexpr std::size_t kMeshCount = 4;
+    static constexpr std::uint32_t kSchemaVersion = 2;
+    static constexpr std::size_t kMeshCount = 7;
 
     std::uint32_t schema_version = kSchemaVersion;
     std::uint64_t scene_source_hash = 0;

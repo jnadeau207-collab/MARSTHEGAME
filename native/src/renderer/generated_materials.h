@@ -13,7 +13,12 @@ enum class GeneratedMaterialSlot : std::uint32_t
     MarsRock = 1,
     BeaconColumn = 2,
     Terrain = 3,
-    Count = 4,
+    SuitFabric = 4,
+    SuitAbrasion = 5,
+    SuitShell = 6,
+    SuitMechanism = 7,
+    Visor = 8,
+    Count = 9,
 };
 
 inline constexpr std::size_t kGeneratedMaterialCount =
@@ -34,9 +39,9 @@ struct GeneratedMaterial
     std::uint32_t texture_layer = 0;
     float texture_scale = 1.0f;
     float normal_strength = 1.0f;
-    float roughness = 0.8f;
+    float roughness = 0.5f;
     float metallic = 0.0f;
-    float mask_strength = 0.0f;
+    float mask_strength = 1.0f;
     std::array<float, 3> base_color_tint{1.0f, 1.0f, 1.0f};
 };
 

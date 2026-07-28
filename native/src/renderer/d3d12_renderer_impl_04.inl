@@ -192,8 +192,8 @@ void D3D12Renderer::CreateStaticResources()
     {
         throw std::runtime_error("Generated environment IBL cube failed validation");
     }
-    static_assert(kProceduralMeshCount == kGeneratedMaterialCount);
-    static_assert(kGeneratedMaterialCount == static_cast<std::size_t>(MeshKind::Count));
+    static_assert(kProceduralMeshCount == static_cast<std::size_t>(MeshKind::Count));
+    static_assert(kGeneratedMaterialCount >= kProceduralMeshCount);
 
     std::vector<MeshVertex> vertices;
     std::vector<std::uint32_t> indices;
