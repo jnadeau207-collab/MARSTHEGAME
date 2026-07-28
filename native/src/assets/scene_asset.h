@@ -59,7 +59,7 @@ struct SceneEntity
 
 struct SceneDefinition
 {
-    static constexpr std::uint32_t kSchemaVersion = 2;
+    static constexpr std::uint32_t kSchemaVersion = 1;
 
     std::uint32_t schema_version = kSchemaVersion;
     std::uint64_t source_hash = 0;
