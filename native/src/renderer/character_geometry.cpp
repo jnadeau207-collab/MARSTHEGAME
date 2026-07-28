@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstdint>
 #include <numbers>
+#include <span>
 #include <vector>
 
 namespace mars::renderer
@@ -90,8 +91,10 @@ MeshData GenerateProfiledBody(
 
     MeshData mesh;
     const std::uint32_t stride = segments + 1U;
-    mesh.vertices.reserve(profile.size() * stride + 2U);
-    mesh.indices.reserve((profile.size() - 1U) * segments * 6U + segments * 6U);
+    mesh.vertices.reserve(profile.size() * static_cast<std::size_t>(stride) + 2U);
+    mesh.indices.reserve(
+        (profile.size() - 1U) * static_cast<std::size_t>(segments) * 6U
+        + static_cast<std::size_t>(segments) * 6U);
 
     for (const RadialProfilePoint point : profile)
     {
@@ -109,11 +112,12 @@ MeshData GenerateProfiledBody(
         }
     }
 
-    for (std::uint32_t ring = 0; ring + 1U < profile.size(); ++ring)
+    for (std::size_t ring = 0; ring + 1U < profile.size(); ++ring)
     {
+        const std::uint32_t ring_start = static_cast<std::uint32_t>(ring) * stride;
         for (std::uint32_t segment = 0; segment < segments; ++segment)
         {
-            const std::uint32_t first = ring * stride + segment;
+            const std::uint32_t first = ring_start + segment;
             const std::uint32_t next_ring = first + stride;
             mesh.indices.insert(
                 mesh.indices.end(),
@@ -133,8 +137,7 @@ MeshData GenerateProfiledBody(
         .normal = {},
         .color = {1.0f, 1.0f, 1.0f},
     });
-    const std::uint32_t top_ring_start = static_cast<std::uint32_t>(
-        (profile.size() - 1U) * stride);
+    const std::uint32_t top_ring_start = static_cast<std::uint32_t>(profile.size() - 1U) * stride;
     for (std::uint32_t segment = 0; segment < segments; ++segment)
     {
         mesh.indices.insert(mesh.indices.end(), {bottom_center, segment + 1U, segment});
@@ -176,7 +179,9 @@ MeshData GenerateFieldEngineerHelmet(
     MeshData mesh;
     const std::uint32_t stride = segments + 1U;
     mesh.vertices.reserve(static_cast<std::size_t>(rings - 1U) * stride + 2U);
-    mesh.indices.reserve(static_cast<std::size_t>(rings - 2U) * segments * 6U + segments * 6U);
+    mesh.indices.reserve(
+        static_cast<std::size_t>(rings - 2U) * segments * 6U
+        + static_cast<std::size_t>(segments) * 6U);
 
     const std::uint32_t top_index = static_cast<std::uint32_t>(mesh.vertices.size());
     mesh.vertices.push_back({
@@ -258,7 +263,7 @@ MeshData GenerateFieldEngineerLimb(
     }
 
     std::vector<RadialProfilePoint> profile;
-    profile.reserve(rings + 1U);
+    profile.reserve(static_cast<std::size_t>(rings) + 1U);
     for (std::uint32_t ring = 0; ring <= rings; ++ring)
     {
         const float normalized = static_cast<float>(ring) / static_cast<float>(rings);
